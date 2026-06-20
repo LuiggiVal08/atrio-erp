@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: atrio-postgres
+    environment:
+      POSTGRES_DB: atrio_erp
+      POSTGRES_USER: atrio
+      POSTGRES_PASSWORD: atrio_dev_pass
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U atrio -d atrio_erp']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: atrio-pgbouncer
+    environment:
+      DB_USER: atrio
+      DB_PASSWORD: atrio_dev_pass
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_NAME: atrio_erp
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - '6432:5432'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: atrio-redis
+    expose:
+      - '6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+    container_name: atrio-api
+    environment:
+      DATABASE_URL: postgresql://atrio:atrio_dev_pass@pgbouncer:5432/atrio_erp?schema=public&pgbouncer=true
+      MIGRATE_DATABASE_URL: postgresql://atrio:atrio_dev_pass@postgres:5432/atrio_erp?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: change-me-in-production
+      JWT_EXPIRATION: 15m
+      JWT_REFRESH_EXPIRATION: 7d
+      RATE_LIMIT_TTL: 60
+      RATE_LIMIT_MAX: 100
+      PORT: 3000
+      NODE_ENV: production
+    restart: unless-stopped
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+    container_name: atrio-web
+    ports:
+      - '80:80'
+    restart: unless-stopped
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:
