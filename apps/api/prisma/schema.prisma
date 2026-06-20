@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  active
+  suspended
+  inactive
+}
+
+enum UserStatus {
+  active
+  blocked
+  inactive
+}
+
+enum EmployeeStatus {
+  active
+  inactive
+}
+
+enum SubscriptionPlan {
+  free
+  starter
+  business
+  enterprise
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum DocumentType {
+  sales_invoice
+  purchase_order
+  credit_note
+  debit_note
+  delivery_order
+  stock_transfer
+  cash_movement
+}
+
+enum DocumentStatus {
+  draft
+  pending_approval
+  approved
+  delivered
+  paid
+  cancelled
+}
+
+enum CounterDocumentType {
+  credit_note
+  debit_note
+}
+
+model Document {
+  id                 String               @id @default(uuid()) @db.Uuid
+  tenantId           String               @map("tenant_id") @db.Uuid
+  documentType       DocumentType         @map("document_type")
+  status             DocumentStatus       @default(draft)
+  documentNumber     String               @map("document_number")
+  originalDocumentId String?              @map("original_document_id") @db.Uuid
+  counterDocumentType CounterDocumentType? @map("counter_document_type")
+  currency           String               @default("VED")
+  exchangeRate       Decimal?             @map("exchange_rate") @db.Decimal(15, 6)
+  subtotal           Decimal              @db.Decimal(15, 2)
+  taxTotal           Decimal              @map("tax_total") @db.Decimal(15, 2)
+  discountTotal      Decimal              @map("discount_total") @db.Decimal(15, 2)
+  grandTotal         Decimal              @map("grand_total") @db.Decimal(15, 2)
+  notes              String?
+  rejectionReason    String?              @map("rejection_reason")
+  createdById        String               @map("created_by_id") @db.Uuid
+  approvedById       String?              @map("approved_by_id") @db.Uuid
+  approvedAt         DateTime?            @map("approved_at")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  deletedAt          DateTime?            @map("deleted_at")
+
+  tenant            Tenant         @relation(fields: [tenantId], references: [id])
+  createdBy         User           @relation(name: "document_creator", fields: [createdById], references: [id])
+  approvedBy        User?          @relation(name: "document_approver", fields: [approvedById], references: [id])
+  originalDocument  Document?      @relation("DocumentCounterDocuments", fields: [originalDocumentId], references: [id])
+  counterDocuments  Document[]     @relation("DocumentCounterDocuments")
+  lines             DocumentLine[]
+  events            DocumentEvent[]
+
+  @@unique([tenantId, documentNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, documentType])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, originalDocumentId])
+  @@map("documents")
+}
+
+model DocumentLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  lineNumber     Int      @map("line_number")
+  description    String
+  quantity       Decimal  @db.Decimal(15, 4)
+  unitPrice      Decimal  @map("unit_price") @db.Decimal(15, 4)
+  taxRate        Decimal  @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount      Decimal  @map("tax_amount") @db.Decimal(15, 2)
+  discountRate   Decimal? @map("discount_rate") @db.Decimal(5, 2)
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(15, 2)
+  lineTotal      Decimal  @map("line_total") @db.Decimal(15, 2)
+  productId      String?  @map("product_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, lineNumber])
+  @@map("document_lines")
+}
+
+model DocumentEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  eventType      String   @map("event_type")
+  previousStatus DocumentStatus? @map("previous_status")
+  newStatus      DocumentStatus? @map("new_status")
+  payload        Json?
+  createdById    String   @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  document Document @relation(fields: [documentId], references: [id])
+  createdBy User   @relation("document_event_creator", fields: [createdById], references: [id])
+
+  @@index([documentId, createdAt(sort: Desc)])
+  @@index([tenantId, eventType, createdAt(sort: Desc)])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("document_events")
+}
+
+model Tenant {
+  id               String           @id @default(uuid()) @db.Uuid
+  legalName        String           @map("legal_name")
+  taxId            String           @unique @map("tax_id")
+  baseCurrency     String           @default("VED") @map("base_currency")
+  timezone         String           @default("UTC")
+  subscriptionPlan SubscriptionPlan @default(free) @map("subscription_plan")
+  status           TenantStatus     @default(active)
+  settings         Json?
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  deletedAt        DateTime?        @map("deleted_at")
+
+  users            User[]
+  employees        Employee[]
+  roles            Role[]
+  auditLogs        AuditLog[]
+  documents        Document[]
+  documentEvents   DocumentEvent[]
+
+  @@map("tenants")
+}
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  tenantId           String     @map("tenant_id") @db.Uuid
+  email              String
+  passwordHash       String     @map("password_hash")
+  name               String
+  status             UserStatus @default(active)
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil        DateTime?  @map("locked_until")
+  lastLoginAt        DateTime?  @map("last_login_at")
+  employeeId         String?    @unique @map("employee_id") @db.Uuid
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+  deletedAt          DateTime?  @map("deleted_at")
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id])
+  employee          Employee?       @relation(fields: [employeeId], references: [id])
+  roles             UserRole[]
+  auditLogs         AuditLog[]
+  createdDocuments  Document[]      @relation("document_creator")
+  approvedDocuments Document[]      @relation("document_approver")
+  documentEvents    DocumentEvent[] @relation("document_event_creator")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model Employee {
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  firstName    String         @map("first_name")
+  lastName     String         @map("last_name")
+  identityDoc  String         @map("identity_doc")
+  hireDate     DateTime       @map("hire_date")
+  department   String
+  position     String
+  baseSalary   Decimal        @map("base_salary") @db.Decimal(15, 2)
+  status       EmployeeStatus @default(active)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deletedAt    DateTime?      @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  users  User[]
+
+  @@unique([tenantId, identityDoc])
+  @@map("employees")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  module      String
+  action      String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  entityType String      @map("entity_type")
+  entityId   String      @map("entity_id") @db.Uuid
+  action     AuditAction
+  before     Json?
+  after      Json?
+  userId     String      @map("user_id") @db.Uuid
+  tenantId   String      @map("tenant_id") @db.Uuid
+  ipAddress  String?     @map("ip_address") @db.Inet
+  userAgent  String?     @map("user_agent")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
