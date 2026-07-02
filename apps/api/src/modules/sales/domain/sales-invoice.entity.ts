@@ -14,6 +14,8 @@ export class SalesInvoice {
     public readonly notes: string | null,
     public readonly salespersonId: string | null,
     public readonly commissionRate: number | null,
+    public readonly paidAt: Date | null,
+    public readonly paymentMethodId: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
   ) {}

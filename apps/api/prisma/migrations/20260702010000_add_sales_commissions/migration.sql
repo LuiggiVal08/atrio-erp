@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS "sales_commissions" (
   CONSTRAINT "sales_commissions_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT
 );
 
--- Indexes
-CREATE INDEX IF NOT EXISTS "idx_sales_commissions_tenant_status" ON "sales_commissions"("tenant_id", "status");
-CREATE INDEX IF NOT EXISTS "idx_sales_commissions_salesperson_status" ON "sales_commissions"("salesperson_id", "status");
-CREATE INDEX IF NOT EXISTS "idx_sales_commissions_tenant_created" ON "sales_commissions"("tenant_id", "created_at" DESC);
+-- Indexes (Prisma convention names)
+CREATE INDEX IF NOT EXISTS "sales_commissions_tenant_id_status_idx" ON "sales_commissions"("tenant_id", "status");
+CREATE INDEX IF NOT EXISTS "sales_commissions_salesperson_id_status_idx" ON "sales_commissions"("salesperson_id", "status");
+CREATE INDEX IF NOT EXISTS "sales_commissions_tenant_id_created_at_idx" ON "sales_commissions"("tenant_id", "created_at" DESC);

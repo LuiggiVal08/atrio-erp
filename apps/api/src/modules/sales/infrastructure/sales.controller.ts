@@ -9,8 +9,10 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { SalesOrderService } from '../application/sales-order.service';
 import { SalesInvoiceService } from '../application/sales-invoice.service';
 import { CommissionService } from '../application/commission.service';
+import { SalesReturnService } from '../application/sales-return.service';
 import { CreateSalesOrderDto, UpdateSalesOrderDto, UpdateSalesOrderStatusDto, CreateSalesInvoiceDto, UpdateSalesInvoiceDto, PayInvoiceDto } from './dto/sales.dto';
 import { PayCommissionDto } from './dto/commission.dto';
+import { CreateSalesReturnDto, UpdateSalesReturnStatusDto } from './dto/sales-return.dto';
 
 @ApiTags('Sales')
 @Controller('sales')
@@ -21,6 +23,7 @@ export class SalesController {
     private readonly orderService: SalesOrderService,
     private readonly invoiceService: SalesInvoiceService,
     private readonly commissionService: CommissionService,
+    private readonly returnService: SalesReturnService,
   ) {}
 
   // ---- ORDERS ----
@@ -162,5 +165,43 @@ export class SalesController {
   @ApiOperation({ summary: 'Cancel commission' })
   async cancelCommission(@Param('id') id: string) {
     return this.commissionService.cancel(id);
+  }
+
+  // ---- RETURNS ----
+
+  @Post('returns')
+  @RequirePermission('sales:return:create')
+  @ApiOperation({ summary: 'Create sales return' })
+  async createReturn(@Body() dto: CreateSalesReturnDto, @CurrentUser() user: any) {
+    return this.returnService.create({ tenantId: user.tenantId, ...dto });
+  }
+
+  @Get('returns')
+  @RequirePermission('sales:return:read')
+  @ApiOperation({ summary: 'List sales returns' })
+  async listReturns(@CurrentUser() user: any) {
+    return this.returnService.findAll(user.tenantId);
+  }
+
+  @Get('returns/:id')
+  @RequirePermission('sales:return:read')
+  @ApiOperation({ summary: 'Get sales return by ID' })
+  async getReturn(@Param('id') id: string) {
+    return this.returnService.findById(id);
+  }
+
+  @Patch('returns/:id/status')
+  @RequirePermission('sales:return:update')
+  @ApiOperation({ summary: 'Update return status' })
+  async updateReturnStatus(@Param('id') id: string, @Body() dto: UpdateSalesReturnStatusDto) {
+    return this.returnService.updateStatus(id, dto.status);
+  }
+
+  @Delete('returns/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermission('sales:return:delete')
+  @ApiOperation({ summary: 'Delete sales return' })
+  async deleteReturn(@Param('id') id: string) {
+    await this.returnService.delete(id);
   }
 }

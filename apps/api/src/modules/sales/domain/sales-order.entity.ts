@@ -10,6 +10,8 @@ export class SalesOrder {
     public readonly total: number,
     public readonly currency: string,
     public readonly notes: string | null,
+    public readonly type: string,
+    public readonly deliveredWarehouseId: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
   ) {}

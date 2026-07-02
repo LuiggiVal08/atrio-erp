@@ -12,12 +12,12 @@ CREATE TABLE IF NOT EXISTS "stock_transfers" (
   "completed_at" TIMESTAMPTZ,
   CONSTRAINT "stock_transfers_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "stock_transfers_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT,
-  CONSTRAINT "stock_transfers_from_warehouse_fkey" FOREIGN KEY ("from_warehouse_id") REFERENCES "warehouses"("id") ON DELETE RESTRICT,
-  CONSTRAINT "stock_transfers_to_warehouse_fkey" FOREIGN KEY ("to_warehouse_id") REFERENCES "warehouses"("id") ON DELETE RESTRICT,
-  CONSTRAINT "stock_transfers_product_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE RESTRICT
+  CONSTRAINT "stock_transfers_from_warehouse_id_fkey" FOREIGN KEY ("from_warehouse_id") REFERENCES "warehouses"("id") ON DELETE RESTRICT,
+  CONSTRAINT "stock_transfers_to_warehouse_id_fkey" FOREIGN KEY ("to_warehouse_id") REFERENCES "warehouses"("id") ON DELETE RESTRICT,
+  CONSTRAINT "stock_transfers_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE RESTRICT
 );
-CREATE INDEX IF NOT EXISTS "idx_stock_transfers_tenant_status" ON "stock_transfers"("tenant_id", "status");
-CREATE INDEX IF NOT EXISTS "idx_stock_transfers_tenant_created" ON "stock_transfers"("tenant_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "stock_transfers_tenant_id_status_idx" ON "stock_transfers"("tenant_id", "status");
+CREATE INDEX IF NOT EXISTS "stock_transfers_tenant_id_created_at_idx" ON "stock_transfers"("tenant_id", "created_at" DESC);
 
 -- Reorder points
 CREATE TABLE IF NOT EXISTS "reorder_points" (
@@ -34,9 +34,9 @@ CREATE TABLE IF NOT EXISTS "reorder_points" (
   CONSTRAINT "reorder_points_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT,
   CONSTRAINT "reorder_points_product_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE RESTRICT,
   CONSTRAINT "reorder_points_warehouse_fkey" FOREIGN KEY ("warehouse_id") REFERENCES "warehouses"("id") ON DELETE RESTRICT,
-  CONSTRAINT "reorder_points_product_warehouse_unique" UNIQUE ("product_id", "warehouse_id")
+  CONSTRAINT "reorder_points_product_id_warehouse_id_key" UNIQUE ("product_id", "warehouse_id")
 );
-CREATE INDEX IF NOT EXISTS "idx_reorder_points_tenant_active" ON "reorder_points"("tenant_id", "is_active");
+CREATE INDEX IF NOT EXISTS "reorder_points_tenant_id_is_active_idx" ON "reorder_points"("tenant_id", "is_active");
 
 -- Bank accounts
 CREATE TABLE IF NOT EXISTS "bank_accounts" (
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS "bank_accounts" (
   CONSTRAINT "bank_accounts_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "bank_accounts_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT
 );
-CREATE INDEX IF NOT EXISTS "idx_bank_accounts_tenant_active" ON "bank_accounts"("tenant_id", "is_active");
+CREATE INDEX IF NOT EXISTS "bank_accounts_tenant_id_is_active_idx" ON "bank_accounts"("tenant_id", "is_active");
 
 -- Departments
 CREATE TABLE IF NOT EXISTS "departments" (
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS "departments" (
   "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT "departments_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "departments_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT,
-  CONSTRAINT "departments_tenant_name_unique" UNIQUE ("tenant_id", "name")
+  CONSTRAINT "departments_tenant_id_name_key" UNIQUE ("tenant_id", "name")
 );
 
 -- Salary history
@@ -79,13 +79,13 @@ CREATE TABLE IF NOT EXISTS "salary_history" (
   "reason" VARCHAR(100),
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT "salary_history_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "salary_history_employee_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE
+  CONSTRAINT "salary_history_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS "idx_salary_history_employee_date" ON "salary_history"("employee_id", "effective_date" DESC);
+CREATE INDEX IF NOT EXISTS "salary_history_employee_id_effective_date_idx" ON "salary_history"("employee_id", "effective_date" DESC);
 
 -- Add department_id to employees
 ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "department_id" UUID;
-ALTER TABLE "employees" ADD CONSTRAINT "employees_department_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE SET NULL;
+ALTER TABLE "employees" ADD CONSTRAINT "employees_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE SET NULL;
 
 -- Add commission_rate to payment_methods
 ALTER TABLE "payment_methods" ADD COLUMN IF NOT EXISTS "commission_rate" DOUBLE PRECISION;
