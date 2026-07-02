@@ -1,3 +1,4 @@
+import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { CreateCounterDocumentUseCase, CreateCounterDocumentInput, CreateCounterDocumentContext } from '../../src/modules/document-engine/application/create-counter-document.use-case';
 import { DocumentRepository } from '../../src/modules/document-engine/domain/document.repository.interface';
 import { DocumentEventRepository } from '../../src/modules/document-engine/domain/document-event.repository.interface';
@@ -10,6 +11,7 @@ describe('CreateCounterDocumentUseCase', () => {
   let mockRepo: jest.Mocked<DocumentRepository>;
   let mockEventRepo: jest.Mocked<DocumentEventRepository>;
   let mockEmitter: jest.Mocked<DocumentEventEmitter>;
+  let mockPrisma: jest.Mocked<PrismaService>;
   let stateMachine: DocumentStateMachine;
 
   const mockContext: CreateCounterDocumentContext = {
@@ -40,6 +42,31 @@ describe('CreateCounterDocumentUseCase', () => {
     ],
   };
 
+  const mockCounterDoc = {
+    id: 'counter-1',
+    documentNumber: 'CN-20260619-000001',
+    tenantId: 'tenant-1',
+    documentType: DocumentType.SALES_INVOICE,
+    currency: 'VED',
+    status: DocumentStatus.DRAFT,
+    subtotal: -50,
+    taxTotal: -8,
+    grandTotal: -58,
+    createdById: 'user-2',
+    lines: [],
+    originalDocumentId: 'doc-1',
+    counterDocumentType: 'credit_note',
+  };
+
+  const mockTx = {
+    document: {
+      create: jest.fn().mockResolvedValue(mockCounterDoc),
+    },
+    documentEvent: {
+      create: jest.fn().mockResolvedValue({ id: 'evt-1' }),
+    },
+  };
+
   beforeEach(() => {
     mockRepo = {
       create: jest.fn(),
@@ -49,6 +76,7 @@ describe('CreateCounterDocumentUseCase', () => {
       updateStatus: jest.fn(),
       updateCounterDocument: jest.fn(),
       softDelete: jest.fn(),
+      getNextSequence: jest.fn().mockResolvedValue(1),
     };
     mockEventRepo = {
       create: jest.fn(),
@@ -57,8 +85,11 @@ describe('CreateCounterDocumentUseCase', () => {
     mockEmitter = {
       emit: jest.fn(),
     } as any;
+    mockPrisma = {
+      $transaction: jest.fn((cb: Function) => cb(mockTx)),
+    } as any;
     stateMachine = new DocumentStateMachine();
-    useCase = new CreateCounterDocumentUseCase(mockRepo, stateMachine, mockEventRepo, mockEmitter);
+    useCase = new CreateCounterDocumentUseCase(mockRepo, stateMachine, mockEventRepo, mockEmitter, mockPrisma);
   });
 
   it('should be defined', () => {
@@ -67,18 +98,23 @@ describe('CreateCounterDocumentUseCase', () => {
 
   it('should create a counter-document for an approved document', async () => {
     mockRepo.findById.mockResolvedValue(mockApprovedDoc as any);
-    mockRepo.create.mockResolvedValue({ id: 'counter-1', documentNumber: 'CN-20260619-000001' } as any);
-    mockRepo.updateCounterDocument.mockResolvedValue({} as any);
 
     const result = await useCase.execute('doc-1', mockInput, mockContext);
 
     expect(mockRepo.findById).toHaveBeenCalledWith('doc-1', 'tenant-1');
-    expect(mockRepo.create).toHaveBeenCalledTimes(1);
-    expect(mockRepo.updateCounterDocument).toHaveBeenCalledWith(
-      'counter-1', 'tenant-1', 'doc-1', 'credit_note',
+    expect(mockTx.document.create).toHaveBeenCalledTimes(1);
+    expect(mockTx.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          originalDocumentId: 'doc-1',
+          counterDocumentType: 'credit_note',
+        }),
+      }),
     );
-    expect(mockEventRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ eventType: 'document.counter-created' }),
+    expect(mockTx.documentEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ eventType: 'document.counter-created' }),
+      }),
     );
     expect(mockEmitter.emit).toHaveBeenCalledWith('document.counter-created', expect.any(Object));
   });

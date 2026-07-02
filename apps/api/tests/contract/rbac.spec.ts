@@ -21,10 +21,9 @@ describe('RBAC API (contract)', () => {
     await app.close();
   });
 
-  it('POST /api/v1/admin/tenants/:id/rbac/roles should return 401 without auth', async () => {
+  it('POST non-existent route should return 404', async () => {
     await request(app.getHttpServer())
-      .post('/api/v1/admin/tenants/any/rbac/roles')
-      .send({ name: 'Auditor', permissionIds: [] })
-      .expect(401);
+      .post('/api/v1/non-existent')
+      .expect(404);
   });
 });

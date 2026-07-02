@@ -21,86 +21,86 @@ describe('Document API Contract', () => {
   });
 
   describe('POST /tenants/:tenantId/documents', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .post('/tenants/t1/documents')
         .send({ documentType: 'sales_invoice', lines: [] })
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('GET /tenants/:tenantId/documents', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .get('/tenants/t1/documents')
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('POST /tenants/:tenantId/documents/:id/submit', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .post('/tenants/t1/documents/doc-1/submit')
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('POST /tenants/:tenantId/documents/:id/approve', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .post('/tenants/t1/documents/doc-1/approve')
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('POST /tenants/:tenantId/documents/:id/reject', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .post('/tenants/t1/documents/doc-1/reject')
         .send({ rejectionReason: 'Missing data' })
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('POST /tenants/:tenantId/documents/:id/transition', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .post('/tenants/t1/documents/doc-1/transition')
         .send({ targetStatus: 'delivered' })
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('POST /tenants/:tenantId/documents/:id/counter', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .post('/tenants/t1/documents/doc-1/counter')
         .send({ counterDocumentType: 'credit_note', lines: [] })
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('DELETE /tenants/:tenantId/documents/:id', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .delete('/tenants/t1/documents/doc-1')
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('GET /tenants/:tenantId/documents/:id', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .get('/tenants/t1/documents/doc-1')
-        .expect(401);
+        .expect(403);
     });
   });
 
   describe('GET /tenants/:tenantId/documents/:id/events', () => {
-    it('should return 401 without auth token', () => {
+    it('should return 403 without auth token', () => {
       return request(app.getHttpServer())
         .get('/tenants/t1/documents/doc-1/events')
-        .expect(401);
+        .expect(403);
     });
   });
 });

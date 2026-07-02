@@ -1,0 +1,310 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "search": "Buscar",
+    "noResults": "Sin resultados",
+    "confirm": "¿Estás seguro?"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña"
+  },
+  "sidebar": {
+    "inventory": { "label": "Inventario" },
+    "sales": { "label": "Ventas" },
+    "purchasing": { "label": "Compras" },
+    "cash": { "label": "Caja" },
+    "clients": { "label": "Clientes" },
+    "vendors": { "label": "Proveedores" },
+    "localization": { "label": "Localización" },
+    "employees": { "label": "Empleados" },
+    "reports": { "label": "Reportes" }
+  },
+  "document": {
+    "status": {
+      "draft": "Borrador",
+      "approved": "Aprobado",
+      "paid": "Pagado",
+      "cancelled": "Anulado",
+      "received": "Recibido",
+      "partial": "Parcial"
+    },
+    "actions": {
+      "approve": "Aprobar",
+      "pay": "Pagar",
+      "cancel": "Anular",
+      "receive": "Recibir",
+      "complete": "Completar"
+    },
+    "timeline": {
+      "title": "Línea de tiempo",
+      "empty": "Sin eventos registrados",
+      "by": "por"
+    }
+  },
+  "inventory": {
+    "title": "Inventario",
+    "products": "Productos",
+    "categories": "Categorías",
+    "warehouses": "Almacenes",
+    "stock": "Stock",
+    "product": {
+      "create": "Crear producto",
+      "edit": "Editar producto",
+      "sku": "SKU",
+      "name": "Nombre",
+      "price": "Precio",
+      "cost": "Costo"
+    }
+  },
+  "clients": {
+    "title": "Clientes",
+    "create": "Registrar cliente",
+    "documentId": "RIF / CI",
+    "legalName": "Razón social"
+  },
+  "vendors": {
+    "title": "Proveedores",
+    "create": "Registrar proveedor",
+    "documentId": "RIF / CI",
+    "legalName": "Razón social"
+  },
+  "localization": {
+    "title": "Localización",
+    "taxes": "Impuestos",
+    "currencyRates": "Tasas de cambio",
+    "exchangeRate": "Tasa VES/USD",
+    "tax": {
+      "create": "Crear impuesto",
+      "name": "Nombre",
+      "rate": "Tasa %",
+      "category": "Categoría",
+      "exempt": "Exento"
+    }
+  },
+  "crm": {
+    "creditAlert": {
+      "exceeded": "Límite de crédito excedido por"
+    },
+    "ficha": {
+      "date": "Fecha",
+      "type": "Tipo",
+      "amount": "Monto",
+      "balance": "Saldo",
+      "phone": "Teléfono",
+      "email": "Correo",
+      "creditLimit": "Límite de crédito",
+      "currentBalance": "Saldo actual",
+      "transactions": "Historial de transacciones"
+    }
+  },
+  "hr": {
+    "title": "Empleados",
+    "employee": {
+      "create": "Registrar empleado",
+      "edit": "Editar empleado",
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "role": "Rol",
+      "branch": "Sucursal",
+      "status": "Estado",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    }
+  },
+  "cash": {
+    "title": "Caja",
+    "registers": "Cajas",
+    "paymentMethods": "Métodos de pago",
+    "movements": "Movimientos",
+    "register": {
+      "create": "Crear caja",
+      "name": "Nombre",
+      "balance": "Saldo"
+    }
+  },
+  "reports": {
+    "dashboard": {
+      "title": "Dashboard Ejecutivo",
+      "subtitle": "Resumen del negocio en tiempo real",
+      "kpis": "Indicadores Clave",
+      "trend": "Tendencia de Ventas",
+      "topProducts": "Top Productos",
+      "lowStock": "Stock Bajo",
+      "todaySales": "Ventas Hoy",
+      "monthSales": "Ventas del Mes",
+      "activeClients": "Clientes Activos",
+      "lowStockCount": "Stock Bajo",
+      "cashMovements": "Movs. Caja Hoy",
+      "pendingOrders": "Órdenes Pendientes",
+      "vsPrevious": "vs período anterior",
+      "noData": "No hay datos para el período seleccionado",
+      "addWidget": "Widgets"
+    },
+    "history": {
+      "title": "Historial de Reportes",
+      "subtitle": "Reportes generados recientemente (disponibles por 48h)",
+      "empty": "No hay reportes en el historial",
+      "type": "Tipo",
+      "format": "Formato",
+      "date": "Fecha",
+      "size": "Tamaño",
+      "status": "Estado",
+      "actions": "Acciones",
+      "download": "Descargar",
+      "delete": "Eliminar"
+    },
+    "definitions": {
+      "title": "Reportes Programados",
+      "subtitle": "Define reportes que se generan automáticamente",
+      "new": "Nueva Definición",
+      "empty": "No hay definiciones de reportes",
+      "emptyHint": "Crea una para empezar a programar reportes automáticos",
+      "name": "Nombre",
+      "type": "Tipo",
+      "format": "Formato",
+      "frequency": "Frecuencia",
+      "status": "Estado",
+      "actions": "Acciones",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "execute": "Ejecutar ahora",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "create": "Crear",
+      "update": "Actualizar",
+      "cancel": "Cancelar",
+      "manual": "Manual",
+      "recipients": "Destinatarios (email, separados por coma)",
+      "recipientsPlaceholder": "admin@ejemplo.com, gerente@ejemplo.com",
+      "namePlaceholder": "Ej: Reporte Semanal de Ventas",
+      "scheduleNone": "Sin programación",
+      "scheduleDaily": "Diario (7am)",
+      "scheduleWeekly": "Semanal (Lun 8am)",
+      "scheduleMonthly": "Mensual (Día 1, 8am)"
+    },
+    "types": {
+      "SALES": "Ventas",
+      "INVENTORY": "Inventario",
+      "CASH": "Caja",
+      "CLIENTS": "Clientes",
+      "TAXES": "Impuestos",
+      "PROFIT": "Utilidad"
+    },
+    "formats": {
+      "PDF": "PDF",
+      "XLSX": "Excel",
+      "CSV": "CSV"
+    }
+  },
+  "sales": {
+    "title": "Ventas",
+    "quotes": "Cotizaciones",
+    "orders": "Pedidos",
+    "invoices": "Facturas",
+    "createQuote": "Nueva cotización",
+    "createInvoice": "Nueva factura",
+    "pos": {
+      "terminal": "Terminal POS",
+      "searchPlaceholder": "Buscar producto por nombre o SKU...",
+      "searchEmpty": "Escribe al menos 2 caracteres",
+      "noResults": "Sin resultados para",
+      "cart": "Carrito",
+      "emptyCart": "Agrega productos al carrito",
+      "quantity": "Cant",
+      "price": "Precio",
+      "subtotal": "Subtotal",
+      "total": "Total",
+      "discount": "Descuento",
+      "payment": "Pago",
+      "selectPayment": "Seleccionar método de pago",
+      "paymentMethods": {
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "transfer": "Transferencia",
+        "mixed": "Mixto"
+      },
+      "confirmPayment": "Confirmar pago (F8)",
+      "emitInvoice": "Emitir factura (F10)",
+      "offline": "Sin conexión",
+      "blocked": "POS bloqueado — auditoría en curso",
+      "shortcutHint": "F8: Pago | F10: Facturar"
+    }
+  },
+  "purchasing": {
+    "title": "Compras",
+    "orders": "Órdenes de compra",
+    "createOrder": "Nueva orden",
+    "receive": "Recibir",
+    "orderNumber": "N° Orden",
+    "vendor": "Proveedor",
+    "vendorPlaceholder": "Seleccionar proveedor",
+    "expectedDate": "Fecha esperada",
+    "notes": "Notas",
+    "items": "Productos",
+    "addItem": "Agregar producto",
+    "nationalization": "Nacionalización",
+    "freight": "Flete",
+    "insurance": "Seguro",
+    "customs": "Aranceles",
+    "otherCosts": "Otros costos",
+    "totalCost": "Costo total nacionalizado",
+    "costPerUnit": "Costo unitario",
+    "emptyList": "Sin órdenes de compra",
+    "statusLabels": {
+      "draft": "Borrador",
+      "approved": "Aprobada",
+      "received": "Recibida",
+      "paid": "Pagada",
+      "cancelled": "Anulada"
+    }
+  },
+  "cash": {
+    "title": "Caja",
+    "registers": "Cajas",
+    "paymentMethods": "Métodos de pago",
+    "movements": "Movimientos",
+    "register": {
+      "create": "Crear caja",
+      "name": "Nombre",
+      "balance": "Saldo"
+    },
+    "audit": {
+      "title": "Auditoría de Caja",
+      "start": "Iniciar auditoría",
+      "expected": "Esperado",
+      "counted": "Contado",
+      "cash": "Efectivo",
+      "card": "Tarjeta",
+      "transfer": "Transferencia",
+      "difference": "Diferencia",
+      "balanced": "Cuadrado",
+      "unbalanced": "Descuadrado",
+      "approve": "Aprobar auditoría",
+      "reject": "Rechazar",
+      "blocked": "POS bloqueado durante auditoría",
+      "noRegister": "Seleccione una caja para auditar",
+      "summary": "Resumen de movimientos",
+      "status": {
+        "open": "Abierta",
+        "auditing": "Auditando",
+        "closed": "Cerrada"
+      }
+    },
+    "empty": "Sin movimientos en esta caja",
+    "movementTypes": {
+      "sale": "Venta",
+      "payment": "Pago",
+      "expense": "Gasto",
+      "transfer": "Transferencia"
+    }
+  }
+}

@@ -21,6 +21,7 @@ export interface UserCredentials {
   name: string;
   status: string;
   tenantId: string;
+  locale: string;
   failedLoginAttempts: number;
   lockedUntil: Date | null;
   deletedAt: Date | null;

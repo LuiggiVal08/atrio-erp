@@ -1,0 +1,310 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "noResults": "No results",
+    "confirm": "Are you sure?"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "email": "Email",
+    "password": "Password"
+  },
+  "sidebar": {
+    "inventory": { "label": "Inventory" },
+    "sales": { "label": "Sales" },
+    "purchasing": { "label": "Purchasing" },
+    "cash": { "label": "Cash" },
+    "clients": { "label": "Clients" },
+    "vendors": { "label": "Vendors" },
+    "localization": { "label": "Localization" },
+    "employees": { "label": "Employees" },
+    "reports": { "label": "Reports" }
+  },
+  "document": {
+    "status": {
+      "draft": "Draft",
+      "approved": "Approved",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "received": "Received",
+      "partial": "Partial"
+    },
+    "actions": {
+      "approve": "Approve",
+      "pay": "Pay",
+      "cancel": "Cancel",
+      "receive": "Receive",
+      "complete": "Complete"
+    },
+    "timeline": {
+      "title": "Timeline",
+      "empty": "No events recorded",
+      "by": "by"
+    }
+  },
+  "inventory": {
+    "title": "Inventory",
+    "products": "Products",
+    "categories": "Categories",
+    "warehouses": "Warehouses",
+    "stock": "Stock",
+    "product": {
+      "create": "Create product",
+      "edit": "Edit product",
+      "sku": "SKU",
+      "name": "Name",
+      "price": "Price",
+      "cost": "Cost"
+    }
+  },
+  "clients": {
+    "title": "Clients",
+    "create": "Register client",
+    "documentId": "Tax ID",
+    "legalName": "Legal name"
+  },
+  "vendors": {
+    "title": "Vendors",
+    "create": "Register vendor",
+    "documentId": "Tax ID",
+    "legalName": "Legal name"
+  },
+  "localization": {
+    "title": "Localization",
+    "taxes": "Taxes",
+    "currencyRates": "Currency rates",
+    "exchangeRate": "Rate VES/USD",
+    "tax": {
+      "create": "Create tax",
+      "name": "Name",
+      "rate": "Rate %",
+      "category": "Category",
+      "exempt": "Exempt"
+    }
+  },
+  "crm": {
+    "creditAlert": {
+      "exceeded": "Credit limit exceeded by"
+    },
+    "ficha": {
+      "date": "Date",
+      "type": "Type",
+      "amount": "Amount",
+      "balance": "Balance",
+      "phone": "Phone",
+      "email": "Email",
+      "creditLimit": "Credit limit",
+      "currentBalance": "Current balance",
+      "transactions": "Transaction history"
+    }
+  },
+  "hr": {
+    "title": "Employees",
+    "employee": {
+      "create": "Register employee",
+      "edit": "Edit employee",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "branch": "Branch",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive"
+    }
+  },
+  "cash": {
+    "title": "Cash",
+    "registers": "Registers",
+    "paymentMethods": "Payment methods",
+    "movements": "Movements",
+    "register": {
+      "create": "Create register",
+      "name": "Name",
+      "balance": "Balance"
+    }
+  },
+  "reports": {
+    "dashboard": {
+      "title": "Executive Dashboard",
+      "subtitle": "Real-time business overview",
+      "kpis": "Key Indicators",
+      "trend": "Sales Trend",
+      "topProducts": "Top Products",
+      "lowStock": "Low Stock",
+      "todaySales": "Today's Sales",
+      "monthSales": "Month's Sales",
+      "activeClients": "Active Clients",
+      "lowStockCount": "Low Stock",
+      "cashMovements": "Cash Moves Today",
+      "pendingOrders": "Pending Orders",
+      "vsPrevious": "vs previous period",
+      "noData": "No data for selected period",
+      "addWidget": "Widgets"
+    },
+    "history": {
+      "title": "Report History",
+      "subtitle": "Recently generated reports (available for 48h)",
+      "empty": "No reports in history",
+      "type": "Type",
+      "format": "Format",
+      "date": "Date",
+      "size": "Size",
+      "status": "Status",
+      "actions": "Actions",
+      "download": "Download",
+      "delete": "Delete"
+    },
+    "definitions": {
+      "title": "Scheduled Reports",
+      "subtitle": "Define reports that generate automatically",
+      "new": "New Definition",
+      "empty": "No report definitions",
+      "emptyHint": "Create one to start scheduling automatic reports",
+      "name": "Name",
+      "type": "Type",
+      "format": "Format",
+      "frequency": "Frequency",
+      "status": "Status",
+      "actions": "Actions",
+      "edit": "Edit",
+      "delete": "Delete",
+      "execute": "Run now",
+      "active": "Active",
+      "inactive": "Inactive",
+      "create": "Create",
+      "update": "Update",
+      "cancel": "Cancel",
+      "manual": "Manual",
+      "recipients": "Recipients (email, comma separated)",
+      "recipientsPlaceholder": "admin@example.com, manager@example.com",
+      "namePlaceholder": "E.g.: Weekly Sales Report",
+      "scheduleNone": "No schedule",
+      "scheduleDaily": "Daily (7am)",
+      "scheduleWeekly": "Weekly (Mon 8am)",
+      "scheduleMonthly": "Monthly (Day 1, 8am)"
+    },
+    "types": {
+      "SALES": "Sales",
+      "INVENTORY": "Inventory",
+      "CASH": "Cash",
+      "CLIENTS": "Clients",
+      "TAXES": "Taxes",
+      "PROFIT": "Profit"
+    },
+    "formats": {
+      "PDF": "PDF",
+      "XLSX": "Excel",
+      "CSV": "CSV"
+    }
+  },
+  "sales": {
+    "title": "Sales",
+    "quotes": "Quotes",
+    "orders": "Orders",
+    "invoices": "Invoices",
+    "createQuote": "New quote",
+    "createInvoice": "New invoice",
+    "pos": {
+      "terminal": "POS Terminal",
+      "searchPlaceholder": "Search product by name or SKU...",
+      "searchEmpty": "Type at least 2 characters",
+      "noResults": "No results for",
+      "cart": "Cart",
+      "emptyCart": "Add products to the cart",
+      "quantity": "Qty",
+      "price": "Price",
+      "subtotal": "Subtotal",
+      "total": "Total",
+      "discount": "Discount",
+      "payment": "Payment",
+      "selectPayment": "Select payment method",
+      "paymentMethods": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer",
+        "mixed": "Mixed"
+      },
+      "confirmPayment": "Confirm payment (F8)",
+      "emitInvoice": "Emit invoice (F10)",
+      "offline": "Offline",
+      "blocked": "POS blocked — audit in progress",
+      "shortcutHint": "F8: Pay | F10: Invoice"
+    }
+  },
+  "purchasing": {
+    "title": "Purchasing",
+    "orders": "Purchase orders",
+    "createOrder": "New order",
+    "receive": "Receive",
+    "orderNumber": "Order #",
+    "vendor": "Vendor",
+    "vendorPlaceholder": "Select vendor",
+    "expectedDate": "Expected date",
+    "notes": "Notes",
+    "items": "Items",
+    "addItem": "Add item",
+    "nationalization": "Nationalization",
+    "freight": "Freight",
+    "insurance": "Insurance",
+    "customs": "Customs",
+    "otherCosts": "Other costs",
+    "totalCost": "Total landed cost",
+    "costPerUnit": "Unit cost",
+    "emptyList": "No purchase orders",
+    "statusLabels": {
+      "draft": "Draft",
+      "approved": "Approved",
+      "received": "Received",
+      "paid": "Paid",
+      "cancelled": "Cancelled"
+    }
+  },
+  "cash": {
+    "title": "Cash",
+    "registers": "Registers",
+    "paymentMethods": "Payment methods",
+    "movements": "Movements",
+    "register": {
+      "create": "Create register",
+      "name": "Name",
+      "balance": "Balance"
+    },
+    "audit": {
+      "title": "Cash Audit",
+      "start": "Start audit",
+      "expected": "Expected",
+      "counted": "Counted",
+      "cash": "Cash",
+      "card": "Card",
+      "transfer": "Transfer",
+      "difference": "Difference",
+      "balanced": "Balanced",
+      "unbalanced": "Unbalanced",
+      "approve": "Approve audit",
+      "reject": "Reject",
+      "blocked": "POS blocked during audit",
+      "noRegister": "Select a register to audit",
+      "summary": "Movement summary",
+      "status": {
+        "open": "Open",
+        "auditing": "Auditing",
+        "closed": "Closed"
+      }
+    },
+    "empty": "No movements in this register",
+    "movementTypes": {
+      "sale": "Sale",
+      "payment": "Payment",
+      "expense": "Expense",
+      "transfer": "Transfer"
+    }
+  }
+}

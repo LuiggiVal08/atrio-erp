@@ -1,8 +1,14 @@
+import { BrowserRouter } from 'react-router-dom';
+import { AppProvider } from '@/core/components/AppProvider';
+import { AppRoutes } from '@/routes/AppRoutes';
+
 function App() {
   return (
-    <div className="min-h-screen bg-canvas text-text-primary flex items-center justify-center">
-      <h1 className="text-2xl font-bold">Atrio ERP</h1>
-    </div>
+    <BrowserRouter>
+      <AppProvider>
+        <AppRoutes />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

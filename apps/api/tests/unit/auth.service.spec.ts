@@ -13,12 +13,18 @@ describe('LoginUseCase', () => {
     updateLoginAttempts: jest.fn(),
   };
 
+  const mockPrisma = {
+    tenant: {
+      findUnique: jest.fn().mockResolvedValue({ enabledModules: [] }),
+    },
+  };
+
   const mockBlacklist = {
     blacklist: jest.fn(),
   };
 
   beforeEach(async () => {
-    loginUseCase = new LoginUseCase(mockAuthRepo);
+    loginUseCase = new LoginUseCase(mockAuthRepo, mockPrisma as any);
     logoutUseCase = new LogoutUseCase(mockBlacklist);
     jest.clearAllMocks();
   });
@@ -35,6 +41,7 @@ describe('LoginUseCase', () => {
         name: 'Admin',
         status: 'active',
         tenantId: dto.tenantId,
+        locale: 'es',
         failedLoginAttempts: 0,
         lockedUntil: null,
         deletedAt: null,
@@ -55,6 +62,7 @@ describe('LoginUseCase', () => {
         passwordHash: hash,
         status: 'active',
         tenantId: dto.tenantId,
+        locale: 'es',
         failedLoginAttempts: 0,
         lockedUntil: null,
         deletedAt: null,
@@ -75,6 +83,7 @@ describe('LoginUseCase', () => {
         passwordHash: 'hash',
         status: 'blocked',
         tenantId: dto.tenantId,
+        locale: 'es',
         lockedUntil: new Date(Date.now() + 3600000),
         failedLoginAttempts: 5,
         deletedAt: null,

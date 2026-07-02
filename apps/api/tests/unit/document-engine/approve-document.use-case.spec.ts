@@ -40,6 +40,7 @@ describe('ApproveDocumentUseCase', () => {
     status: DocumentStatus.APPROVED,
     approvedById: 'user-1',
     approvedAt: new Date(),
+    lines: [],
   };
 
   beforeEach(() => {

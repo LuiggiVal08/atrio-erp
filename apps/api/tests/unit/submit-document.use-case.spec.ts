@@ -37,6 +37,7 @@ describe('SubmitDocumentUseCase', () => {
       updateStatus: jest.fn(),
       updateCounterDocument: jest.fn(),
       softDelete: jest.fn(),
+      getNextSequence: jest.fn().mockResolvedValue(1),
     };
     stateMachine = new DocumentStateMachine();
     useCase = new SubmitDocumentUseCase(mockRepo, stateMachine);

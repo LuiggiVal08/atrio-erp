@@ -12,6 +12,7 @@ export interface CreateDocumentInput {
     taxRate: number;
     discountRate?: number;
     productId?: string;
+    warehouseId?: string;
   }>;
 }
 
@@ -63,11 +64,14 @@ export class CreateDocumentUseCase {
         lineTotal: totals.lineTotal,
         subtotal: totals.subtotal,
         productId: line.productId ?? null,
+        warehouseId: line.warehouseId ?? null,
       };
     });
 
     const totals = calculateDocumentTotals(lineCalculations);
     const documentNumber = await this.generateDocumentNumber(dto.documentType, ctx.tenantId);
+
+    const linesForDb = lineCalculations.map(({ subtotal: _s, ...rest }) => rest);
 
     return this.documentRepository.create({
       tenantId: ctx.tenantId,
@@ -80,7 +84,7 @@ export class CreateDocumentUseCase {
       grandTotal: totals.grandTotal,
       notes: dto.notes ?? null,
       createdById: ctx.userId,
-      lines: lineCalculations,
+      lines: linesForDb,
     });
   }
 }

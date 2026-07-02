@@ -3,6 +3,7 @@ import { TenantController } from './tenant.controller';
 import { CreateTenantUseCase } from '../application/create-tenant.use-case';
 import { GetTenantUseCase } from '../application/get-tenant.use-case';
 import { UpdateTenantUseCase } from '../application/update-tenant.use-case';
+import { TenantModuleService } from '../application/tenant-module.service';
 import { PrismaTenantRepository } from './prisma-tenant.repository';
 
 export const TENANT_REPOSITORY = 'TENANT_REPOSITORY';
@@ -26,6 +27,7 @@ export const TENANT_REPOSITORY = 'TENANT_REPOSITORY';
       useFactory: (repo: any) => new UpdateTenantUseCase(repo),
       inject: [TENANT_REPOSITORY],
     },
+    TenantModuleService,
   ],
   exports: [],
 })

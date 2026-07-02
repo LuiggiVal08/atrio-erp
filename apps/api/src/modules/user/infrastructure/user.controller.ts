@@ -1,12 +1,15 @@
 import {
-  Controller, Get, Post, Body, Param, Delete, UseGuards,
+  Controller, Get, Post, Patch, Body, Param, Delete, UseGuards,
   NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CreateUserUseCase } from '../application/create-user.use-case';
 import { ManageUserUseCase } from '../application/manage-user.use-case';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateLocaleDto } from './dto/update-locale.dto';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 @ApiTags('Users')
 @UseGuards(JwtAuthGuard)
@@ -16,6 +19,7 @@ export class UserController {
   constructor(
     private readonly createUserUseCase: CreateUserUseCase,
     private readonly manageUserUseCase: ManageUserUseCase,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('tenants/:tenantId/users')
@@ -53,5 +57,15 @@ export class UserController {
     } catch (error: any) {
       throw new NotFoundException(error.message);
     }
+  }
+
+  @Patch('users/me/locale')
+  @ApiOperation({ summary: 'Update current user locale preference' })
+  async updateLocale(@Body() dto: UpdateLocaleDto, @CurrentUser() user: any) {
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { locale: dto.locale },
+    });
+    return { locale: dto.locale };
   }
 }

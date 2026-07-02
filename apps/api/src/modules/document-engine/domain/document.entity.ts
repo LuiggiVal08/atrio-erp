@@ -29,6 +29,7 @@ export interface DocumentLineData {
   taxRate: number;
   discountRate?: number;
   productId?: string;
+  warehouseId?: string;
 }
 
 export interface CreateDocumentData {
@@ -76,6 +77,7 @@ export interface DocumentLine {
   discountAmount: number;
   lineTotal: number;
   productId?: string | null;
+  warehouseId?: string | null;
   createdAt: Date;
 }
 

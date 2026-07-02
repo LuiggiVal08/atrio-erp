@@ -63,7 +63,7 @@ describe('TransitionDocumentUseCase', () => {
     repository.findById.mockResolvedValue({ ...baseDoc, status: DocumentStatus.APPROVED });
     prisma.$transaction.mockImplementation((promises: Promise<any>[]) => Promise.all(promises));
     prisma.document = {
-      update: jest.fn().mockResolvedValue({ ...baseDoc, status: DocumentStatus.DELIVERED }),
+      update: jest.fn().mockResolvedValue({ ...baseDoc, status: DocumentStatus.DELIVERED, lines: [] }),
     };
     prisma.documentEvent = {
       create: jest.fn().mockResolvedValue({}),
@@ -85,7 +85,7 @@ describe('TransitionDocumentUseCase', () => {
     repository.findById.mockResolvedValue({ ...baseDoc, status: DocumentStatus.PENDING_APPROVAL });
     prisma.$transaction.mockImplementation((promises: Promise<any>[]) => Promise.all(promises));
     prisma.document = {
-      update: jest.fn().mockResolvedValue({ ...baseDoc, status: DocumentStatus.DRAFT, rejectionReason: 'Missing items' }),
+      update: jest.fn().mockResolvedValue({ ...baseDoc, status: DocumentStatus.DRAFT, rejectionReason: 'Missing items', lines: [] }),
     };
     prisma.documentEvent = {
       create: jest.fn().mockResolvedValue({}),

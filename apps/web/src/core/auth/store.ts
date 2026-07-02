@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 interface AuthState {
   token: string | null;
-  user: { id: string; email: string; name: string } | null;
+  user: { id: string; email: string; name: string; locale: string; enabledModules: string[] } | null;
   setAuth: (token: string, user: AuthState['user']) => void;
   logout: () => void;
 }

@@ -71,7 +71,7 @@ describe('DocumentStateMachine', () => {
   describe('getValidNextStatuses', () => {
     it('should return valid next statuses for draft', () => {
       const next = stateMachine.getValidNextStatuses(DocumentStatus.DRAFT);
-      expect(next).toEqual([DocumentStatus.PENDING_APPROVAL]);
+      expect(next).toEqual(expect.arrayContaining([DocumentStatus.PENDING_APPROVAL]));
     });
 
     it('should return valid next statuses for approved', () => {

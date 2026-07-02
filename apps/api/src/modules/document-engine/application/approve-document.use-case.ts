@@ -70,6 +70,14 @@ export class ApproveDocumentUseCase {
       }),
     ]);
 
+    const lines = updated.lines.map((l: any) => ({
+      productId: l.productId,
+      warehouseId: l.warehouseId,
+      quantity: Number(l.quantity),
+      unitPrice: Number(l.unitPrice),
+      description: l.description,
+    }));
+
     this.eventEmitter.emit('document.approved', {
       eventType: 'document.approved',
       tenantId: ctx.tenantId,
@@ -77,7 +85,10 @@ export class ApproveDocumentUseCase {
       documentType: doc.documentType,
       timestamp: now.toISOString(),
       triggeredBy: ctx.userId,
-      metadata: payload,
+      metadata: {
+        ...payload,
+        lines,
+      },
     });
 
     return this.mapToEntity(updated);

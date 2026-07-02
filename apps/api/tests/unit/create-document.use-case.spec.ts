@@ -28,6 +28,7 @@ describe('CreateDocumentUseCase', () => {
       updateStatus: jest.fn(),
       updateCounterDocument: jest.fn(),
       softDelete: jest.fn(),
+      getNextSequence: jest.fn().mockResolvedValue(1),
     };
     useCase = new CreateDocumentUseCase(mockRepo);
   });

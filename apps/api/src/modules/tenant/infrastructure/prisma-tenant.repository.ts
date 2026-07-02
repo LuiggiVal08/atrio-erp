@@ -37,6 +37,31 @@ export class PrismaTenantRepository implements TenantRepository {
       },
     });
 
+    const adminRole = await this.prisma.role.create({
+      data: {
+        tenantId: tenant.id,
+        name: 'admin',
+        isSystem: true,
+      },
+    });
+
+    const allPermissions = await this.prisma.permission.findMany();
+    if (allPermissions.length > 0) {
+      await this.prisma.rolePermission.createMany({
+        data: allPermissions.map((p) => ({
+          roleId: adminRole.id,
+          permissionId: p.id,
+        })),
+      });
+    }
+
+    await this.prisma.userRole.create({
+      data: {
+        userId: adminUser.id,
+        roleId: adminRole.id,
+      },
+    });
+
     return { tenant: tenant as any, adminUser: { id: adminUser.id, email: adminUser.email, tenantId: adminUser.tenantId } };
   }
 

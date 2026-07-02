@@ -26,13 +26,14 @@ describe('Tenants API (contract)', () => {
   });
 
   it('POST /api/v1/admin/tenants should return 201 with tenant data', async () => {
+    const uniqueId = Date.now();
     const payload = {
       legalName: 'Test Corp',
-      taxId: 'J-99999999-9',
+      taxId: `J-${uniqueId}-9`,
       baseCurrency: 'VED',
       timezone: 'America/Caracas',
       subscriptionPlan: 'free',
-      adminEmail: 'admin@test.com',
+      adminEmail: `admin${uniqueId}@test.com`,
       adminName: 'Admin Test',
     };
 

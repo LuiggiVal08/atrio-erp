@@ -28,6 +28,10 @@ export class CreateDocumentLineDto {
   @IsOptional()
   @IsUUID()
   productId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  warehouseId?: string;
 }
 
 export class CreateDocumentDto {

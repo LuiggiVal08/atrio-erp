@@ -6,8 +6,10 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CreateTenantUseCase } from '../application/create-tenant.use-case';
 import { GetTenantUseCase } from '../application/get-tenant.use-case';
 import { UpdateTenantUseCase } from '../application/update-tenant.use-case';
+import { TenantModuleService } from '../application/tenant-module.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { UpdateModulesDto } from './dto/update-modules.dto';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
 
 @ApiTags('Tenants')
@@ -17,6 +19,7 @@ export class TenantController {
     private readonly createTenantUseCase: CreateTenantUseCase,
     private readonly getTenantUseCase: GetTenantUseCase,
     private readonly updateTenantUseCase: UpdateTenantUseCase,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   @Post('admin/tenants')
@@ -69,5 +72,21 @@ export class TenantController {
   @ApiBearerAuth()
   reactivate(@Param('id') id: string) {
     return this.updateTenantUseCase.reactivate(id);
+  }
+
+  @Get('admin/tenants/:id/modules')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get enabled modules for a tenant' })
+  getModules(@Param('id') id: string) {
+    return this.tenantModuleService.getEnabledModules(id);
+  }
+
+  @Patch('admin/tenants/:id/modules')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update enabled modules for a tenant' })
+  updateModules(@Param('id') id: string, @Body() dto: UpdateModulesDto) {
+    return this.tenantModuleService.setEnabledModules(id, dto.enabledModules);
   }
 }

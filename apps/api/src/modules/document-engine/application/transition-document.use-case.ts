@@ -42,6 +42,7 @@ export class TransitionDocumentUseCase {
           status: targetStatus,
           ...(extra?.rejectionReason ? { rejectionReason: extra.rejectionReason } : {}),
         },
+        include: { lines: true },
       }),
       this.prisma.documentEvent.create({
         data: {
@@ -56,6 +57,14 @@ export class TransitionDocumentUseCase {
       }),
     ]);
 
+    const lines = updated.lines.map((l: any) => ({
+      productId: l.productId,
+      warehouseId: l.warehouseId,
+      quantity: Number(l.quantity),
+      unitPrice: Number(l.unitPrice),
+      description: l.description,
+    }));
+
     this.eventEmitter.emit(`document.${action || 'status-changed'}`, {
       eventType: `document.${action || 'status-changed'}`,
       tenantId: ctx.tenantId,
@@ -68,6 +77,7 @@ export class TransitionDocumentUseCase {
         newStatus: targetStatus,
         action,
         rejectionReason: extra?.rejectionReason,
+        lines,
       },
     });
 

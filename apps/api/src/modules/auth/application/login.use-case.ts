@@ -1,5 +1,7 @@
 import * as bcrypt from 'bcrypt';
+import { Injectable } from '@nestjs/common';
 import { AuthRepository, LoginData } from '../domain/auth.repository.interface';
+import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 const LOCK_THRESHOLD = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
@@ -10,12 +12,18 @@ export interface LoginResult {
     email: string;
     name: string;
     tenantId: string;
+    locale: string;
+    enabledModules: string[];
   };
   jti: string;
 }
 
+@Injectable()
 export class LoginUseCase {
-  constructor(private readonly authRepository: AuthRepository) {}
+  constructor(
+    private readonly authRepository: AuthRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async execute(dto: LoginData): Promise<LoginResult> {
     const user = await this.authRepository.findUserByEmail(dto.email, dto.tenantId);
@@ -48,8 +56,20 @@ export class LoginUseCase {
       lastLoginAt: new Date(),
     });
 
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: dto.tenantId },
+      select: { enabledModules: true },
+    });
+
     return {
-      user: { id: user.id, email: user.email, name: user.name, tenantId: user.tenantId },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        tenantId: user.tenantId,
+        locale: user.locale,
+        enabledModules: tenant?.enabledModules ?? [],
+      },
       jti: crypto.randomUUID(),
     };
   }

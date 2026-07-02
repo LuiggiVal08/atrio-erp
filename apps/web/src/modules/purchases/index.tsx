@@ -1,0 +1,32 @@
+import { useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { ShoppingBag } from 'lucide-react';
+import { useSidebarStore } from '@/core/store/sidebar-store';
+import { PurchaseOrderListView } from './views/PurchaseOrderListView';
+import { PurchaseOrderFormView } from './views/PurchaseOrderFormView';
+
+export function PurchasingModule() {
+  const { setModules } = useSidebarStore();
+
+  useEffect(() => {
+    setModules([
+      {
+        id: 'purchasing',
+        label: 'sidebar.purchasing.label',
+        icon: ShoppingBag,
+        route: '/purchasing',
+        permissions: ['purchasing:read'],
+      },
+    ]);
+  }, []);
+
+  return (
+    <Routes>
+      <Route index element={<PurchaseOrderListView />} />
+      <Route path="new" element={<PurchaseOrderFormView />} />
+      <Route path="*" element={<Navigate to="/purchasing" replace />} />
+    </Routes>
+  );
+}
+
+export default PurchasingModule;

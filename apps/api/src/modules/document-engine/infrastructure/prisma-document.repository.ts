@@ -33,6 +33,7 @@ export class PrismaDocumentRepository implements DocumentRepository {
       discountAmount: number;
       lineTotal: number;
       productId?: string | null;
+      warehouseId?: string | null;
     }>;
   }): Promise<Document> {
     const doc = await this.prisma.document.create({

@@ -9,6 +9,13 @@ describe('ManageEmployeeUseCase', () => {
     findById: jest.fn(),
     findByTenant: jest.fn(),
     update: jest.fn(),
+    createDepartment: jest.fn(),
+    findAllDepartments: jest.fn(),
+    findDepartmentById: jest.fn(),
+    updateDepartment: jest.fn(),
+    deleteDepartment: jest.fn(),
+    createSalaryEntry: jest.fn(),
+    findSalaryHistory: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -40,6 +47,20 @@ describe('ManageEmployeeUseCase', () => {
     });
   });
 
+  describe('update', () => {
+    it('should update an employee', async () => {
+      (mockEmployeeRepo.findById as jest.Mock).mockResolvedValue({ id: 'emp-1', deletedAt: null });
+      (mockEmployeeRepo.update as jest.Mock).mockResolvedValue({ id: 'emp-1', firstName: 'Juan Updated' });
+      const result = await manageEmployeeUseCase.update('emp-1', { firstName: 'Juan Updated' });
+      expect(result).toHaveProperty('firstName', 'Juan Updated');
+    });
+
+    it('should throw when employee not found', async () => {
+      (mockEmployeeRepo.findById as jest.Mock).mockResolvedValue(null);
+      await expect(manageEmployeeUseCase.update('missing', { firstName: 'X' })).rejects.toThrow('Employee not found');
+    });
+  });
+
   describe('softDelete', () => {
     it('should soft delete an employee', async () => {
       (mockEmployeeRepo.findById as jest.Mock).mockResolvedValue({ id: 'emp-1', deletedAt: null });
@@ -47,6 +68,58 @@ describe('ManageEmployeeUseCase', () => {
 
       const result = await manageEmployeeUseCase.softDelete('emp-1');
       expect(result.status).toBe('inactive');
+    });
+  });
+
+  describe('Departments', () => {
+    it('should create a department', async () => {
+      (mockEmployeeRepo.createDepartment as jest.Mock).mockResolvedValue({ id: 'dept-1', name: 'IT', tenantId: 't1' });
+      const result = await manageEmployeeUseCase.createDepartment({ tenantId: 't1', name: 'IT' });
+      expect(result).toHaveProperty('name', 'IT');
+    });
+
+    it('should list departments', async () => {
+      (mockEmployeeRepo.findAllDepartments as jest.Mock).mockResolvedValue([{ id: 'dept-1', name: 'IT' }]);
+      const result = await manageEmployeeUseCase.findAllDepartments('t1');
+      expect(result).toHaveLength(1);
+    });
+
+    it('should find department by id', async () => {
+      (mockEmployeeRepo.findDepartmentById as jest.Mock).mockResolvedValue({ id: 'dept-1', name: 'IT' });
+      const result = await manageEmployeeUseCase.findDepartmentById('dept-1');
+      expect(result).toHaveProperty('id', 'dept-1');
+    });
+
+    it('should throw when department not found', async () => {
+      (mockEmployeeRepo.findDepartmentById as jest.Mock).mockResolvedValue(null);
+      await expect(manageEmployeeUseCase.findDepartmentById('missing')).rejects.toThrow('Department not found');
+    });
+
+    it('should update a department', async () => {
+      (mockEmployeeRepo.findDepartmentById as jest.Mock).mockResolvedValue({ id: 'dept-1' });
+      (mockEmployeeRepo.updateDepartment as jest.Mock).mockResolvedValue({ id: 'dept-1', name: 'Engineering' });
+      const result = await manageEmployeeUseCase.updateDepartment('dept-1', { name: 'Engineering' });
+      expect(result).toHaveProperty('name', 'Engineering');
+    });
+
+    it('should delete a department', async () => {
+      (mockEmployeeRepo.findDepartmentById as jest.Mock).mockResolvedValue({ id: 'dept-1', name: 'IT' });
+      await manageEmployeeUseCase.deleteDepartment('dept-1');
+      expect(mockEmployeeRepo.deleteDepartment).toHaveBeenCalledWith('dept-1');
+    });
+  });
+
+  describe('Salary History', () => {
+    it('should create a salary entry', async () => {
+      (mockEmployeeRepo.createSalaryEntry as jest.Mock).mockResolvedValue({ id: 'sal-1', salary: 1500, employeeId: 'emp-1' });
+      const result = await manageEmployeeUseCase.createSalaryEntry({ employeeId: 'emp-1', salary: 1500, effectiveDate: '2024-06-01' });
+      expect(result).toHaveProperty('salary', 1500);
+    });
+
+    it('should list salary history', async () => {
+      (mockEmployeeRepo.findSalaryHistory as jest.Mock).mockResolvedValue([{ id: 'sal-1', salary: 1500 }]);
+      const result = await manageEmployeeUseCase.findSalaryHistory('emp-1');
+      expect(result).toHaveLength(1);
     });
   });
 });

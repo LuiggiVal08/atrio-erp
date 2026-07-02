@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
+  h1 { color: #1a5276; border-bottom: 2px solid #1a5276; padding-bottom: 8px; }
+  .period { color: #666; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  th { background: #1a5276; color: #fff; padding: 8px; text-align: left; }
+  td { padding: 6px 8px; border-bottom: 1px solid #ddd; }
+  .total-row { font-weight: bold; background: #eaf2f8; }
+  .summary { margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 4px; }
+  .footer { margin-top: 30px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 10px; color: #999; }
+</style></head>
+<body>
+  <h1>Reporte de Impuestos</h1>
+  <div class="period">{{periodLabel}}</div>
+  <h3>IVA Cobrado (Ventas)</h3>
+  <table>
+    <thead><tr><th>Documento</th><th>Fecha</th><th>Cliente</th><th>Base</th><th>IVA</th><th>Total</th></tr></thead>
+    <tbody>
+      {{#each salesRows}}<tr><td>{{docNumber}}</td><td>{{date}}</td><td>{{client}}</td><td>{{base}}</td><td>{{tax}}</td><td>{{total}}</td></tr>{{/each}}
+    </tbody>
+    <tfoot><tr class="total-row"><td colspan="4">Total IVA Cobrado</td><td>{{totalSalesTax}}</td><td></td></tr></tfoot>
+  </table>
+  <h3>IVA Pagado (Compras)</h3>
+  <table>
+    <thead><tr><th>Documento</th><th>Fecha</th><th>Proveedor</th><th>Base</th><th>IVA</th><th>Total</th></tr></thead>
+    <tbody>
+      {{#each purchaseRows}}<tr><td>{{docNumber}}</td><td>{{date}}</td><td>{{vendor}}</td><td>{{base}}</td><td>{{tax}}</td><td>{{total}}</td></tr>{{/each}}
+    </tbody>
+    <tfoot><tr class="total-row"><td colspan="4">Total IVA Pagado</td><td>{{totalPurchaseTax}}</td><td></td></tr></tfoot>
+  </table>
+  <div class="summary">
+    <strong>Débito Fiscal:</strong> {{totalSalesTax}} | <strong>Crédito Fiscal:</strong> {{totalPurchaseTax}} | 
+    <strong>IVA a Pagar:</strong> {{ivaPayable}}
+  </div>
+  <div class="footer">Generado el {{generatedAt}}</div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/002-document-engine/plan.md
+at specs/004-b-frontend/plan.md
 <!-- SPECKIT END -->
 
 ## Project Conventions

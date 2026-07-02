@@ -3,6 +3,8 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+const DEMO_TENANT_ID = '188a33c7-a5f4-438d-8db5-468c2175c044';
+
 const PERMISSIONS = [
   { code: 'tenant.read', name: 'View tenant', module: 'tenant', action: 'read' },
   { code: 'tenant.update', name: 'Edit tenant', module: 'tenant', action: 'update' },
@@ -20,6 +22,34 @@ const PERMISSIONS = [
   { code: 'role.delete', name: 'Delete role', module: 'role', action: 'delete' },
   { code: 'role.assign', name: 'Assign role', module: 'role', action: 'assign' },
   { code: 'audit.read', name: 'View audit logs', module: 'audit', action: 'read' },
+  { code: 'reports:dashboard:view', name: 'View dashboard', module: 'reports', action: 'read' },
+  { code: 'reports:dashboard:manage', name: 'Manage dashboard widgets', module: 'reports', action: 'update' },
+  { code: 'reports:export:request', name: 'Request report export', module: 'reports', action: 'create' },
+  { code: 'reports:export:view', name: 'View export status', module: 'reports', action: 'read' },
+  { code: 'reports:history:view', name: 'View report history', module: 'reports', action: 'read' },
+  { code: 'reports:history:delete', name: 'Delete report history', module: 'reports', action: 'delete' },
+  { code: 'reports:definitions:view', name: 'View report definitions', module: 'reports', action: 'read' },
+  { code: 'reports:definitions:manage', name: 'Manage report definitions', module: 'reports', action: 'update' },
+  { code: 'reports:definitions:execute', name: 'Execute report definition', module: 'reports', action: 'create' },
+  { code: 'sales:commission:read', name: 'View commissions', module: 'sales', action: 'read' },
+  { code: 'sales:commission:pay', name: 'Pay commissions', module: 'sales', action: 'update' },
+  { code: 'inventory:transfer:create', name: 'Create stock transfer', module: 'inventory', action: 'create' },
+  { code: 'inventory:transfer:read', name: 'View stock transfers', module: 'inventory', action: 'read' },
+  { code: 'inventory:transfer:update', name: 'Complete/cancel transfer', module: 'inventory', action: 'update' },
+  { code: 'inventory:reorder-point:create', name: 'Set reorder point', module: 'inventory', action: 'create' },
+  { code: 'inventory:reorder-point:read', name: 'View reorder points', module: 'inventory', action: 'read' },
+  { code: 'inventory:reorder-point:update', name: 'Edit reorder point', module: 'inventory', action: 'update' },
+  { code: 'inventory:reorder-point:delete', name: 'Delete reorder point', module: 'inventory', action: 'delete' },
+  { code: 'cash-payments:bank-account:create', name: 'Create bank account', module: 'cash-payments', action: 'create' },
+  { code: 'cash-payments:bank-account:read', name: 'View bank accounts', module: 'cash-payments', action: 'read' },
+  { code: 'cash-payments:bank-account:update', name: 'Edit bank account', module: 'cash-payments', action: 'update' },
+  { code: 'cash-payments:bank-account:delete', name: 'Delete bank account', module: 'cash-payments', action: 'delete' },
+  { code: 'employee:department:create', name: 'Create department', module: 'employee', action: 'create' },
+  { code: 'employee:department:read', name: 'View departments', module: 'employee', action: 'read' },
+  { code: 'employee:department:update', name: 'Edit department', module: 'employee', action: 'update' },
+  { code: 'employee:department:delete', name: 'Delete department', module: 'employee', action: 'delete' },
+  { code: 'employee:salary:create', name: 'Create salary entry', module: 'employee', action: 'create' },
+  { code: 'employee:salary:read', name: 'View salary history', module: 'employee', action: 'read' },
 ];
 
 async function main() {
@@ -34,6 +64,59 @@ async function main() {
   }
 
   console.log(`Seeded ${PERMISSIONS.length} permissions`);
+
+  const tenant = await prisma.tenant.upsert({
+    where: { id: DEMO_TENANT_ID },
+    update: { enabledModules: ['reports', 'sales', 'inventory', 'purchasing', 'cash', 'clients', 'vendors', 'localization', 'employees'] },
+    create: {
+      id: DEMO_TENANT_ID,
+      legalName: 'Demo Company',
+      taxId: 'J-123456789',
+      enabledModules: ['reports', 'sales', 'inventory', 'purchasing', 'cash', 'clients', 'vendors', 'localization', 'employees'],
+    },
+  });
+  console.log(`Seeded tenant: ${tenant.id}`);
+
+  const passwordHash = await bcrypt.hash('TempPass123!', 10);
+  const user = await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: DEMO_TENANT_ID, email: 'admin@demo.com' } },
+    update: {},
+    create: {
+      tenantId: DEMO_TENANT_ID,
+      email: 'admin@demo.com',
+      passwordHash,
+      name: 'Admin Demo',
+      locale: 'es',
+    },
+  });
+  console.log(`Seeded user: ${user.email}`);
+
+  const adminRole = await prisma.role.upsert({
+    where: { tenantId_name: { tenantId: DEMO_TENANT_ID, name: 'Admin' } },
+    update: {},
+    create: {
+      tenantId: DEMO_TENANT_ID,
+      name: 'Admin',
+      isSystem: true,
+    },
+  });
+
+  const allPermissions = await prisma.permission.findMany();
+  for (const perm of allPermissions) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: adminRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: adminRole.id, permissionId: perm.id },
+    });
+  }
+  console.log(`Assigned ${allPermissions.length} permissions to Admin role`);
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: adminRole.id } },
+    update: {},
+    create: { userId: user.id, roleId: adminRole.id },
+  });
+  console.log(`Assigned Admin role to user ${user.email}`);
 }
 
 main()

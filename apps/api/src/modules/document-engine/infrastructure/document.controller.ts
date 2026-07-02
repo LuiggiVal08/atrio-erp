@@ -15,11 +15,14 @@ import { TransitionDocumentDto, SubmitDocumentDto, ApproveDocumentDto, RejectDoc
 import { QueryDocumentDto } from './dto/query-document.dto';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
 import { RbacGuard } from '@/common/auth/rbac.guard';
+import { ModuleEnabledGuard } from '@/common/guards/module-enabled.guard';
 import { RequirePermission } from '@/common/auth/require-permission.decorator';
+import { RequireModule } from '@/common/guards/require-module.decorator';
 
 @ApiTags('Documents')
 @Controller()
-@UseGuards(JwtAuthGuard, RbacGuard)
+@UseGuards(JwtAuthGuard, RbacGuard, ModuleEnabledGuard)
+@RequireModule('documents')
 @ApiBearerAuth()
 export class DocumentController {
   constructor(
