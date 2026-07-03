@@ -11,6 +11,9 @@ import { FichaTerceroView } from './views/FichaTerceroView';
 import { FiscalConfigView } from './views/FiscalConfigView';
 import { EmployeeListView } from './views/EmployeeListView';
 import { EmployeeFormView } from './views/EmployeeFormView';
+import { EmployeeDetailView } from './views/EmployeeDetailView';
+import { DepartmentListView } from './views/DepartmentListView';
+import { CurrencyRateListView } from './views/CurrencyRateListView';
 
 export function InventoryModule() {
   const { setModules } = useSidebarStore();
@@ -68,7 +71,10 @@ export function InventoryModule() {
       <Route path="fiscal" element={<FiscalConfigView />} />
       <Route path="employees" element={<EmployeeListView />} />
       <Route path="employees/new" element={<EmployeeFormView />} />
+      <Route path="employees/:id" element={<EmployeeDetailView />} />
       <Route path="employees/:id/edit" element={<EmployeeFormView />} />
+      <Route path="departments" element={<DepartmentListView />} />
+      <Route path="currency-rates" element={<CurrencyRateListView />} />
       <Route path="*" element={<Navigate to="/inventory" replace />} />
     </Routes>
   );

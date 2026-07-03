@@ -92,6 +92,13 @@
       "rate": "Rate %",
       "category": "Category",
       "exempt": "Exempt"
+    },
+    "currencyRate": {
+      "create": "Add rate",
+      "from": "From",
+      "to": "To",
+      "rate": "Rate",
+      "date": "Date"
     }
   },
   "crm": {
@@ -112,6 +119,7 @@
   },
   "hr": {
     "title": "Employees",
+    "departments": "Departments",
     "employee": {
       "create": "Register employee",
       "edit": "Edit employee",
@@ -121,7 +129,20 @@
       "branch": "Branch",
       "status": "Status",
       "active": "Active",
-      "inactive": "Inactive"
+      "inactive": "Inactive",
+      "back": "Back to employees"
+    },
+    "department": {
+      "create": "Create department",
+      "name": "Name",
+      "code": "Code"
+    },
+    "salary": {
+      "title": "Salary History",
+      "create": "Add salary entry",
+      "amount": "Salary amount",
+      "currency": "Currency",
+      "effectiveDate": "Effective date"
     }
   },
   "cash": {

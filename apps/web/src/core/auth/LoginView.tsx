@@ -41,7 +41,7 @@ export function LoginView() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-xl border border-border bg-surface p-8 shadow-lg"
       >
-        <h1 className="mb-6 text-center text-2xl font-bold text-text-primary">Atrio ERP</h1>
+        <img src="/logos/logotipo.png" alt="Atrio ERP" className="mx-auto mb-6 h-16 w-auto" />
         {error && (
           <div className="mb-4 rounded-lg bg-error/10 px-4 py-2 text-sm text-error">
             {error}

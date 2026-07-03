@@ -92,6 +92,13 @@
       "rate": "Tasa %",
       "category": "Categoría",
       "exempt": "Exento"
+    },
+    "currencyRate": {
+      "create": "Agregar tasa",
+      "from": "Desde",
+      "to": "Hasta",
+      "rate": "Tasa",
+      "date": "Fecha"
     }
   },
   "crm": {
@@ -112,6 +119,7 @@
   },
   "hr": {
     "title": "Empleados",
+    "departments": "Departamentos",
     "employee": {
       "create": "Registrar empleado",
       "edit": "Editar empleado",
@@ -121,7 +129,20 @@
       "branch": "Sucursal",
       "status": "Estado",
       "active": "Activo",
-      "inactive": "Inactivo"
+      "inactive": "Inactivo",
+      "back": "Volver a empleados"
+    },
+    "department": {
+      "create": "Crear departamento",
+      "name": "Nombre",
+      "code": "Código"
+    },
+    "salary": {
+      "title": "Historial Salarial",
+      "create": "Agregar salario",
+      "amount": "Monto",
+      "currency": "Moneda",
+      "effectiveDate": "Fecha efectiva"
     }
   },
   "cash": {
