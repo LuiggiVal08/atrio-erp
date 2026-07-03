@@ -26,8 +26,8 @@ export function Header() {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-6">
       <div className="flex items-center gap-3 text-sm">
-        <img src="/logos/isologo.png" alt="Atrio" className="h-6 w-auto" />
-        <img src="/logos/logotipo.png" alt="Atrio ERP" className="h-6 w-auto opacity-70" />
+        <img src="/logos/isologo.png" alt="Atrio" className="h-6 w-auto drop-shadow-sm" />
+        <img src="/logos/logotipo.png" alt="Atrio ERP" className="h-6 w-auto opacity-70 drop-shadow-sm" />
         {breadcrumbs.map((crumb, i) => (
           <Fragment key={crumb.label}>
             {i > 0 && <ChevronRight size={14} className="text-text-secondary" />}

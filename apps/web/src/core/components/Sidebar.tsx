@@ -21,7 +21,7 @@ export function Sidebar() {
     >
       <div className="flex h-14 items-center justify-between border-b border-border px-4">
         {!isCollapsed && (
-          <img src="/logos/logotipo.png" alt="Atrio ERP" className="h-7 w-auto" />
+          <img src="/logos/logotipo.png" alt="Atrio ERP" className="h-7 w-auto drop-shadow-sm" />
         )}
         <button
           onClick={toggleCollapse}
