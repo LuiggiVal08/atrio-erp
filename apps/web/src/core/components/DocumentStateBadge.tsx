@@ -1,10 +1,10 @@
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useState } from 'react';
 
-export type DocumentStatus = 'draft' | 'approved' | 'paid' | 'cancelled' | 'received' | 'partial';
+export type DocumentStatus = 'draft' | 'pending' | 'approved' | 'paid' | 'cancelled' | 'received' | 'partial';
 
 export interface DocumentAction {
-  type: 'approve' | 'pay' | 'cancel' | 'receive' | 'complete';
+  type: 'approve' | 'pay' | 'cancel' | 'receive' | 'complete' | 'return' | 'edit' | 'delete';
   label: string;
   shortcut?: string;
   requiresConfirmation: boolean;

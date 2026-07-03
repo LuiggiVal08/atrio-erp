@@ -17,6 +17,7 @@ import { ClientVendorModule } from './modules/client-vendor/client-vendor.module
 import { LocalizationModule } from './modules/localization/localization.module';
 import { CashPaymentsModule } from './modules/cash-payments/cash-payments.module';
 import { SalesModule } from './modules/sales/sales.module';
+import { PosModule } from './modules/pos/pos.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { TenantScopeMiddleware } from './common/middleware/tenant-scope.middleware';
 
@@ -39,6 +40,7 @@ import { TenantScopeMiddleware } from './common/middleware/tenant-scope.middlewa
     LocalizationModule,
     CashPaymentsModule,
     SalesModule,
+    PosModule,
     PurchasingModule,
     ReportsModule,
   ],

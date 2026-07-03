@@ -8,7 +8,7 @@ export function useFiscalConfig() {
   return useQuery({
     queryKey: ['fiscalConfig'],
     queryFn: async () => {
-      const res = await api.get('/localization/config');
+      const res = await api.get('/localization/taxes');
       const data = res.data;
       if (data.taxRules) setTaxRules(data.taxRules);
       return data;

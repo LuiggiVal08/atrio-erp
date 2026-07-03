@@ -13,11 +13,11 @@ export class PrismaPurchasingRepository implements PurchasingRepository {
   }
 
   private mapReturn(r: any): PurchaseReturn {
-    return new PurchaseReturn(r.id, r.tenantId, r.purchaseOrderId, r.reason, r.total, r.returnedAt, r.createdAt);
+    return new PurchaseReturn(r.id, r.tenantId, r.purchaseOrderId, r.reason, r.subtotal, r.taxAmount, r.total, r.status, r.returnedAt, r.createdAt, r.updatedAt);
   }
 
-  async createOrder(data: { tenantId: string; documentId: string; vendorId: string; subtotal: number; taxAmount: number; total: number; currency: string; notes?: string }): Promise<PurchaseOrder> {
-    const r = await this.prisma.purchaseOrder.create({ data: { ...data, notes: data.notes ?? null } });
+  async createOrder(data: { tenantId: string; documentId: string; vendorId: string; subtotal: number; taxAmount: number; total: number; currency: string; notes?: string; expectedDate?: string }): Promise<PurchaseOrder> {
+    const r = await this.prisma.purchaseOrder.create({ data: { ...data, notes: data.notes ?? null, expectedDate: (data as any).expectedDate ? new Date((data as any).expectedDate) : undefined } });
     return this.map(r);
   }
 
@@ -46,7 +46,7 @@ export class PrismaPurchasingRepository implements PurchasingRepository {
     await this.prisma.purchaseOrder.deleteMany({ where: { id } });
   }
 
-  async createReturn(data: { tenantId: string; purchaseOrderId: string; reason: string; total: number }): Promise<PurchaseReturn> {
+  async createReturn(data: { tenantId: string; purchaseOrderId: string; reason: string; subtotal: number; taxAmount: number; total: number }): Promise<PurchaseReturn> {
     const r = await this.prisma.purchaseReturn.create({ data });
     return this.mapReturn(r);
   }
@@ -54,6 +54,26 @@ export class PrismaPurchasingRepository implements PurchasingRepository {
   async findReturnsByOrder(purchaseOrderId: string): Promise<PurchaseReturn[]> {
     const records = await this.prisma.purchaseReturn.findMany({ where: { purchaseOrderId }, orderBy: { createdAt: 'desc' } });
     return records.map(r => this.mapReturn(r));
+  }
+
+  async findReturnsByTenant(tenantId: string): Promise<PurchaseReturn[]> {
+    const records = await this.prisma.purchaseReturn.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
+    return records.map(r => this.mapReturn(r));
+  }
+
+  async findReturnById(id: string): Promise<PurchaseReturn | null> {
+    const r = await this.prisma.purchaseReturn.findUnique({ where: { id } });
+    if (!r) return null;
+    return this.mapReturn(r);
+  }
+
+  async updateReturnStatus(id: string, status: string): Promise<PurchaseReturn> {
+    const r = await this.prisma.purchaseReturn.update({ where: { id }, data: { status } });
+    return this.mapReturn(r);
+  }
+
+  async deleteReturn(id: string): Promise<void> {
+    await this.prisma.purchaseReturn.deleteMany({ where: { id } });
   }
 
   async findOrderLines(orderId: string): Promise<OrderLineInfo[]> {

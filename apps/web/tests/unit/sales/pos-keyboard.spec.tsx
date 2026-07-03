@@ -14,6 +14,37 @@ vi.mock('@/core/components/DocumentStateBadge', () => ({
   DocumentStateBadge: ({ status }: { status: string }) => <span>{status}</span>,
 }));
 
+vi.mock('@/modules/sales/hooks/usePosSessions', () => ({
+  useOpenSession: () => ({ mutateAsync: vi.fn() }),
+  useCloseSession: () => ({ mutateAsync: vi.fn() }),
+  useCurrentSession: () => ({ data: null }),
+}));
+
+vi.mock('@/modules/sales/hooks/useQuickSale', () => ({
+  useQuickSale: () => ({ mutateAsync: vi.fn() }),
+}));
+
+vi.mock('@/modules/sales/hooks/useProductSearch', () => ({
+  useProductSearch: () => ({ data: [], isLoading: false, isError: false }),
+}));
+
+vi.mock('@/modules/sales/store/pos-store', () => ({
+  usePOSStore: () => ({
+    items: [],
+    total: 0,
+    subtotal: 0,
+    paymentMethod: 'cash',
+    isBlockedByAudit: false,
+    isOffline: false,
+    searchQuery: '',
+    setSearchQuery: vi.fn(),
+    searchFocused: false,
+    setSearchFocused: vi.fn(),
+    addItem: vi.fn(),
+    clearCart: vi.fn(),
+  }),
+}));
+
 describe('POS keyboard context', () => {
   beforeEach(() => {
     cleanup();

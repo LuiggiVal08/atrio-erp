@@ -19,6 +19,7 @@ interface DocumentTimelineProps {
 
 const statusLabels: Record<DocumentStatus, string> = {
   draft: 'document.status.draft',
+  pending: 'document.status.pending',
   approved: 'document.status.approved',
   paid: 'document.status.paid',
   cancelled: 'document.status.cancelled',

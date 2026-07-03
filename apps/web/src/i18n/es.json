@@ -31,6 +31,7 @@
   "document": {
     "status": {
       "draft": "Borrador",
+      "pending": "Pendiente",
       "approved": "Aprobado",
       "paid": "Pagado",
       "cancelled": "Anulado",
@@ -42,7 +43,8 @@
       "pay": "Pagar",
       "cancel": "Anular",
       "receive": "Recibir",
-      "complete": "Completar"
+      "complete": "Completar",
+      "return": "Devolver"
     },
     "timeline": {
       "title": "Línea de tiempo",
@@ -55,6 +57,8 @@
     "products": "Productos",
     "categories": "Categorías",
     "warehouses": "Almacenes",
+    "transfers": "Transferencias",
+    "reorderPoints": "Puntos de reorden",
     "stock": "Stock",
     "product": {
       "create": "Crear producto",
@@ -259,9 +263,30 @@
     "totalCost": "Costo total nacionalizado",
     "costPerUnit": "Costo unitario",
     "emptyList": "Sin órdenes de compra",
+    "returns": "Devoluciones",
+    "createReturn": "Crear devolución",
+    "returnReason": "Motivo",
+    "returnTotal": "Total",
+    "returnStatus": "Estado",
+    "returnDate": "Fecha devolución",
+    "priceLists": "Listas de precio",
+    "createPriceList": "Nueva lista",
+    "editPriceList": "Editar lista",
+    "priceListName": "Nombre",
+    "priceListType": "Tipo",
+    "priceListCurrency": "Moneda",
+    "priceListValidFrom": "Válido desde",
+    "priceListValidTo": "Válido hasta",
+    "priceListItems": "Productos",
+    "priceListAddItem": "Agregar producto",
+    "priceListRemoveItem": "Eliminar",
+    "productId": "ID Producto",
+    "unitPrice": "Precio unitario",
     "statusLabels": {
       "draft": "Borrador",
+      "pending": "Pendiente",
       "approved": "Aprobada",
+      "partial": "Parcial",
       "received": "Recibida",
       "paid": "Pagada",
       "cancelled": "Anulada"

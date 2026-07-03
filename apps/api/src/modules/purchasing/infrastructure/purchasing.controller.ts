@@ -7,14 +7,18 @@ import { RequirePermission } from '@/common/auth/require-permission.decorator';
 import { RequireModule } from '@/common/guards/require-module.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PurchaseOrderService } from '../application/purchase-order.service';
-import { CreatePurchaseOrderDto, UpdatePurchaseOrderDto, CreatePurchaseReturnDto, ReceiveOrderDto } from './dto/purchasing.dto';
+import { PurchaseReturnService } from '../application/purchase-return.service';
+import { CreatePurchaseOrderDto, UpdatePurchaseOrderDto, UpdatePurchaseOrderStatusDto, CreatePurchaseReturnDto, UpdatePurchaseReturnStatusDto, ReceiveOrderDto } from './dto/purchasing.dto';
 
 @ApiTags('Purchasing')
 @Controller('purchasing')
 @UseGuards(JwtAuthGuard, RbacGuard, ModuleEnabledGuard)
 @RequireModule('purchasing')
 export class PurchasingController {
-  constructor(private readonly orderService: PurchaseOrderService) {}
+  constructor(
+    private readonly orderService: PurchaseOrderService,
+    private readonly returnService: PurchaseReturnService,
+  ) {}
 
   @Post('orders')
   @RequirePermission('purchasing:order:create')
@@ -77,5 +81,40 @@ export class PurchasingController {
   @ApiOperation({ summary: 'Complete partial receive' })
   async completeReceive(@Param('id') id: string) {
     return this.orderService.completeReceive(id);
+  }
+
+  @Patch('orders/:id/status')
+  @RequirePermission('purchasing:order:update')
+  @ApiOperation({ summary: 'Update purchase order status' })
+  async updateOrderStatus(@Param('id') id: string, @Body() dto: UpdatePurchaseOrderStatusDto) {
+    return this.orderService.update(id, { status: dto.status });
+  }
+
+  @Get('returns')
+  @RequirePermission('purchasing:return:read')
+  @ApiOperation({ summary: 'List purchase returns' })
+  async listReturns(@CurrentUser() user: any) {
+    return this.returnService.findAll(user.tenantId);
+  }
+
+  @Get('returns/:id')
+  @RequirePermission('purchasing:return:read')
+  @ApiOperation({ summary: 'Get purchase return by ID' })
+  async getReturn(@Param('id') id: string) {
+    return this.returnService.findById(id);
+  }
+
+  @Patch('returns/:id/status')
+  @RequirePermission('purchasing:return:update')
+  @ApiOperation({ summary: 'Update purchase return status' })
+  async updateReturnStatus(@Param('id') id: string, @Body() dto: UpdatePurchaseReturnStatusDto) {
+    return this.returnService.updateStatus(id, dto.status);
+  }
+
+  @Delete('returns/:id')
+  @RequirePermission('purchasing:return:delete')
+  @ApiOperation({ summary: 'Delete purchase return' })
+  async deleteReturn(@Param('id') id: string) {
+    return this.returnService.delete(id);
   }
 }

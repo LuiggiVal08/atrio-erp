@@ -21,9 +21,19 @@ export class ReturnLineDto {
 
 export class CreatePurchaseReturnDto {
   @IsString() reason!: string;
+  @IsNumber() @Min(0) subtotal!: number;
+  @IsNumber() @Min(0) taxAmount!: number;
   @IsNumber() @Min(0) total!: number;
   @IsArray() @ValidateNested({ each: true }) @ArrayMinSize(1) @Type(() => ReturnLineDto)
   lines!: ReturnLineDto[];
+}
+
+export class UpdatePurchaseReturnStatusDto {
+  @IsString() status!: string;
+}
+
+export class UpdatePurchaseOrderStatusDto {
+  @IsString() status!: string;
 }
 
 export class ReceiveLineDto {

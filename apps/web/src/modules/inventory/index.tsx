@@ -4,6 +4,9 @@ import { Package, Users, Building2, FileText, UserCog } from 'lucide-react';
 import { useSidebarStore } from '@/core/store/sidebar-store';
 import { InventoryListView } from './views/InventoryListView';
 import { InventoryFormView } from './views/InventoryFormView';
+import { WarehouseListView } from './views/WarehouseListView';
+import { TransferListView } from './views/TransferListView';
+import { ReorderPointListView } from './views/ReorderPointListView';
 import { FichaTerceroView } from './views/FichaTerceroView';
 import { FiscalConfigView } from './views/FiscalConfigView';
 import { EmployeeListView } from './views/EmployeeListView';
@@ -57,6 +60,9 @@ export function InventoryModule() {
       <Route index element={<InventoryListView />} />
       <Route path="new" element={<InventoryFormView />} />
       <Route path=":id/edit" element={<InventoryFormView />} />
+      <Route path="warehouses" element={<WarehouseListView />} />
+      <Route path="transfers" element={<TransferListView />} />
+      <Route path="reorder-points" element={<ReorderPointListView />} />
       <Route path="clients/:id" element={<FichaTerceroViewWrapper />} />
       <Route path="vendors/:id" element={<FichaTerceroViewWrapper />} />
       <Route path="fiscal" element={<FiscalConfigView />} />

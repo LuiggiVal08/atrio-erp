@@ -31,6 +31,7 @@
   "document": {
     "status": {
       "draft": "Draft",
+      "pending": "Pending",
       "approved": "Approved",
       "paid": "Paid",
       "cancelled": "Cancelled",
@@ -42,7 +43,8 @@
       "pay": "Pay",
       "cancel": "Cancel",
       "receive": "Receive",
-      "complete": "Complete"
+      "complete": "Complete",
+      "return": "Return"
     },
     "timeline": {
       "title": "Timeline",
@@ -55,6 +57,8 @@
     "products": "Products",
     "categories": "Categories",
     "warehouses": "Warehouses",
+    "transfers": "Transfers",
+    "reorderPoints": "Reorder points",
     "stock": "Stock",
     "product": {
       "create": "Create product",
@@ -259,9 +263,30 @@
     "totalCost": "Total landed cost",
     "costPerUnit": "Unit cost",
     "emptyList": "No purchase orders",
+    "returns": "Returns",
+    "createReturn": "Create return",
+    "returnReason": "Reason",
+    "returnTotal": "Total",
+    "returnStatus": "Status",
+    "returnDate": "Return date",
+    "priceLists": "Price lists",
+    "createPriceList": "New price list",
+    "editPriceList": "Edit price list",
+    "priceListName": "Name",
+    "priceListType": "Type",
+    "priceListCurrency": "Currency",
+    "priceListValidFrom": "Valid from",
+    "priceListValidTo": "Valid to",
+    "priceListItems": "Items",
+    "priceListAddItem": "Add item",
+    "priceListRemoveItem": "Remove",
+    "productId": "Product ID",
+    "unitPrice": "Unit price",
     "statusLabels": {
       "draft": "Draft",
+      "pending": "Pending",
       "approved": "Approved",
+      "partial": "Partial",
       "received": "Received",
       "paid": "Paid",
       "cancelled": "Cancelled"

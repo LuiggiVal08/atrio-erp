@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { usePOSStore, type ProductSearchResult } from '@/modules/sales/store/pos-store';
+import { useProductSearch } from '@/modules/sales/hooks/useProductSearch';
 
 interface ProductSearchProps {
   onSelect: (product: ProductSearchResult) => void;
@@ -10,19 +11,11 @@ export function ProductSearch({ onSelect }: ProductSearchProps) {
   const { t } = useTranslation();
   const { searchQuery, setSearchQuery, searchFocused, setSearchFocused } = usePOSStore();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [results, setResults] = useState<ProductSearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const { data: results, isLoading } = useProductSearch(debouncedQuery);
 
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setResults([]);
-      return;
-    }
-    setLoading(true);
-    const timer = setTimeout(() => {
-      setResults([]);
-      setLoading(false);
-    }, 300);
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 200);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -47,7 +40,7 @@ export function ProductSearch({ onSelect }: ProductSearchProps) {
     (product: ProductSearchResult) => {
       onSelect(product);
       setSearchQuery('');
-      setResults([]);
+      setDebouncedQuery('');
       inputRef.current?.focus();
     },
     [onSelect, setSearchQuery],
@@ -77,7 +70,7 @@ export function ProductSearch({ onSelect }: ProductSearchProps) {
         </svg>
         {searchQuery.length > 0 && (
           <button
-            onClick={() => { setSearchQuery(''); setResults([]); }}
+            onClick={() => { setSearchQuery(''); setDebouncedQuery(''); }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -89,13 +82,13 @@ export function ProductSearch({ onSelect }: ProductSearchProps) {
       {searchQuery.length < 2 && searchQuery.length > 0 && (
         <p className="mt-1 text-xs text-text-secondary">{t('sales.pos.searchEmpty')}</p>
       )}
-      {loading && (
+      {isLoading && (
         <div className="mt-1 flex items-center gap-2 px-1 py-2">
           <div className="h-3 w-3 animate-spin rounded-full border-2 border-accent border-t-transparent" />
           <span className="text-xs text-text-secondary">{t('common.loading')}</span>
         </div>
       )}
-      {results.length > 0 && (
+      {results && results.length > 0 && (
         <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-auto rounded-lg border border-border bg-surface shadow-lg">
           {results.map((product) => (
             <button
@@ -115,7 +108,7 @@ export function ProductSearch({ onSelect }: ProductSearchProps) {
           ))}
         </div>
       )}
-      {searchQuery.length >= 2 && !loading && results.length === 0 && (
+      {debouncedQuery.length >= 2 && !isLoading && results?.length === 0 && (
         <p className="mt-1 text-xs text-text-secondary">
           {t('sales.pos.noResults')} &quot;{searchQuery}&quot;
         </p>

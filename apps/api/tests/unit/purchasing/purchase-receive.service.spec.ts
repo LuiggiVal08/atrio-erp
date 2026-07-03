@@ -12,6 +12,10 @@ describe('PurchaseOrderService.receive', () => {
     deleteOrder: jest.fn(),
     createReturn: jest.fn(),
     findReturnsByOrder: jest.fn(),
+    findReturnsByTenant: jest.fn(),
+    findReturnById: jest.fn(),
+    updateReturnStatus: jest.fn(),
+    deleteReturn: jest.fn(),
     findOrderLines: jest.fn(),
     updateLineReceivedQuantity: jest.fn(),
   };

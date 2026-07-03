@@ -402,6 +402,25 @@ model CurrencyRate {
   @@map("currency_rates")
 }
 
+model PosSession {
+  id                String        @id @default(uuid()) @db.Uuid
+  tenantId          String        @map("tenant_id") @db.Uuid
+  cashRegisterId    String        @map("cash_register_id") @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  openingBalance    Float         @default(0) @map("opening_balance")
+  closingBalance    Float?        @map("closing_balance")
+  status            String        @default("open")
+  openedAt          DateTime      @default(now()) @map("opened_at")
+  closedAt          DateTime?     @map("closed_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  register CashRegister @relation(fields: [cashRegisterId], references: [id])
+
+  @@index([tenantId, status])
+  @@map("pos_sessions")
+}
+
 model CashRegister {
   id        String   @id @default(uuid()) @db.Uuid
   tenantId  String   @map("tenant_id") @db.Uuid
@@ -414,6 +433,7 @@ model CashRegister {
 
   tenant   Tenant         @relation(fields: [tenantId], references: [id])
   movements CashMovement[]
+  posSessions   PosSession[]
 
   @@map("cash_registers")
 }
@@ -542,9 +562,13 @@ model PurchaseReturn {
   tenantId        String   @map("tenant_id") @db.Uuid
   purchaseOrderId String   @map("purchase_order_id") @db.Uuid
   reason          String
+  subtotal        Float    @default(0)
+  taxAmount       Float    @default(0) @map("tax_amount")
   total           Float    @default(0)
+  status          String   @default("draft")
   returnedAt      DateTime @default(now()) @map("returned_at")
   createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@index([tenantId, purchaseOrderId])
   @@index([tenantId, createdAt(sort: Desc)])

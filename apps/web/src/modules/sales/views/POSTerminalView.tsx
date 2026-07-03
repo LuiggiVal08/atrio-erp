@@ -5,11 +5,21 @@ import { ProductSearch } from '@/modules/sales/components/ProductSearch';
 import { CartView } from '@/modules/sales/components/CartView';
 import { PaymentSelector } from '@/modules/sales/components/PaymentSelector';
 import { offlineQueue } from '@/modules/sales/services/offline-queue';
+import { useOpenSession, useCloseSession, useCurrentSession } from '@/modules/sales/hooks/usePosSessions';
+import { useQuickSale } from '@/modules/sales/hooks/useQuickSale';
 
 export function POSTerminalView() {
   const { t } = useTranslation();
   const { addItem, clearCart, isBlockedByAudit, isOffline, items, paymentMethod, setSearchFocused } = usePOSStore();
   const [showPayment, setShowPayment] = useState(false);
+  const [selectedRegister, setSelectedRegister] = useState<string>('');
+  const [warehouseId] = useState('default-warehouse');
+  const [clientId] = useState('default-client');
+
+  const openSessionMutation = useOpenSession();
+  const closeSessionMutation = useCloseSession();
+  const { data: currentSession } = useCurrentSession(selectedRegister || null);
+  const quickSaleMutation = useQuickSale();
 
   const handleSelectProduct = useCallback(
     (product: ProductSearchResult) => {
@@ -19,33 +29,62 @@ export function POSTerminalView() {
   );
 
   const handleConfirmPayment = useCallback(async () => {
+    if (!selectedRegister) return;
+
+    const saleItems = usePOSStore.getState().items.map((i) => ({
+      productId: i.productId,
+      warehouseId,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+    }));
+
     const tx = {
       id: crypto.randomUUID(),
       tenantId: 'tenant-id',
       branchId: 'branch-id',
-      items: usePOSStore.getState().items.map((i) => ({
-        id: i.id,
-        productId: i.productId,
-        productName: i.productName,
-        sku: i.sku,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        subtotal: i.subtotal,
-      })),
+      items: usePOSStore.getState().items.map((i) => ({ ...i })),
       total: usePOSStore.getState().total,
       paymentMethod: paymentMethod || 'cash',
       createdAt: new Date().toISOString(),
-      syncedAt: null,
+      syncedAt: null as string | null,
       retryCount: 0,
     };
 
     if (isOffline) {
       await offlineQueue.save(tx);
+    } else {
+      try {
+        await quickSaleMutation.mutateAsync({
+          clientId,
+          cashRegisterId: selectedRegister,
+          subtotal: usePOSStore.getState().subtotal,
+          taxAmount: 0,
+          total: usePOSStore.getState().total,
+          paymentMethod: paymentMethod || 'cash',
+          items: saleItems,
+        });
+      } catch {
+        await offlineQueue.save(tx);
+      }
     }
 
     clearCart();
     setShowPayment(false);
-  }, [paymentMethod, isOffline, clearCart]);
+  }, [paymentMethod, isOffline, clearCart, selectedRegister, warehouseId, clientId, quickSaleMutation]);
+
+  const handleOpenSession = useCallback(async () => {
+    if (!selectedRegister) return;
+    try {
+      await openSessionMutation.mutateAsync({ cashRegisterId: selectedRegister, openingBalance: 0 });
+    } catch {}
+  }, [selectedRegister, openSessionMutation]);
+
+  const handleCloseSession = useCallback(async () => {
+    if (!currentSession) return;
+    try {
+      await closeSessionMutation.mutateAsync({ id: currentSession.id, closingBalance: 0 });
+    } catch {}
+  }, [currentSession, closeSessionMutation]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -78,6 +117,15 @@ export function POSTerminalView() {
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-text-primary">{t('sales.pos.terminal')}</h1>
+          {currentSession ? (
+            <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400">
+              Session open
+            </span>
+          ) : selectedRegister ? (
+            <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
+              No open session
+            </span>
+          ) : null}
           {isOffline && (
             <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
               {t('sales.pos.offline')}
@@ -89,7 +137,32 @@ export function POSTerminalView() {
             </span>
           )}
         </div>
-        <span className="text-xs text-text-secondary">{t('sales.pos.shortcutHint')}</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={selectedRegister}
+            onChange={(e) => setSelectedRegister(e.target.value)}
+            placeholder="Register ID"
+            className="w-32 rounded border border-border bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+          />
+          {currentSession ? (
+            <button
+              onClick={handleCloseSession}
+              className="rounded border border-border px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
+            >
+              Close session
+            </button>
+          ) : (
+            <button
+              onClick={handleOpenSession}
+              disabled={!selectedRegister}
+              className="rounded bg-accent/10 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-50"
+            >
+              Open session
+            </button>
+          )}
+          <span className="text-xs text-text-secondary">{t('sales.pos.shortcutHint')}</span>
+        </div>
       </div>
 
       {isBlockedByAudit ? (

@@ -8,7 +8,7 @@ export function useEmployees() {
   return useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
-      const res = await api.get('/hr/employees');
+      const res = await api.get('/tenants/current/employees');
       const data = res.data;
       if (Array.isArray(data)) data.forEach((emp: any) => addEmployee(emp));
       return data;

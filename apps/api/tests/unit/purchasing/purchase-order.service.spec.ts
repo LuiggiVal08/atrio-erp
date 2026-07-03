@@ -12,6 +12,10 @@ describe('PurchaseOrderService', () => {
     deleteOrder: jest.fn(),
     createReturn: jest.fn(),
     findReturnsByOrder: jest.fn(),
+    findReturnsByTenant: jest.fn(),
+    findReturnById: jest.fn(),
+    updateReturnStatus: jest.fn(),
+    deleteReturn: jest.fn(),
     findOrderLines: jest.fn(),
     updateLineReceivedQuantity: jest.fn(),
   };
@@ -104,7 +108,7 @@ describe('PurchaseOrderService', () => {
       (mockRepo.createReturn as jest.Mock).mockResolvedValue({ id: 'ret-1', total: 200 });
 
       const result = await service.returnOrder('po-1', {
-        reason: 'Damaged', total: 200,
+        reason: 'Damaged', subtotal: 180, taxAmount: 20, total: 200,
         lines: [{ productId: 'p1', warehouseId: 'w1', quantity: 2, unitPrice: 100 }],
       });
 
@@ -114,7 +118,7 @@ describe('PurchaseOrderService', () => {
 
     it('should throw if order not received', async () => {
       (mockRepo.findOrderById as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'pending' });
-      await expect(service.returnOrder('po-1', { reason: 'Damaged', total: 200, lines: [] })).rejects.toThrow('Only received purchase orders can be returned');
+      await expect(service.returnOrder('po-1', { reason: 'Damaged', subtotal: 180, taxAmount: 20, total: 200, lines: [] })).rejects.toThrow('Only received purchase orders can be returned');
     });
   });
 

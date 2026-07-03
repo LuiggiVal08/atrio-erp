@@ -1,37 +1,56 @@
 import { useTranslation } from '@/shared/hooks/useTranslation';
-import { usePurchaseStore, type PurchaseOrder } from '@/modules/purchases/store/purchase-store';
+import { useNavigate } from 'react-router-dom';
+import { usePurchaseOrders, useApprovePurchaseOrder, useDeletePurchaseOrder, type PurchaseOrder } from '@/modules/purchases/hooks/usePurchaseOrders';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { DocumentStateBadge } from '@/core/components/DocumentStateBadge';
 
 export function PurchaseOrderListView() {
   const { t } = useTranslation();
-  const orders = usePurchaseStore((s) => s.orders);
+  const navigate = useNavigate();
+  const { data: orders, isLoading } = usePurchaseOrders();
+  const approveMutation = useApprovePurchaseOrder();
+  const deleteMutation = useDeletePurchaseOrder();
 
   const columns: GridColumn<PurchaseOrder>[] = [
-    { key: 'orderNumber', label: t('purchasing.orderNumber'), width: 120, sortable: true },
-    { key: 'vendorName', label: t('purchasing.vendor'), sortable: true },
-    { key: 'expectedDate', label: t('purchasing.expectedDate'), width: 130, sortable: true },
+    { key: 'documentId', label: t('purchasing.orderNumber'), width: 140, sortable: true },
+    { key: 'vendorId', label: t('purchasing.vendor'), sortable: true },
+    { key: 'expectedDate', label: t('purchasing.expectedDate'), width: 130, sortable: true,
+      render: (v) => v ? new Date(v as string).toLocaleDateString() : '-' },
+    { key: 'total', label: t('purchasing.totalCost'), width: 120, sortable: true, align: 'right',
+      render: (v) => (v as number).toLocaleString('es-VE', { minimumFractionDigits: 2 }) },
     {
       key: 'status',
       label: 'Status',
-      width: 130,
+      width: 150,
       sortable: true,
       render: (_, row) => (
         <DocumentStateBadge
-          status={row.status}
+          status={row.status as any}
           size="sm"
           allowedActions={
-            row.status === 'draft'
+            row.status === 'draft' || row.status === 'pending'
               ? [
-                  { type: 'approve' as const, label: t('document.actions.approve'), requiresConfirmation: true },
-                  { type: 'cancel' as const, label: t('document.actions.cancel'), requiresConfirmation: true },
+                  { type: 'approve', label: t('document.actions.approve'), requiresConfirmation: true },
+                  { type: 'edit', label: t('common.edit'), requiresConfirmation: false },
+                  { type: 'delete', label: t('common.delete'), requiresConfirmation: true },
                 ]
               : row.status === 'approved'
                 ? [
-                    { type: 'receive' as const, label: t('document.actions.receive'), requiresConfirmation: false },
+                    { type: 'receive', label: t('document.actions.receive'), requiresConfirmation: false },
                   ]
-                : undefined
+                : row.status === 'partial'
+                  ? [
+                      { type: 'complete', label: t('document.actions.complete'), requiresConfirmation: false },
+                    ]
+                  : undefined
           }
+          onAction={(action) => {
+            if (action.type === 'approve') approveMutation.mutate(row.id);
+            if (action.type === 'edit') navigate(`/purchasing/${row.id}`);
+            if (action.type === 'delete') deleteMutation.mutate(row.id);
+            if (action.type === 'receive') navigate(`/purchasing/${row.id}`);
+            if (action.type === 'complete') navigate(`/purchasing/${row.id}`);
+          }}
         />
       ),
     },
@@ -41,14 +60,24 @@ export function PurchaseOrderListView() {
     <div className="flex h-full flex-col p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-bold text-text-primary">{t('purchasing.title')}</h1>
-        <span className="text-xs text-text-secondary">
-          {orders.length} {t('purchasing.orders')}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-text-secondary">
+            {orders?.length ?? 0} {t('purchasing.orders')}
+          </span>
+          <button
+            onClick={() => navigate('/purchasing/new')}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            {t('purchasing.createOrder')}
+          </button>
+        </div>
       </div>
       <VirtualGrid
-        data={orders}
+        data={orders ?? []}
         columns={columns}
+        loading={isLoading}
         emptyMessage={t('purchasing.emptyList')}
+        onRowClick={(row) => navigate(`/purchasing/${row.id}`)}
       />
     </div>
   );
