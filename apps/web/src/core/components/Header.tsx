@@ -26,7 +26,8 @@ export function Header() {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-6">
       <div className="flex items-center gap-3 text-sm">
-        <img src="/logos/isologo.png" alt="Atrio" className="h-7 w-auto" />
+        <img src="/logos/isologo.png" alt="Atrio" className="h-6 w-auto" />
+        <img src="/logos/logotipo.png" alt="Atrio ERP" className="h-5 w-auto opacity-70" />
         {breadcrumbs.map((crumb, i) => (
           <Fragment key={crumb.label}>
             {i > 0 && <ChevronRight size={14} className="text-text-secondary" />}
@@ -40,9 +41,7 @@ export function Header() {
           </Fragment>
         ))}
       </div>
-      <div className="flex items-center gap-4">
-        <img src="/logos/logotipo.png" alt="Atrio ERP" className="h-6 w-auto opacity-60" />
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <ThemeSwitcher />
         <button className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover">
           <Search size={14} />
@@ -78,7 +77,6 @@ export function Header() {
               </div>
             )}
           </div>
-        </div>
         </div>
       </div>
     </header>
