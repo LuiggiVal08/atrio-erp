@@ -20,9 +20,11 @@ export function Sidebar() {
       }`}
     >
       <div className="flex h-14 items-center justify-between border-b border-border px-4">
-        {!isCollapsed && (
-          <span className="text-sm font-bold tracking-tight text-text-primary">Atrio</span>
-        )}
+        <img
+          src="/logos/isologo.png"
+          alt="Atrio"
+          className={`h-7 w-auto ${isCollapsed ? 'mx-auto' : ''}`}
+        />
         <button
           onClick={toggleCollapse}
           className="rounded-md p-1.5 text-text-secondary hover:bg-surface-hover"
