@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../sgp/frontend/src/features/auth/views"
+		}
+	],
+    "settings": {}
+}

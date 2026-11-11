@@ -15,3 +15,21 @@ Thumbs.db
 .vscode/
 .idea/
 *.bak
+.opencode/memory/
+
+# Local tooling state (not versioned)
+.codegraph/
+.codex/
+.cursor/
+.gemini/
+.impeccable/
+.taste-skill/
+.toon-memory/
+
+# Runtime artifacts / accidental copies
+apps/api/apps/
+apps/api/uploads/
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/pnpm-lock.yaml
+apps/web/pnpm-workspace.yaml

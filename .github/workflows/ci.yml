@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  api:
+    name: API — TypeCheck + Tests + Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: atrio_erp
+          POSTGRES_USER: atrio
+          POSTGRES_PASSWORD: atrio_dev_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: apps/api
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/api/package-lock.json
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://atrio:atrio_dev_pass@localhost:5432/atrio_erp?schema=public
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Unit + Contract tests (fast gate)
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://atrio:atrio_dev_pass@localhost:5432/atrio_erp?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: change-me-in-production
+          JWT_EXPIRATION: 15m
+
+      - name: Integration tests
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://atrio:atrio_dev_pass@localhost:5432/atrio_erp?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: change-me-in-production
+          JWT_EXPIRATION: 15m
+
+      - name: Migration tests
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        run: npm run test:migrations
+        env:
+          DATABASE_URL: postgresql://atrio:atrio_dev_pass@localhost:5432/atrio_erp?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: change-me-in-production
+          JWT_EXPIRATION: 15m
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://atrio:atrio_dev_pass@localhost:5432/atrio_erp?schema=public
+
+  web:
+    name: Web — TypeCheck + Tests + Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+
+      - run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npx vitest --run
+
+      - name: Build
+        run: npm run build
