@@ -26,15 +26,15 @@ export function PriceListListView() {
     { key: 'name', label: t('purchasing.priceListName'), sortable: true },
     { key: 'type', label: t('purchasing.priceListType'), width: 100 },
     { key: 'currency', label: t('purchasing.priceListCurrency'), width: 80 },
-    { key: 'isActive', label: 'Active', width: 70,
-      render: (v) => v ? 'Yes' : 'No' },
+    { key: 'isActive', label: t('purchasing.priceListActive'), width: 70,
+      render: (v) => v ? t('common.yes') : t('common.no') },
     { key: 'createdAt', label: t('reports.history.date'), width: 130,
       render: (v) => new Date(v as string).toLocaleDateString() },
   ];
 
   return (
-    <div className="flex h-full flex-col p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="text-lg font-bold text-text-primary">{t('purchasing.priceLists')}</h1>
         <button
           onClick={() => setShowForm(!showForm)}
@@ -43,7 +43,7 @@ export function PriceListListView() {
           {t('purchasing.createPriceList')}
         </button>
       </div>
-
+      <div className="flex-1 overflow-auto p-6">
       {showForm && (
         <form onSubmit={handleCreate} className="mb-4 flex items-end gap-3 rounded-xl border border-border bg-surface p-4">
           <div className="flex-1">
@@ -63,8 +63,8 @@ export function PriceListListView() {
               onChange={(e) => setType(e.target.value)}
               className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
             >
-              <option value="purchase">Purchase</option>
-              <option value="sale">Sale</option>
+              <option value="purchase">{t('purchasing.priceListTypes.purchase')}</option>
+              <option value="sale">{t('purchasing.priceListTypes.sale')}</option>
             </select>
           </div>
           <button
@@ -81,9 +81,10 @@ export function PriceListListView() {
         data={priceLists ?? []}
         columns={columns}
         loading={isLoading}
-        emptyMessage="No price lists"
+        emptyMessage={t('purchasing.priceListEmpty')}
         onRowClick={(row) => navigate(`/purchasing/price-lists/${row.id}`)}
       />
+      </div>
     </div>
   );
 }

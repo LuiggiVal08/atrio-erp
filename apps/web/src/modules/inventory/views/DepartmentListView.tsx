@@ -32,10 +32,12 @@ export function DepartmentListView() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
-      <h1 className="text-lg font-bold text-text-primary">{t('hr.departments')}</h1>
-
-      <div className="rounded-lg border border-border bg-surface p-6">
+    <div className="mx-auto flex h-full max-w-3xl flex-col">
+      <div className="flex items-center justify-between border-b border-border px-6 py-3">
+        <h1 className="text-lg font-bold text-text-primary">{t('hr.departments')}</h1>
+      </div>
+      <div className="flex-1 overflow-auto space-y-6 p-6">
+        <div className="rounded-lg border border-border bg-surface p-6">
         <h2 className="mb-4 text-sm font-bold text-text-primary">{t('hr.department.create')}</h2>
         <div className="flex gap-3">
           <input
@@ -61,6 +63,7 @@ export function DepartmentListView() {
       </div>
 
       <VirtualGrid columns={columns} data={departments} loading={isLoading} emptyMessage={t('common.noResults')} />
+      </div>
     </div>
   );
 }

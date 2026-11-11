@@ -11,23 +11,22 @@ export function FiscalConfigView() {
 
   const [name, setName] = useState('');
   const [rate, setRate] = useState('');
-  const [category, setCategory] = useState('general');
-  const [isExempt, setIsExempt] = useState(false);
+  const [type, setType] = useState<'percentage' | 'fixed'>('percentage');
 
   const handleAdd = () => {
     if (!name.trim() || !rate) return;
-    createTax.mutate({ name: name.trim(), rate: Number(rate) / 100, category, isExempt });
+    createTax.mutate({ name: name.trim(), rate: Number(rate) / 100, type });
     setName('');
     setRate('');
-    setIsExempt(false);
+    setType('percentage');
   };
 
   const columns: GridColumn<Tax>[] = [
     { key: 'name', label: t('localization.tax.name'), sortable: true },
     { key: 'rate', label: t('localization.tax.rate'), width: 100, align: 'right', render: (v) => `${(Number(v) * 100).toFixed(2)}%` },
-    { key: 'category', label: t('localization.tax.category'), width: 120 },
+    { key: 'type', label: 'Tipo', width: 120 },
     {
-      key: 'isExempt', label: t('localization.tax.exempt'), width: 100,
+      key: 'isActive', label: 'Activo', width: 80,
       render: (v) => (v ? '✓' : '—'),
     },
   ];
@@ -37,12 +36,14 @@ export function FiscalConfigView() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
-      <h1 className="text-lg font-bold text-text-primary">{t('localization.title')}</h1>
-
-      <div className="rounded-lg border border-border bg-surface p-6">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border px-6 py-3">
+        <h1 className="text-lg font-bold text-text-primary">{t('localization.title')}</h1>
+      </div>
+      <div className="flex-1 overflow-auto space-y-6 p-6">
+        <div className="rounded-lg border border-border bg-surface p-6">
         <h2 className="mb-4 text-sm font-bold text-text-primary">{t('localization.tax.create')}</h2>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -57,18 +58,13 @@ export function FiscalConfigView() {
             className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
           />
           <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            value={type}
+            onChange={(e) => setType(e.target.value as 'percentage' | 'fixed')}
             className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
           >
-            <option value="general">General</option>
-            <option value="reduced">Reduced</option>
-            <option value="luxury">Luxury</option>
+            <option value="percentage">Porcentaje</option>
+            <option value="fixed">Monto fijo</option>
           </select>
-          <label className="flex items-center gap-2 text-sm text-text-secondary">
-            <input type="checkbox" checked={isExempt} onChange={(e) => setIsExempt(e.target.checked)} />
-            {t('localization.tax.exempt')}
-          </label>
           <button
             onClick={handleAdd}
             disabled={createTax.isPending}
@@ -79,7 +75,10 @@ export function FiscalConfigView() {
         </div>
       </div>
 
-      <VirtualGrid columns={columns} data={taxes} loading={isLoading} emptyMessage={t('common.noResults')} />
+      <div className="rounded-xl border border-border bg-surface p-4">
+        <VirtualGrid columns={columns} data={taxes} loading={isLoading} emptyMessage={t('common.noResults')} />
+      </div>
+      </div>
     </div>
   );
 }

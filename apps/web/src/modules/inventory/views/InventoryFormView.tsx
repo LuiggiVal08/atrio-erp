@@ -40,8 +40,8 @@ export function InventoryFormView() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl p-6" onKeyDown={handleKeyDown}>
-      <div className="mb-6 flex items-center justify-between">
+    <div className="mx-auto flex h-full max-w-2xl flex-col" onKeyDown={handleKeyDown}>
+      <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="text-lg font-bold text-text-primary">{t('inventory.product.edit')}</h1>
         <DocumentStateBadge
           status={status}
@@ -53,8 +53,8 @@ export function InventoryFormView() {
           size="lg"
         />
       </div>
-
-      <div className="space-y-4 rounded-lg border border-border bg-surface p-6">
+      <div className="flex-1 overflow-auto p-6">
+        <div className="space-y-4 rounded-lg border border-border bg-surface p-6">
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-text-secondary">{t('inventory.product.sku')}</label>
           <input
@@ -86,6 +86,7 @@ export function InventoryFormView() {
 
       <div className="mt-6">
         <DocumentTimeline entries={timeline} />
+      </div>
       </div>
     </div>
   );

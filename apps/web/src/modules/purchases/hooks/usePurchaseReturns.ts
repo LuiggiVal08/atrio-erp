@@ -11,6 +11,11 @@ export interface PurchaseReturn {
   total: number;
   status: string;
   returnedAt: string;
+  reasonCode?: string;
+  resolution?: string;
+  supplierCreditNo?: string;
+  warehouseId?: string;
+  lines?: Array<{ productId: string; warehouseId: string; quantity: number; unitPrice: number }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,7 +45,11 @@ export function useCreatePurchaseReturn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ orderId, ...data }: { orderId: string; reason: string; subtotal: number; taxAmount: number; total: number; lines: Array<{ productId: string; warehouseId: string; quantity: number; unitPrice: number }> }) => {
+    mutationFn: async ({ orderId, ...data }: {
+      orderId: string; reason: string; reasonCode?: string; resolution?: string; supplierCreditNo?: string; warehouseId?: string;
+      subtotal: number; taxAmount: number; total: number;
+      lines: Array<{ productId: string; warehouseId: string; quantity: number; unitPrice: number }>;
+    }) => {
       const res = await api.post(`/purchasing/orders/${orderId}/return`, data);
       return res.data;
     },

@@ -4,8 +4,9 @@ import api from '@/shared/lib/api/client';
 export interface PaymentMethod {
   id: string;
   name: string;
-  type: string;
-  commissionRate?: number;
+  type: 'cash' | 'digital' | 'card' | 'other';
+  currency?: string;
+  commissionRate: number | null;
   isActive: boolean;
 }
 

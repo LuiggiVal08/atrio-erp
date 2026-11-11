@@ -57,8 +57,8 @@ export function PurchaseOrderListView() {
   ];
 
   return (
-    <div className="flex h-full flex-col p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="text-lg font-bold text-text-primary">{t('purchasing.title')}</h1>
         <div className="flex items-center gap-3">
           <span className="text-xs text-text-secondary">
@@ -72,6 +72,7 @@ export function PurchaseOrderListView() {
           </button>
         </div>
       </div>
+      <div className="flex-1 overflow-auto p-6">
       <VirtualGrid
         data={orders ?? []}
         columns={columns}
@@ -79,6 +80,7 @@ export function PurchaseOrderListView() {
         emptyMessage={t('purchasing.emptyList')}
         onRowClick={(row) => navigate(`/purchasing/${row.id}`)}
       />
+      </div>
     </div>
   );
 }

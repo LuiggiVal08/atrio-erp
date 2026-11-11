@@ -51,7 +51,6 @@ export function useDashboardSummary() {
       const res = await api.get('/reports/dashboard/summary');
       return res.data;
     },
-    refetchInterval: 60_000,
   });
 }
 

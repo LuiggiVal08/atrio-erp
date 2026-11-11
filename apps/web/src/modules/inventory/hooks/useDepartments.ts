@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
 
 export interface Department {
   id: string;
@@ -8,23 +9,28 @@ export interface Department {
   isActive: boolean;
 }
 
-const TENANT_ID = '188a33c7-a5f4-438d-8db5-468c2175c044';
+function useTenantId() {
+  return useTenantStore.getState().activeTenantId;
+}
 
 export function useDepartments() {
+  const tenantId = useTenantId();
   return useQuery({
-    queryKey: ['departments'],
+    queryKey: ['departments', tenantId],
     queryFn: async () => {
-      const res = await api.get(`/tenants/${TENANT_ID}/departments`);
+      const res = await api.get(`/tenants/${tenantId}/departments`);
       return res.data as Department[];
     },
+    enabled: !!tenantId,
   });
 }
 
 export function useCreateDepartment() {
   const qc = useQueryClient();
+  const tenantId = useTenantId();
   return useMutation({
     mutationFn: async (data: { name: string; code: string }) => {
-      const res = await api.post(`/tenants/${TENANT_ID}/departments`, data);
+      const res = await api.post(`/tenants/${tenantId}/departments`, data);
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['departments'] }),

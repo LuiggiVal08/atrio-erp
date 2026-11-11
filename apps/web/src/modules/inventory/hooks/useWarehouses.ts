@@ -4,7 +4,13 @@ import api from '@/shared/lib/api/client';
 export interface Warehouse {
   id: string;
   name: string;
+  branchId: string | null;
+  code: string | null;
   isActive: boolean;
+  aisle?: string | null;
+  shelf?: string | null;
+  level?: string | null;
+  bin?: string | null;
   createdAt: string;
 }
 

@@ -34,3 +34,20 @@ export function useCreateCurrencyRate() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['currency-rates'] }),
   });
 }
+
+export function useSyncCurrencyRate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { fromCurrency: string; toCurrency: string; providerIds?: string[] }) => {
+      const res = await api.post('/localization/currency-rates/sync', data);
+      return res.data as {
+        provider: string;
+        fromCurrency: string;
+        toCurrency: string;
+        rate: number;
+        date: string;
+      };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['currency-rates'] }),
+  });
+}

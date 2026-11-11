@@ -12,7 +12,11 @@ interface CashMovement {
 interface CreateMovementInput {
   type: 'in' | 'out';
   amount: number;
+  currency?: string;
+  exchangeRate?: number;
   description?: string;
+  category?: string;
+  receiptName?: string;
 }
 
 export function useCashMovements(registerId: string) {
@@ -36,6 +40,8 @@ export function useCreateCashMovement(registerId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-movements', registerId] });
+      queryClient.invalidateQueries({ queryKey: ['cash-register-detail', registerId] });
+      queryClient.invalidateQueries({ queryKey: ['cash-registers'] });
     },
   });
 }

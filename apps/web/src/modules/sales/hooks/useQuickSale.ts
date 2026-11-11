@@ -10,6 +10,15 @@ export interface QuickSaleInput {
   currency?: string;
   notes?: string;
   paymentMethod: string;
+  paymentAllocations?: Array<{
+    method: string;
+    amount: number;
+    currency: string;
+    exchangeRate: number;
+    bankName?: string;
+    reference?: string;
+    details?: string;
+  }>;
   items: Array<{
     productId: string;
     warehouseId: string;
@@ -29,6 +38,8 @@ export function useQuickSale() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['cash-movements'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-register-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-registers'] });
     },
   });
 }

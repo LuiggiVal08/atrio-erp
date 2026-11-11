@@ -4,6 +4,7 @@ import api from '@/shared/lib/api/client';
 export interface CashRegister {
   id: string;
   name: string;
+  location?: string;
   currency: string;
   balance: number;
   isActive: boolean;

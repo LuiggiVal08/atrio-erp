@@ -39,7 +39,7 @@ export function KpiCard({ title, value, change, icon: Icon, color = 'accent' }: 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4"
+      className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-surface p-4"
     >
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-text-secondary">{title}</span>

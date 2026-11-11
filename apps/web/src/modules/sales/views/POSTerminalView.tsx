@@ -5,8 +5,10 @@ import { ProductSearch } from '@/modules/sales/components/ProductSearch';
 import { CartView } from '@/modules/sales/components/CartView';
 import { PaymentSelector } from '@/modules/sales/components/PaymentSelector';
 import { offlineQueue } from '@/modules/sales/services/offline-queue';
-import { useOpenSession, useCloseSession, useCurrentSession } from '@/modules/sales/hooks/usePosSessions';
+import { useCurrentSession } from '@/modules/sales/hooks/usePosSessions';
 import { useQuickSale } from '@/modules/sales/hooks/useQuickSale';
+import { useCashRegisters } from '@/modules/cash/hooks/useCashRegisters';
+import { useNavigate } from 'react-router-dom';
 
 export function POSTerminalView() {
   const { t } = useTranslation();
@@ -16,10 +18,10 @@ export function POSTerminalView() {
   const [warehouseId] = useState('default-warehouse');
   const [clientId] = useState('default-client');
 
-  const openSessionMutation = useOpenSession();
-  const closeSessionMutation = useCloseSession();
+  const navigate = useNavigate();
   const { data: currentSession } = useCurrentSession(selectedRegister || null);
   const quickSaleMutation = useQuickSale();
+  const { data: registers = [] } = useCashRegisters();
 
   const handleSelectProduct = useCallback(
     (product: ProductSearchResult) => {
@@ -30,6 +32,7 @@ export function POSTerminalView() {
 
   const handleConfirmPayment = useCallback(async () => {
     if (!selectedRegister) return;
+    const paymentAllocations = usePOSStore.getState().paymentAllocations;
 
     const saleItems = usePOSStore.getState().items.map((i) => ({
       productId: i.productId,
@@ -45,6 +48,7 @@ export function POSTerminalView() {
       items: usePOSStore.getState().items.map((i) => ({ ...i })),
       total: usePOSStore.getState().total,
       paymentMethod: paymentMethod || 'cash',
+      paymentAllocations,
       createdAt: new Date().toISOString(),
       syncedAt: null as string | null,
       retryCount: 0,
@@ -71,20 +75,6 @@ export function POSTerminalView() {
     clearCart();
     setShowPayment(false);
   }, [paymentMethod, isOffline, clearCart, selectedRegister, warehouseId, clientId, quickSaleMutation]);
-
-  const handleOpenSession = useCallback(async () => {
-    if (!selectedRegister) return;
-    try {
-      await openSessionMutation.mutateAsync({ cashRegisterId: selectedRegister, openingBalance: 0 });
-    } catch {}
-  }, [selectedRegister, openSessionMutation]);
-
-  const handleCloseSession = useCallback(async () => {
-    if (!currentSession) return;
-    try {
-      await closeSessionMutation.mutateAsync({ id: currentSession.id, closingBalance: 0 });
-    } catch {}
-  }, [currentSession, closeSessionMutation]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -119,11 +109,11 @@ export function POSTerminalView() {
           <h1 className="text-lg font-bold text-text-primary">{t('sales.pos.terminal')}</h1>
           {currentSession ? (
             <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400">
-              Session open
+              {t('sales.pos.sessionOpen')}
             </span>
           ) : selectedRegister ? (
             <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
-              No open session
+              {t('sales.pos.noOpenSession')}
             </span>
           ) : null}
           {isOffline && (
@@ -138,27 +128,29 @@ export function POSTerminalView() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="text"
+          <select
             value={selectedRegister}
             onChange={(e) => setSelectedRegister(e.target.value)}
-            placeholder="Register ID"
             className="w-32 rounded border border-border bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
-          />
+          >
+            <option value="">Caja</option>
+            {registers.filter((register) => register.isActive).map((register) => (
+              <option key={register.id} value={register.id}>{register.name}</option>
+            ))}
+          </select>
           {currentSession ? (
             <button
-              onClick={handleCloseSession}
+              onClick={() => navigate('/cash')}
               className="rounded border border-border px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
             >
-              Close session
+              Arqueo y cierre
             </button>
           ) : (
             <button
-              onClick={handleOpenSession}
-              disabled={!selectedRegister}
-              className="rounded bg-accent/10 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-50"
+              onClick={() => navigate('/cash/registers')}
+              className="rounded bg-accent/10 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/20"
             >
-              Open session
+              Revisar caja
             </button>
           )}
           <span className="text-xs text-text-secondary">{t('sales.pos.shortcutHint')}</span>

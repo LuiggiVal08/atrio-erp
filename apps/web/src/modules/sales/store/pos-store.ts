@@ -10,7 +10,17 @@ export interface POSLineItem {
   subtotal: number;
 }
 
-export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'mixed';
+export type PaymentMethod = 'cash' | 'digital' | 'card' | 'other';
+
+export interface PaymentAllocation {
+  method: PaymentMethod;
+  amount: number;
+  currency: string;
+  exchangeRate: number;
+  bankName?: string;
+  reference?: string;
+  details?: string;
+}
 
 export interface ProductSearchResult {
   id: string;
@@ -26,6 +36,7 @@ interface POSState {
   taxTotal: number;
   discountTotal: number;
   paymentMethod: PaymentMethod | null;
+  paymentAllocations: PaymentAllocation[];
   isOffline: boolean;
   isBlockedByAudit: boolean;
   searchQuery: string;
@@ -35,6 +46,7 @@ interface POSState {
   removeItem: (lineId: string) => void;
   updateQuantity: (lineId: string, qty: number) => void;
   setPaymentMethod: (method: PaymentMethod | null) => void;
+  setPaymentAllocations: (allocations: PaymentAllocation[]) => void;
   clearCart: () => void;
   setSearchQuery: (q: string) => void;
   setSearchFocused: (focused: boolean) => void;
@@ -56,6 +68,7 @@ export const usePOSStore = create<POSState>((set) => ({
   taxTotal: 0,
   discountTotal: 0,
   paymentMethod: null,
+  paymentAllocations: [],
   isOffline: false,
   isBlockedByAudit: false,
   searchQuery: '',
@@ -107,6 +120,7 @@ export const usePOSStore = create<POSState>((set) => ({
     }),
 
   setPaymentMethod: (method) => set({ paymentMethod: method }),
+  setPaymentAllocations: (allocations) => set({ paymentAllocations: allocations }),
 
   clearCart: () =>
     set({
@@ -116,6 +130,7 @@ export const usePOSStore = create<POSState>((set) => ({
       taxTotal: 0,
       discountTotal: 0,
       paymentMethod: null,
+      paymentAllocations: [],
     }),
 
   setSearchQuery: (query) => set({ searchQuery: query }),

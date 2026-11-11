@@ -5,8 +5,9 @@ export interface Tax {
   id: string;
   name: string;
   rate: number;
-  category: string;
-  isExempt: boolean;
+  type: string;
+  country: string;
+  isActive: boolean;
 }
 
 export function useTaxes() {
@@ -22,7 +23,7 @@ export function useTaxes() {
 export function useCreateTax() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; rate: number; category: string; isExempt: boolean }) => {
+    mutationFn: async (data: { name: string; rate: number; type: 'percentage' | 'fixed' }) => {
       const res = await api.post('/localization/taxes', data);
       return res.data;
     },

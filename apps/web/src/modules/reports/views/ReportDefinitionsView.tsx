@@ -107,8 +107,8 @@ export function ReportDefinitionsView() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <div>
           <h1 className="text-xl font-bold text-text-primary">Reportes Programados</h1>
           <p className="mt-0.5 text-sm text-text-secondary">
@@ -123,6 +123,7 @@ export function ReportDefinitionsView() {
           Nueva Definición
         </button>
       </div>
+      <div className="flex-1 overflow-auto p-6">
 
       {showForm && (
         <div className="rounded-xl border border-border bg-surface p-4">
@@ -283,6 +284,7 @@ export function ReportDefinitionsView() {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

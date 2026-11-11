@@ -26,8 +26,8 @@ export function PurchaseOrderDetailView() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="mx-auto flex h-full max-w-3xl flex-col">
+      <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/purchasing')}
@@ -47,8 +47,8 @@ export function PurchaseOrderDetailView() {
           </button>
         </div>
       </div>
-
-      <div className="mb-6 grid grid-cols-2 gap-4 rounded-xl border border-border bg-surface p-4">
+      <div className="flex-1 overflow-auto p-6">
+        <div className="mb-6 grid grid-cols-2 gap-4 rounded-xl border border-border bg-surface p-4">
         <div>
           <span className="text-xs text-text-secondary">{t('purchasing.vendor')}</span>
           <p className="text-sm font-medium text-text-primary">{order.vendorId}</p>
@@ -120,6 +120,7 @@ export function PurchaseOrderDetailView() {
           },
         ]}
       />
+      </div>
     </div>
   );
 }

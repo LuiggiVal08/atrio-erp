@@ -46,15 +46,17 @@ export function ReportHistoryView() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-bold text-text-primary">Historial de Reportes</h1>
-        <p className="mt-0.5 text-sm text-text-secondary">
-          Reportes generados recientemente (disponibles por 48h)
-        </p>
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border px-6 py-3">
+        <div>
+          <h1 className="text-xl font-bold text-text-primary">Historial de Reportes</h1>
+          <p className="mt-0.5 text-sm text-text-secondary">
+            Reportes generados recientemente (disponibles por 48h)
+          </p>
+        </div>
       </div>
-
-      {!history || history.length === 0 ? (
+      <div className="flex-1 overflow-auto p-6">
+        {!history || history.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <FileText size={48} className="mx-auto text-text-muted" />
@@ -138,6 +140,7 @@ export function ReportHistoryView() {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

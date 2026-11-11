@@ -9,6 +9,7 @@ export interface InventoryProduct {
   stock: number;
   unitPrice: number;
   averageCost: number;
+  isActive: boolean;
   status: DocumentStatus;
 }
 
