@@ -1,0 +1,29 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: atrio-api
+    environment:
+      DATABASE_URL: postgresql://atrio:atrio_dev_pass@pgbouncer:5432/atrio_erp?schema=public&pgbouncer=true
+      MIGRATE_DATABASE_URL: postgresql://atrio:atrio_dev_pass@postgres:5432/atrio_erp?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NODE_ENV: production
+    restart: unless-stopped
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: atrio-web
+    ports:
+      - '80:80'
+    restart: unless-stopped
+    depends_on:
+      - api
