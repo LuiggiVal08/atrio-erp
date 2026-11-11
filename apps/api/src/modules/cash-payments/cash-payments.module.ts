@@ -17,6 +17,6 @@ import { BankAccountService } from './application/bank-account.service';
     { provide: 'CashPaymentsRepository', useClass: PrismaCashPaymentsRepository },
     PrismaCashPaymentsRepository,
   ],
-  exports: ['CashPaymentsRepository'],
+  exports: ['CashPaymentsRepository', CashMovementService],
 })
 export class CashPaymentsModule {}

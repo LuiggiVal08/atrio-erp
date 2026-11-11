@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsEnum, IsOptional, Min } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsOptional, Min, IsArray } from 'class-validator';
 
 export class CreateTaxDto {
   @IsString() name!: string;
@@ -16,6 +16,15 @@ export class UpdateTaxDto {
 export class CreateCurrencyRateDto {
   @IsString() fromCurrency!: string;
   @IsString() toCurrency!: string;
-  @IsNumber() @Min(0) rate!: number;
+  @IsNumber() @Min(0.000001) rate!: number;
   @IsString() date!: string; // ISO date
+}
+
+export class SyncCurrencyRateDto {
+  @IsString() fromCurrency!: string;
+  @IsString() toCurrency!: string;
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  providerIds?: string[];
 }

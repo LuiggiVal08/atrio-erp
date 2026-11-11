@@ -1,6 +1,7 @@
 import { Tenant, SubscriptionPlan } from './tenant.entity';
 
 export interface CreateTenantData {
+  slug: string;
   legalName: string;
   taxId: string;
   baseCurrency?: string;

@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, UseGuards,
-  NotFoundException, BadRequestException,
+  NotFoundException, BadRequestException, Put, UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ManageEmployeeUseCase } from '../application/manage-employee.use-case';
@@ -10,6 +10,14 @@ import { CreateDepartmentDto, UpdateDepartmentDto } from './dto/create-departmen
 import { CreateSalaryEntryDto } from './dto/create-salary-entry.dto';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { RbacGuard } from '@/common/auth/rbac.guard';
+import { RequirePermission } from '@/common/auth/require-permission.decorator';
+import { EmployeePaymentDetailsDto } from './dto/employee-payment-details.dto';
+
+interface EmployeeUser {
+  id: string;
+  tenantId: string;
+}
 
 @ApiTags('Employees')
 @UseGuards(JwtAuthGuard)
@@ -19,6 +27,39 @@ export class EmployeeController {
   constructor(
     private readonly manageEmployeeUseCase: ManageEmployeeUseCase,
   ) {}
+
+  @Get('employees/:id/payment-details')
+  @UseGuards(RbacGuard)
+  @RequirePermission('employee:bank-details:read')
+  @ApiOperation({ summary: 'Get current employee payment details' })
+  async getPaymentDetails(@Param('id') id: string, @CurrentUser() user: EmployeeUser) {
+    const tenantId = this.tenantId(user);
+    const details = await this.manageEmployeeUseCase.findPaymentDetails(id, tenantId);
+    return details;
+  }
+
+  @Put('employees/:id/payment-details')
+  @UseGuards(RbacGuard)
+  @RequirePermission('employee:bank-details:update')
+  @ApiOperation({ summary: 'Create a version of employee payment details' })
+  async savePaymentDetails(
+    @Param('id') id: string,
+    @Body() dto: EmployeePaymentDetailsDto,
+    @CurrentUser() user: EmployeeUser,
+  ) {
+    const details = await this.manageEmployeeUseCase.savePaymentDetails(id, this.tenantId(user), user.id, dto);
+    if (!details) throw new NotFoundException('Employee not found');
+    return details;
+  }
+
+  @Delete('employees/:id/payment-details')
+  @UseGuards(RbacGuard)
+  @RequirePermission('employee:bank-details:update')
+  @ApiOperation({ summary: 'End the current employee payment details record' })
+  async clearPaymentDetails(@Param('id') id: string, @CurrentUser() user: EmployeeUser) {
+    const cleared = await this.manageEmployeeUseCase.clearPaymentDetails(id, this.tenantId(user));
+    if (!cleared) throw new NotFoundException('Employee not found');
+  }
 
   // ---- Employees ----
 
@@ -114,5 +155,10 @@ export class EmployeeController {
   @ApiOperation({ summary: 'Add salary history entry' })
   async createSalaryEntry(@Param('id') id: string, @Body() dto: CreateSalaryEntryDto) {
     return this.manageEmployeeUseCase.createSalaryEntry({ employeeId: id, ...dto });
+  }
+
+  private tenantId(user: EmployeeUser | null | undefined): string {
+    if (!user?.tenantId) throw new UnauthorizedException('Authenticated tenant context is required');
+    return user.tenantId;
   }
 }

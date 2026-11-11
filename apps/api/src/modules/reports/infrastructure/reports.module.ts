@@ -44,6 +44,7 @@ import { ReportsController } from './reports.controller';
     ReportScheduleProcessor,
     ReportGateway,
   ],
+  exports: [PdfGeneratorService],
 })
 export class ReportsModule implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ReportsModule.name);

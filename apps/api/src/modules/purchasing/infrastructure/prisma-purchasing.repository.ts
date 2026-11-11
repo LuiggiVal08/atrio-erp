@@ -13,7 +13,11 @@ export class PrismaPurchasingRepository implements PurchasingRepository {
   }
 
   private mapReturn(r: any): PurchaseReturn {
-    return new PurchaseReturn(r.id, r.tenantId, r.purchaseOrderId, r.reason, r.subtotal, r.taxAmount, r.total, r.status, r.returnedAt, r.createdAt, r.updatedAt);
+    return new PurchaseReturn(
+      r.id, r.tenantId, r.purchaseOrderId, r.reason, r.subtotal, r.taxAmount, r.total,
+      r.status, r.returnedAt, r.createdAt, r.updatedAt,
+      r.reasonCode, r.resolution, r.warehouseId, r.supplierCreditNo, r.userId, r.lines ?? [],
+    );
   }
 
   async createOrder(data: { tenantId: string; documentId: string; vendorId: string; subtotal: number; taxAmount: number; total: number; currency: string; notes?: string; expectedDate?: string }): Promise<PurchaseOrder> {
@@ -46,7 +50,7 @@ export class PrismaPurchasingRepository implements PurchasingRepository {
     await this.prisma.purchaseOrder.deleteMany({ where: { id } });
   }
 
-  async createReturn(data: { tenantId: string; purchaseOrderId: string; reason: string; subtotal: number; taxAmount: number; total: number }): Promise<PurchaseReturn> {
+  async createReturn(data: any): Promise<PurchaseReturn> {
     const r = await this.prisma.purchaseReturn.create({ data });
     return this.mapReturn(r);
   }

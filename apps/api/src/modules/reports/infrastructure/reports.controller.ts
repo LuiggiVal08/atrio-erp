@@ -34,7 +34,7 @@ export class ReportsController {
   @RequirePermission('reports:dashboard:view')
   @ApiOperation({ summary: 'Dashboard KPIs' })
   async getSummary(@Req() req: any) {
-    return this.dashboardService.getSummary(req.user.tenantId);
+    return this.dashboardService.getSummary(req.user.effectiveTenantId);
   }
 
   @Get('dashboard/sales-trend')
@@ -43,28 +43,28 @@ export class ReportsController {
   async getSalesTrend(@Req() req: any, @Query() query: ReportQueryDto) {
     const dateFrom = query.dateFrom ? new Date(query.dateFrom) : new Date(Date.now() - 30 * 86400000);
     const dateTo = query.dateTo ? new Date(query.dateTo) : new Date();
-    return this.dashboardService.getSalesTrend(req.user.tenantId, dateFrom, dateTo);
+    return this.dashboardService.getSalesTrend(req.user.effectiveTenantId, dateFrom, dateTo);
   }
 
   @Get('dashboard/top-products')
   @RequirePermission('reports:dashboard:view')
   @ApiOperation({ summary: 'Top N products' })
   async getTopProducts(@Req() req: any, @Query('limit') limit?: string) {
-    return this.dashboardService.getTopProducts(req.user.tenantId, parseInt(limit ?? '10', 10));
+    return this.dashboardService.getTopProducts(req.user.effectiveTenantId, parseInt(limit ?? '10', 10));
   }
 
   @Get('dashboard/low-stock')
   @RequirePermission('reports:dashboard:view')
   @ApiOperation({ summary: 'Low stock products' })
   async getLowStock(@Req() req: any) {
-    return this.dashboardService.getLowStock(req.user.tenantId);
+    return this.dashboardService.getLowStock(req.user.effectiveTenantId);
   }
 
   @Get('widgets')
   @RequirePermission('reports:dashboard:view')
   @ApiOperation({ summary: 'List widgets' })
   async listWidgets(@Req() req: any) {
-    return this.repo.findWidgets(req.user.tenantId, req.user.id);
+    return this.repo.findWidgets(req.user.effectiveTenantId, req.user.id);
   }
 
   @Post('widgets')
@@ -72,7 +72,7 @@ export class ReportsController {
   @ApiOperation({ summary: 'Create widget' })
   async createWidget(@Req() req: any, @Body() dto: CreateWidgetDto) {
     return this.repo.createWidget({
-      tenantId: req.user.tenantId,
+      tenantId: req.user.effectiveTenantId,
       userId: req.user.id,
       type: dto.type,
       config: dto.config,
@@ -114,7 +114,7 @@ export class ReportsController {
   @ApiOperation({ summary: 'Request report export' })
   async requestExport(@Req() req: any, @Body() dto: RequestExportDto) {
     return this.exportService.requestExport(
-      req.user.tenantId,
+      req.user.effectiveTenantId,
       req.user.id,
       dto.reportType,
       dto.format,
@@ -135,7 +135,7 @@ export class ReportsController {
   @RequirePermission('reports:history:view')
   @ApiOperation({ summary: 'List report history' })
   async listHistory(@Req() req: any) {
-    return this.repo.findHistory({ tenantId: req.user.tenantId });
+    return this.repo.findHistory({ tenantId: req.user.effectiveTenantId });
   }
 
   @Get('history/:id/download')
@@ -164,7 +164,7 @@ export class ReportsController {
   @RequirePermission('reports:definitions:view')
   @ApiOperation({ summary: 'List definitions' })
   async listDefinitions(@Req() req: any) {
-    return this.definitionService.list(req.user.tenantId);
+    return this.definitionService.list(req.user.effectiveTenantId);
   }
 
   @Post('definitions')
@@ -172,7 +172,7 @@ export class ReportsController {
   @ApiOperation({ summary: 'Create definition' })
   async createDefinition(@Req() req: any, @Body() dto: CreateReportDefinitionDto) {
     const def = await this.definitionService.create({
-      tenantId: req.user.tenantId,
+      tenantId: req.user.effectiveTenantId,
       name: dto.name,
       type: dto.type,
       createdById: req.user.id,
@@ -216,7 +216,7 @@ export class ReportsController {
   async executeDefinition(@Req() req: any, @Param('id') id: string) {
     const def = await this.definitionService.getById(id);
     return this.exportService.requestExport(
-      req.user.tenantId,
+      req.user.effectiveTenantId,
       req.user.id,
       def.type,
       def.format,
@@ -230,6 +230,6 @@ export class ReportsController {
   @RequirePermission('reports:definitions:view')
   @ApiOperation({ summary: 'List executions for definition' })
   async listExecutions(@Req() req: any, @Param('id') id: string) {
-    return this.repo.findExecutions({ tenantId: req.user.tenantId, reportDefinitionId: id });
+    return this.repo.findExecutions({ tenantId: req.user.effectiveTenantId, reportDefinitionId: id });
   }
 }

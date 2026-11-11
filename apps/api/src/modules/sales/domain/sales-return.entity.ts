@@ -11,5 +11,15 @@ export class SalesReturn {
     public readonly returnedAt: Date,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public readonly reasonCode?: string,
+    public readonly productCondition?: string,
+    public readonly destination?: string,
+    public readonly resolution?: string,
+    public readonly warehouseId?: string,
+    public readonly cashRegisterId?: string,
+    public readonly creditNoteId?: string,
+    public readonly userId?: string,
+    public readonly lines?: any[],
+    public readonly refundedAt?: Date,
   ) {}
 }

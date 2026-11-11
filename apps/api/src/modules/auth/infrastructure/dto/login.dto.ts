@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEmail } from 'class-validator';
+import { IsString, IsNotEmpty, IsEmail, IsOptional, Matches } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -10,6 +10,7 @@ export class LoginDto {
   password: string;
 
   @IsString()
-  @IsNotEmpty()
-  tenantId: string;
+  @IsOptional()
+  @Matches(/^[a-zA-Z0-9_-]{3,100}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+  tenant?: string;
 }

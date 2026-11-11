@@ -1,0 +1,1 @@
+{"version":3,"file":"fiscal-registry.d.ts","sourceRoot":"","sources":["fiscal-registry.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,6BAA6B,CAAC;AAElE,qBAAa,cAAc;IACzB,OAAO,CAAC,UAAU,CAAqC;IAEvD,QAAQ,CAAC,QAAQ,EAAE,cAAc,GAAG,IAAI;IAIxC,WAAW,CAAC,WAAW,EAAE,MAAM,GAAG,cAAc;IAQhD,WAAW,CAAC,WAAW,EAAE,MAAM,GAAG,OAAO;IAIzC,eAAe,IAAI,MAAM,EAAE;CAG5B"}

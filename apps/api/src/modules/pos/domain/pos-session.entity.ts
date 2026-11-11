@@ -11,5 +11,9 @@ export class PosSession {
     public readonly closedAt: Date | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public readonly closingDifference?: number | null,
+    public readonly closingNote?: string | null,
+    public readonly closingDenominations?: unknown,
+    public readonly openingDenominations?: unknown,
   ) {}
 }

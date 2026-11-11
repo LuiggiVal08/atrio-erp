@@ -9,6 +9,7 @@ export interface LocalizationRepository {
   deleteTax(id: string): Promise<void>;
 
   createCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date }): Promise<CurrencyRate>;
-  findRates(tenantId: string, fromCurrency: string, toCurrency: string, date?: Date): Promise<CurrencyRate[]>;
+  upsertCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date }): Promise<CurrencyRate>;
+  findRates(tenantId: string, fromCurrency?: string, toCurrency?: string, date?: Date): Promise<CurrencyRate[]>;
   findRateAtDate(tenantId: string, fromCurrency: string, toCurrency: string, date: Date): Promise<CurrencyRate | null>;
 }

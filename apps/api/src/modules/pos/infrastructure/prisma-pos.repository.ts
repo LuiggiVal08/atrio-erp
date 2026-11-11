@@ -8,16 +8,35 @@ export class PrismaPosRepository implements PosRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   private map(r: any): PosSession {
-    return new PosSession(r.id, r.tenantId, r.cashRegisterId, r.userId, r.openingBalance, r.closingBalance, r.status, r.openedAt, r.closedAt, r.createdAt, r.updatedAt);
+    return new PosSession(
+      r.id, r.tenantId, r.cashRegisterId, r.userId, r.openingBalance, r.closingBalance,
+      r.status, r.openedAt, r.closedAt, r.createdAt, r.updatedAt,
+      r.closingDifference, r.closingNote, r.closingDenominations,
+      r.openingDenominations,
+    );
   }
 
-  async createSession(data: { tenantId: string; cashRegisterId: string; userId: string; openingBalance: number }): Promise<PosSession> {
-    const r = await this.prisma.posSession.create({ data: { ...data, status: 'open' } });
+  async createSession(data: { tenantId: string; cashRegisterId: string; userId: string; openingBalance: number; openingDenominations?: unknown }): Promise<PosSession> {
+    const r = await this.prisma.posSession.create({
+      data: {
+        tenantId: data.tenantId,
+        cashRegisterId: data.cashRegisterId,
+        userId: data.userId,
+        openingBalance: data.openingBalance,
+        openingDenominations: data.openingDenominations as any,
+        status: 'open',
+      },
+    });
     return this.map(r);
   }
 
   async findSessionById(id: string): Promise<PosSession | null> {
     const r = await this.prisma.posSession.findUnique({ where: { id } });
+    return r ? this.map(r) : null;
+  }
+
+  async findSessionByTenant(id: string, tenantId: string): Promise<PosSession | null> {
+    const r = await this.prisma.posSession.findFirst({ where: { id, tenantId } });
     return r ? this.map(r) : null;
   }
 
@@ -31,8 +50,22 @@ export class PrismaPosRepository implements PosRepository {
     return records.map(r => this.map(r));
   }
 
-  async closeSession(id: string, closingBalance: number): Promise<PosSession> {
-    const r = await this.prisma.posSession.update({ where: { id }, data: { status: 'closed', closingBalance, closedAt: new Date() } });
+  async closeSession(id: string, closingBalance: number, details?: {
+    closingDifference?: number;
+    closingNote?: string;
+    closingDenominations?: unknown;
+  }): Promise<PosSession> {
+    const r = await this.prisma.posSession.update({
+      where: { id },
+      data: {
+        status: 'closed',
+        closingBalance,
+        closingDifference: details?.closingDifference ?? null,
+        closingNote: details?.closingNote ?? null,
+        closingDenominations: details?.closingDenominations as any,
+        closedAt: new Date(),
+      },
+    });
     return this.map(r);
   }
 }

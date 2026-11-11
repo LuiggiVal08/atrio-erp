@@ -64,6 +64,11 @@ export const DOCUMENT_EVENT_EMITTER = 'DOCUMENT_EVENT_EMITTER';
       inject: [DOCUMENT_REPOSITORY, DOCUMENT_EVENT_REPOSITORY],
     },
   ],
-  exports: [],
+  exports: [
+    CreateDocumentUseCase,
+    SubmitDocumentUseCase,
+    ApproveDocumentUseCase,
+    TransitionDocumentUseCase,
+  ],
 })
 export class DocumentModule {}

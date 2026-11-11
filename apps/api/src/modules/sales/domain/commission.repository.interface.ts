@@ -9,6 +9,8 @@ export interface CommissionRepository {
   findByTenant(tenantId: string): Promise<Commission[]>;
   findById(id: string): Promise<Commission | null>;
   findBySalesperson(tenantId: string, salespersonId: string): Promise<Commission[]>;
+  findByInvoice(invoiceId: string): Promise<Commission[]>;
   updateStatus(id: string, status: string, paidAt?: Date): Promise<Commission>;
+  adjustAmount(id: string, amount: number, notes?: string): Promise<Commission>;
   getSummary(tenantId: string): Promise<{ pending: number; paid: number; total: number }>;
 }

@@ -10,7 +10,7 @@ export class DocumentAuditInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const { method, originalUrl } = request;
     const user = request.user;
-    const tenantId = request.tenantId || user?.tenantId;
+    const tenantId = user?.effectiveTenantId;
 
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       return next.handle();

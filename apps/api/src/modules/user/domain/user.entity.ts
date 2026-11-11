@@ -6,6 +6,8 @@ export interface User {
   email: string;
   passwordHash: string;
   name: string;
+  imageUrl?: string | null;
+  phone?: string | null;
   status: UserStatus;
   failedLoginAttempts: number;
   lockedUntil?: Date | null;

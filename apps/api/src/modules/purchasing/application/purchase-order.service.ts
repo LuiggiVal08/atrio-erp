@@ -49,12 +49,30 @@ export class PurchaseOrderService {
     return this.repo.updateOrderStatus(id, 'approved');
   }
 
-  async returnOrder(id: string, data: { reason: string; subtotal: number; taxAmount: number; total: number; lines: Array<{ productId: string; warehouseId: string; quantity: number; unitPrice: number }> }) {
+  async returnOrder(id: string, data: {
+    reason: string; reasonCode?: string; resolution?: string; supplierCreditNo?: string; warehouseId?: string;
+    subtotal: number; taxAmount: number; total: number;
+    lines: Array<{ productId: string; warehouseId: string; quantity: number; unitPrice: number }>;
+    userId?: string;
+  }) {
     const order = await this.repo.findOrderById(id);
     if (!order) throw new NotFoundException('Purchase order not found');
     if (order.status !== 'received') throw new BadRequestException('Only received purchase orders can be returned');
 
-    const ret = await this.repo.createReturn({ tenantId: order.tenantId, purchaseOrderId: id, reason: data.reason, subtotal: data.subtotal, taxAmount: data.taxAmount, total: data.total });
+    const ret = await this.repo.createReturn({
+      tenantId: order.tenantId,
+      purchaseOrderId: id,
+      reason: data.reason,
+      reasonCode: data.reasonCode,
+      resolution: data.resolution ?? 'supplier_credit',
+      supplierCreditNo: data.supplierCreditNo,
+      warehouseId: data.warehouseId,
+      userId: data.userId,
+      lines: data.lines,
+      subtotal: data.subtotal,
+      taxAmount: data.taxAmount,
+      total: data.total,
+    });
 
     this.eventEmitter.emit('document.returned', {
       eventType: 'document.returned',
@@ -62,8 +80,13 @@ export class PurchaseOrderService {
       documentId: id,
       documentType: 'purchase_return',
       timestamp: new Date().toISOString(),
-      triggeredBy: null,
-      metadata: { lines: data.lines },
+      triggeredBy: data.userId ?? null,
+      metadata: {
+        lines: data.lines,
+        reasonCode: data.reasonCode,
+        resolution: data.resolution ?? 'supplier_credit',
+        supplierCreditNo: data.supplierCreditNo,
+      },
     });
 
     return ret;

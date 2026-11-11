@@ -12,14 +12,18 @@
     "baseUrl": ".",
     "incremental": true,
     "skipLibCheck": true,
+    "allowJs": true,
     "strictNullChecks": true,
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@atrio/core-accounting": ["../../packages/core-accounting/src"],
+      "@atrio/l10n_ve": ["../../packages/l10n_ve/src"],
+      "@atrio/l10n_co": ["../../packages/l10n_co/src"]
     }
   },
-  "include": ["src/**/*", "prisma/**/*", "tests/**/*"]
+  "include": ["src/**/*", "prisma/**/*", "tests/**/*", "../../packages/**/*"]
 }

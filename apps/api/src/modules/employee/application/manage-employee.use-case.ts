@@ -1,4 +1,8 @@
-import { EmployeeRepository, CreateEmployeeData } from '../domain/employee.repository.interface';
+import {
+  EmployeePaymentDetailsData,
+  EmployeeRepository,
+  CreateEmployeeData,
+} from '../domain/employee.repository.interface';
 
 export class ManageEmployeeUseCase {
   constructor(private readonly employeeRepository: EmployeeRepository) {}
@@ -15,6 +19,23 @@ export class ManageEmployeeUseCase {
     return this.employeeRepository.findByTenant(tenantId);
   }
 
+  findPaymentDetails(employeeId: string, tenantId: string) {
+    return this.employeeRepository.findPaymentDetails(employeeId, tenantId);
+  }
+
+  savePaymentDetails(
+    employeeId: string,
+    tenantId: string,
+    changedById: string,
+    data: EmployeePaymentDetailsData,
+  ) {
+    return this.employeeRepository.savePaymentDetails(employeeId, tenantId, changedById, data);
+  }
+
+  clearPaymentDetails(employeeId: string, tenantId: string) {
+    return this.employeeRepository.clearPaymentDetails(employeeId, tenantId);
+  }
+
   async softDelete(id: string) {
     const employee = await this.employeeRepository.findById(id);
     if (!employee || employee.deletedAt) throw new Error('Employee not found');
@@ -24,13 +45,18 @@ export class ManageEmployeeUseCase {
     } as any);
   }
 
-  async update(id: string, data: Partial<{ firstName: string; lastName: string; identityDoc: string; department: string; position: string; baseSalary: number; status: string }>) {
+  async update(id: string, data: Partial<{
+    firstName: string; middleName: string; lastName: string; secondLastName: string;
+    identityDoc: string; identificationType: string;
+    taxIdentifier: string; phone: string; email: string; address: string;
+    emergencyContactName: string; emergencyContactPhone: string;
+    department: string; position: string; baseSalary: number; status: string;
+  }>) {
     const employee = await this.employeeRepository.findById(id);
     if (!employee || employee.deletedAt) throw new Error('Employee not found');
     return this.employeeRepository.update(id, data as any);
   }
 
-  // Departments
   async createDepartment(data: { tenantId: string; name: string; description?: string }) {
     return this.employeeRepository.createDepartment(data);
   }
@@ -57,7 +83,6 @@ export class ManageEmployeeUseCase {
     await this.employeeRepository.deleteDepartment(id);
   }
 
-  // Salary History
   async createSalaryEntry(data: { employeeId: string; salary: number; effectiveDate: string; reason?: string }) {
     return this.employeeRepository.createSalaryEntry(data);
   }

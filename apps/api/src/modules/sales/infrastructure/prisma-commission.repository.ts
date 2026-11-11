@@ -38,10 +38,29 @@ export class PrismaCommissionRepository implements CommissionRepository {
     return records.map(r => this.toEntity(r));
   }
 
+  async findByInvoice(invoiceId: string): Promise<Commission[]> {
+    const records = await this.prisma.salesCommission.findMany({
+      where: { invoiceId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return records.map(r => this.toEntity(r));
+  }
+
   async updateStatus(id: string, status: string, paidAt?: Date): Promise<Commission> {
     const r = await this.prisma.salesCommission.update({
       where: { id },
       data: { status: status as any, paidAt: paidAt ?? null },
+    });
+    return this.toEntity(r);
+  }
+
+  async adjustAmount(id: string, amount: number, notes?: string): Promise<Commission> {
+    const r = await this.prisma.salesCommission.update({
+      where: { id },
+      data: {
+        commissionAmount: amount,
+        notes: notes ?? null,
+      },
     });
     return this.toEntity(r);
   }

@@ -15,7 +15,7 @@ export class TenantModuleService {
   }
 
   async setEnabledModules(tenantId: string, enabledModules: string[]) {
-    const validModules = ['reports', 'sales', 'inventory', 'cash-payments', 'cash', 'purchasing', 'purchases', 'localization', 'client-vendor', 'clients', 'vendors', 'documents', 'hr', 'employees'];
+    const validModules = ['reports', 'sales', 'inventory', 'cash-payments', 'cash', 'purchasing', 'purchases', 'localization', 'client-vendor', 'clients', 'vendors', 'documents', 'hr', 'employees', 'settings'];
     const invalid = enabledModules.filter((m) => !validModules.includes(m));
     if (invalid.length > 0) {
       throw new BadRequestException(`Invalid modules: ${invalid.join(', ')}`);

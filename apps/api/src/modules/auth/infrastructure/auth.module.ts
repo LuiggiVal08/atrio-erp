@@ -1,11 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { LoginUseCase } from '../application/login.use-case';
-import { LogoutUseCase } from '../application/logout.use-case';
 import { JwtAuthAdapter } from './jwt-auth.adapter';
 import { PrismaAuthRepository } from './prisma-auth.repository';
 import { AuthFoundationModule } from '@/common/auth/auth.module';
-import { JwtBlacklistService } from '@/infrastructure/redis/jwt-blacklist.service';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 export const AUTH_REPOSITORY = 'AUTH_REPOSITORY';
@@ -22,11 +20,6 @@ export const AUTH_REPOSITORY = 'AUTH_REPOSITORY';
       provide: LoginUseCase,
       useFactory: (repo: any, prisma: PrismaService) => new LoginUseCase(repo, prisma),
       inject: [AUTH_REPOSITORY, PrismaService],
-    },
-    {
-      provide: LogoutUseCase,
-      useFactory: (blacklist: any) => new LogoutUseCase(blacklist),
-      inject: [JwtBlacklistService],
     },
   ],
   exports: [],

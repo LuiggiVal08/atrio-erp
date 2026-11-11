@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { AuthRepository, UserCredentials } from '../domain/auth.repository.interface';
+import { validateUuid } from '@/common/utils/validation';
 
 @Injectable()
 export class PrismaAuthRepository implements AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findUserByEmail(email: string, tenantId: string): Promise<UserCredentials | null> {
+    validateUuid(tenantId, 'tenantId');
     const user = await this.prisma.user.findUnique({
       where: { tenantId_email: { tenantId, email } },
     });

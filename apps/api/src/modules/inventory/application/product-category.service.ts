@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
 import { InventoryRepository } from '../domain/inventory.repository.interface';
 
 @Injectable()
@@ -18,6 +18,20 @@ export class ProductCategoryService {
   }
 
   async delete(id: string) {
+    const productCount = await this.repo.countProductsByCategory(id);
+    if (productCount > 0) {
+      throw new ConflictException(
+        `No se puede eliminar la categoría: ${productCount} producto(s) están asociados`,
+      );
+    }
+
+    const childCount = await this.repo.countChildCategories(id);
+    if (childCount > 0) {
+      throw new ConflictException(
+        `No se puede eliminar la categoría: tiene ${childCount} subcategoría(s)`,
+      );
+    }
+
     return this.repo.deleteCategory(id);
   }
 }

@@ -37,17 +37,10 @@ export class TransferService {
     if (!transfer) throw new NotFoundException('Transfer not found');
     if (transfer.status !== 'pending') throw new BadRequestException('Only pending transfers can be completed');
 
-    await this.repo.adjustStock(transfer.productId, transfer.fromWarehouseId, -transfer.quantity);
-    await this.repo.adjustStock(transfer.productId, transfer.toWarehouseId, transfer.quantity);
-
-    await this.repo.createMovement({
-      productId: transfer.productId, warehouseId: transfer.fromWarehouseId,
-      type: 'out', quantity: transfer.quantity, referenceType: 'transfer', referenceId: id,
-    });
-    await this.repo.createMovement({
-      productId: transfer.productId, warehouseId: transfer.toWarehouseId,
-      type: 'in', quantity: transfer.quantity, referenceType: 'transfer', referenceId: id,
-    });
+    const sourceStock = await this.repo.getStock(transfer.productId, transfer.fromWarehouseId);
+    if (!sourceStock || sourceStock.quantity < transfer.quantity) {
+      throw new BadRequestException('Insufficient stock in source warehouse');
+    }
 
     return this.repo.completeTransfer(id);
   }

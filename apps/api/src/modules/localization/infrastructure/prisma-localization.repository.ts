@@ -38,9 +38,29 @@ export class PrismaLocalizationRepository implements LocalizationRepository {
     return new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt);
   }
 
-  async findRates(tenantId: string, fromCurrency: string, toCurrency: string): Promise<CurrencyRate[]> {
+  async upsertCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date }): Promise<CurrencyRate> {
+    const r = await this.prisma.currencyRate.upsert({
+      where: {
+        tenantId_fromCurrency_toCurrency_date: {
+          tenantId: data.tenantId,
+          fromCurrency: data.fromCurrency,
+          toCurrency: data.toCurrency,
+          date: data.date,
+        },
+      },
+      create: data,
+      update: { rate: data.rate },
+    });
+    return new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt);
+  }
+
+  async findRates(tenantId: string, fromCurrency?: string, toCurrency?: string): Promise<CurrencyRate[]> {
     const records = await this.prisma.currencyRate.findMany({
-      where: { tenantId, fromCurrency, toCurrency },
+      where: {
+        tenantId,
+        ...(fromCurrency ? { fromCurrency } : {}),
+        ...(toCurrency ? { toCurrency } : {}),
+      },
       orderBy: { date: 'desc' },
     });
     return records.map(r => new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt));

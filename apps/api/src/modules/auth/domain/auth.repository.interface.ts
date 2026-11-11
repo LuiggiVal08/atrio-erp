@@ -1,7 +1,7 @@
 export interface LoginData {
   email: string;
   password: string;
-  tenantId: string;
+  tenantId?: string;
 }
 
 export interface LoginResult {
@@ -19,6 +19,8 @@ export interface UserCredentials {
   email: string;
   passwordHash: string;
   name: string;
+  imageUrl: string | null;
+  phone: string | null;
   status: string;
   tenantId: string;
   locale: string;

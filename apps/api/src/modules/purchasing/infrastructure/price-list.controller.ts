@@ -20,14 +20,14 @@ export class PriceListController {
   @RequirePermission('purchasing:price-list:create')
   @ApiOperation({ summary: 'Create price list' })
   async create(@Body() dto: CreatePriceListDto, @CurrentUser() user: any) {
-    return this.priceListService.create(user.tenantId, dto);
+    return this.priceListService.create(user.effectiveTenantId, dto);
   }
 
   @Get()
   @RequirePermission('purchasing:price-list:read')
   @ApiOperation({ summary: 'List price lists' })
   async findAll(@CurrentUser() user: any) {
-    return this.priceListService.findAll(user.tenantId);
+    return this.priceListService.findAll(user.effectiveTenantId);
   }
 
   @Get(':id')

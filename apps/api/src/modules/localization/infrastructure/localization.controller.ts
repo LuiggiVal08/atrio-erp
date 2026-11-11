@@ -8,7 +8,8 @@ import { RequireModule } from '@/common/guards/require-module.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { LocalizationTaxService } from '../application/localization-tax.service';
 import { CurrencyRateService } from '../application/currency-rate.service';
-import { CreateTaxDto, UpdateTaxDto, CreateCurrencyRateDto } from './dto/localization.dto';
+import { CreateTaxDto, UpdateTaxDto, CreateCurrencyRateDto, SyncCurrencyRateDto } from './dto/localization.dto';
+import { ExchangeRateSyncService } from '../application/exchange-rate-sync.service';
 
 @ApiTags('Localization')
 @Controller('localization')
@@ -18,20 +19,21 @@ export class LocalizationController {
   constructor(
     private readonly taxService: LocalizationTaxService,
     private readonly rateService: CurrencyRateService,
+    private readonly syncService: ExchangeRateSyncService,
   ) {}
 
   @Post('taxes')
   @RequirePermission('localization:tax:create')
   @ApiOperation({ summary: 'Create tax' })
   async createTax(@Body() dto: CreateTaxDto, @CurrentUser() user: any) {
-    return this.taxService.create({ tenantId: user.tenantId, ...dto });
+    return this.taxService.create({ tenantId: user.effectiveTenantId, ...dto });
   }
 
   @Get('taxes')
   @RequirePermission('localization:tax:read')
   @ApiOperation({ summary: 'List taxes' })
   async listTaxes(@CurrentUser() user: any) {
-    return this.taxService.findAll(user.tenantId);
+    return this.taxService.findAll(user.effectiveTenantId);
   }
 
   @Get('taxes/:id')
@@ -60,7 +62,7 @@ export class LocalizationController {
   @ApiOperation({ summary: 'Create currency rate' })
   async createRate(@Body() dto: CreateCurrencyRateDto, @CurrentUser() user: any) {
     return this.rateService.create({
-      tenantId: user.tenantId,
+      tenantId: user.effectiveTenantId,
       fromCurrency: dto.fromCurrency,
       toCurrency: dto.toCurrency,
       rate: dto.rate,
@@ -68,15 +70,27 @@ export class LocalizationController {
     });
   }
 
+  @Post('currency-rates/sync')
+  @RequirePermission('localization:currency-rate:create')
+  @ApiOperation({ summary: 'Synchronize a currency rate from external providers' })
+  async syncRate(@Body() dto: SyncCurrencyRateDto, @CurrentUser() user: any) {
+    return this.syncService.sync(
+      user.effectiveTenantId,
+      dto.fromCurrency,
+      dto.toCurrency,
+      dto.providerIds,
+    );
+  }
+
   @Get('currency-rates')
   @RequirePermission('localization:currency-rate:read')
   @ApiOperation({ summary: 'List currency rates' })
   async listRates(
     @CurrentUser() user: any,
-    @Query('from') fromCurrency: string,
-    @Query('to') toCurrency: string,
+    @Query('from') fromCurrency?: string,
+    @Query('to') toCurrency?: string,
   ) {
-    return this.rateService.findAll(user.tenantId, fromCurrency, toCurrency);
+    return this.rateService.findAll(user.effectiveTenantId, fromCurrency, toCurrency);
   }
 
   @Get('currency-rates/latest')
@@ -88,6 +102,6 @@ export class LocalizationController {
     @Query('to') toCurrency: string,
     @Query('date') date: string,
   ) {
-    return this.rateService.getRateAtDate(user.tenantId, fromCurrency, toCurrency, new Date(date));
+    return this.rateService.getRateAtDate(user.effectiveTenantId, fromCurrency, toCurrency, new Date(date));
   }
 }

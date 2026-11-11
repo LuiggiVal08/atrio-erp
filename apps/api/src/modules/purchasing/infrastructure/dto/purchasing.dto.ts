@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsDateString, Min, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, Min, IsArray, ValidateNested, ArrayMinSize, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePurchaseOrderDto {
@@ -21,6 +21,10 @@ export class ReturnLineDto {
 
 export class CreatePurchaseReturnDto {
   @IsString() reason!: string;
+  @IsOptional() @IsString() reasonCode?: string;
+  @IsOptional() @IsString() resolution?: string;
+  @IsOptional() @IsString() supplierCreditNo?: string;
+  @IsOptional() @IsUUID() warehouseId?: string;
   @IsNumber() @Min(0) subtotal!: number;
   @IsNumber() @Min(0) taxAmount!: number;
   @IsNumber() @Min(0) total!: number;

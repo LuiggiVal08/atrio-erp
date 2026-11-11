@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
-import { EmployeeRepository, CreateEmployeeData } from '../domain/employee.repository.interface';
+import {
+  EmployeePaymentDetails,
+  EmployeePaymentDetailsData,
+  EmployeeRepository,
+  CreateEmployeeData,
+} from '../domain/employee.repository.interface';
 import { Employee } from '../domain/employee.entity';
 import { Department } from '../domain/department.entity';
 import { SalaryHistory } from '../domain/salary-history.entity';
@@ -15,8 +20,17 @@ export class PrismaEmployeeRepository implements EmployeeRepository {
         data: {
           tenantId: data.tenantId,
           firstName: data.firstName,
+          middleName: data.middleName ?? null,
           lastName: data.lastName,
+          secondLastName: data.secondLastName ?? null,
           identityDoc: data.identityDoc,
+          identificationType: data.identificationType as any ?? null,
+          taxIdentifier: data.taxIdentifier ?? null,
+          phone: data.phone ?? null,
+          email: data.email ?? null,
+          address: data.address ?? null,
+          emergencyContactName: data.emergencyContactName ?? null,
+          emergencyContactPhone: data.emergencyContactPhone ?? null,
           hireDate: new Date(data.hireDate),
           department: data.department,
           departmentId: data.departmentId ?? null,
@@ -49,7 +63,99 @@ export class PrismaEmployeeRepository implements EmployeeRepository {
     })) as any;
   }
 
-  // Departments
+  async findPaymentDetails(
+    employeeId: string,
+    tenantId: string,
+  ): Promise<EmployeePaymentDetails | null> {
+    const record = await this.prisma.employeePaymentAccount.findFirst({
+      where: {
+        employeeId,
+        tenantId,
+        isCurrent: true,
+        employee: { deletedAt: null },
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        method: true,
+        bankName: true,
+        accountType: true,
+        accountNumber: true,
+        mobilePaymentPhone: true,
+        effectiveFrom: true,
+      },
+    });
+    if (!record) return null;
+    return {
+      ...record,
+      accountType: record.accountType as EmployeePaymentDetails['accountType'],
+      method: record.method as EmployeePaymentDetails['method'],
+    };
+  }
+
+  async savePaymentDetails(
+    employeeId: string,
+    tenantId: string,
+    changedById: string,
+    data: EmployeePaymentDetailsData,
+  ): Promise<EmployeePaymentDetails | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const employee = await tx.employee.findFirst({
+        where: { id: employeeId, tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!employee) return null;
+
+      const now = new Date();
+      await tx.employeePaymentAccount.updateMany({
+        where: { employeeId, tenantId, isCurrent: true },
+        data: { isCurrent: false, effectiveTo: now },
+      });
+      const record = await tx.employeePaymentAccount.create({
+        data: {
+          employeeId,
+          tenantId,
+          createdById: changedById,
+          method: data.method,
+          bankName: data.bankName?.trim() || null,
+          accountType: data.accountType ?? null,
+          accountNumber: data.accountNumber?.trim() || null,
+          mobilePaymentPhone: data.mobilePaymentPhone?.trim() || null,
+        },
+        select: {
+          id: true,
+          employeeId: true,
+          method: true,
+          bankName: true,
+          accountType: true,
+          accountNumber: true,
+          mobilePaymentPhone: true,
+          effectiveFrom: true,
+        },
+      });
+      return {
+        ...record,
+        accountType: record.accountType as EmployeePaymentDetails['accountType'],
+        method: record.method as EmployeePaymentDetails['method'],
+      };
+    }, { isolationLevel: 'Serializable' });
+  }
+
+  async clearPaymentDetails(employeeId: string, tenantId: string): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const employee = await tx.employee.findFirst({
+        where: { id: employeeId, tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!employee) return false;
+      await tx.employeePaymentAccount.updateMany({
+        where: { employeeId, tenantId, isCurrent: true },
+        data: { isCurrent: false, effectiveTo: new Date() },
+      });
+      return true;
+    }, { isolationLevel: 'Serializable' });
+  }
+
   async createDepartment(data: { tenantId: string; name: string; description?: string }): Promise<Department> {
     const r = await this.prisma.department.create({ data: { ...data, description: data.description ?? null } });
     return new Department(r.id, r.tenantId, r.name, r.description, r.isActive, r.createdAt, r.updatedAt);
@@ -75,7 +181,6 @@ export class PrismaEmployeeRepository implements EmployeeRepository {
     await this.prisma.department.update({ where: { id }, data: { isActive: false } });
   }
 
-  // Salary History
   async createSalaryEntry(data: { employeeId: string; salary: number; effectiveDate: string; reason?: string }): Promise<SalaryHistory> {
     const r = await this.prisma.salaryHistory.create({
       data: { employeeId: data.employeeId, salary: data.salary, effectiveDate: new Date(data.effectiveDate), reason: data.reason ?? null },

@@ -14,5 +14,6 @@ export class Product {
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public readonly deletedAt: Date | null,
+    public readonly barcode: string | null = null,
   ) {}
 }

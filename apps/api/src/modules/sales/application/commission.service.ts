@@ -55,6 +55,20 @@ export class CommissionService {
     return this.commissionRepo.updateStatus(id, 'cancelled');
   }
 
+  async adjustForReturn(invoiceId: string, returnedTotal: number): Promise<void> {
+    const commissions = await this.commissionRepo.findByInvoice(invoiceId);
+    for (const commission of commissions) {
+      if (commission.status === 'paid') continue;
+      const proportionalAdjustment = returnedTotal * commission.commissionRate;
+      const adjustedAmount = Math.max(0, commission.commissionAmount - proportionalAdjustment);
+      await this.commissionRepo.adjustAmount(
+        commission.id,
+        Number(adjustedAmount.toFixed(2)),
+        `Ajustada por devolución por ${returnedTotal.toFixed(2)} de la factura`,
+      );
+    }
+  }
+
   async getSummary(tenantId: string) {
     return this.commissionRepo.getSummary(tenantId);
   }

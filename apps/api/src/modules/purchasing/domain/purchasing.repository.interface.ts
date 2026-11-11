@@ -19,7 +19,10 @@ export interface PurchasingRepository {
   updateOrderStatus(id: string, status: string): Promise<PurchaseOrder>;
   updateOrder(id: string, data: Partial<{ vendorId: string; subtotal: number; taxAmount: number; total: number; currency: string; notes: string | null; status: string; receivedAt: Date | null; expectedDate: Date | null }>): Promise<PurchaseOrder>;
   deleteOrder(id: string): Promise<void>;
-  createReturn(data: { tenantId: string; purchaseOrderId: string; reason: string; subtotal: number; taxAmount: number; total: number }): Promise<PurchaseReturn>;
+  createReturn(data: {
+    tenantId: string; purchaseOrderId: string; reason: string; subtotal: number; taxAmount: number; total: number;
+    reasonCode?: string; resolution?: string; supplierCreditNo?: string; warehouseId?: string; userId?: string; lines?: unknown[];
+  }): Promise<PurchaseReturn>;
   findReturnsByOrder(purchaseOrderId: string): Promise<PurchaseReturn[]>;
   findReturnsByTenant(tenantId: string): Promise<PurchaseReturn[]>;
   findReturnById(id: string): Promise<PurchaseReturn | null>;

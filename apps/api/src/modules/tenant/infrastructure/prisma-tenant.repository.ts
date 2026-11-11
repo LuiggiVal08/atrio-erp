@@ -7,7 +7,7 @@ import {
   CreateTenantWithAdminResult,
 } from '../domain/tenant.repository.interface';
 import { Tenant } from '../domain/tenant.entity';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class PrismaTenantRepository implements TenantRepository {
@@ -18,6 +18,7 @@ export class PrismaTenantRepository implements TenantRepository {
 
     const tenant = await this.prisma.tenant.create({
       data: {
+        slug: data.slug,
         legalName: data.legalName,
         taxId: data.taxId,
         baseCurrency: data.baseCurrency || 'VED',

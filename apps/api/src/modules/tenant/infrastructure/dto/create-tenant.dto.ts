@@ -10,6 +10,10 @@ export enum SubscriptionPlan {
 export class CreateTenantDto {
   @IsString()
   @IsNotEmpty()
+  slug: string;
+
+  @IsString()
+  @IsNotEmpty()
   legalName: string;
 
   @IsString()

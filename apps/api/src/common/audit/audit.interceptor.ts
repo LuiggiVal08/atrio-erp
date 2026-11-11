@@ -2,6 +2,8 @@ import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nes
 import { Observable, tap } from 'rxjs';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   constructor(private readonly prisma: PrismaService) {}
@@ -24,17 +26,17 @@ export class AuditInterceptor implements NestInterceptor {
           if (!user) return;
 
           const entityType = this.extractEntityType(originalUrl);
-          const entityId = responseBody?.id || request.params?.id;
+          const entityId = this.resolveEntityId(responseBody, request.params);
 
           await this.prisma.auditLog.create({
             data: {
               entityType,
-              entityId: entityId || 'unknown',
+              entityId,
               action: this.mapMethodToAction(method),
               before: method === 'PATCH' || method === 'PUT' ? originalBody : null,
               after: responseBody || null,
               userId: user.id,
-              tenantId: tenantId || user.tenantId,
+              tenantId: user.effectiveTenantId,
               ipAddress: ip,
               userAgent: headers['user-agent']?.substring(0, 255) || null,
             },
@@ -49,6 +51,11 @@ export class AuditInterceptor implements NestInterceptor {
   private extractEntityType(url: string): string {
     const parts = url.split('/').filter(Boolean);
     return parts[parts.length - 1]?.split('?')[0] || 'Unknown';
+  }
+
+  private resolveEntityId(responseBody: any, params: Record<string, string> = {}): string | null {
+    const candidates = [responseBody?.id, params?.id];
+    return candidates.find((value) => typeof value === 'string' && UUID_PATTERN.test(value)) ?? null;
   }
 
   private mapMethodToAction(method: string): 'CREATE' | 'UPDATE' | 'DELETE' {

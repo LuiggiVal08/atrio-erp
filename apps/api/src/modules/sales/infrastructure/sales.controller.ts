@@ -32,14 +32,14 @@ export class SalesController {
   @RequirePermission('sales:order:create')
   @ApiOperation({ summary: 'Create sales order' })
   async createOrder(@Body() dto: CreateSalesOrderDto, @CurrentUser() user: any) {
-    return this.orderService.create({ tenantId: user.tenantId, ...dto });
+    return this.orderService.create({ tenantId: user.effectiveTenantId, ...dto });
   }
 
   @Get('orders')
   @RequirePermission('sales:order:read')
   @ApiOperation({ summary: 'List sales orders' })
   async listOrders(@CurrentUser() user: any) {
-    return this.orderService.findAll(user.tenantId);
+    return this.orderService.findAll(user.effectiveTenantId);
   }
 
   @Get('orders/:id')
@@ -77,14 +77,14 @@ export class SalesController {
   @RequirePermission('sales:invoice:create')
   @ApiOperation({ summary: 'Create sales invoice' })
   async createInvoice(@Body() dto: CreateSalesInvoiceDto, @CurrentUser() user: any) {
-    return this.invoiceService.create({ tenantId: user.tenantId, ...dto });
+    return this.invoiceService.create({ tenantId: user.effectiveTenantId, ...dto });
   }
 
   @Get('invoices')
   @RequirePermission('sales:invoice:read')
   @ApiOperation({ summary: 'List sales invoices' })
   async listInvoices(@CurrentUser() user: any) {
-    return this.invoiceService.findAll(user.tenantId);
+    return this.invoiceService.findAll(user.effectiveTenantId);
   }
 
   @Get('invoices/:id')
@@ -129,14 +129,14 @@ export class SalesController {
   @RequirePermission('sales:commission:read')
   @ApiOperation({ summary: 'List all commissions' })
   async listCommissions(@CurrentUser() user: any) {
-    return this.commissionService.findAll(user.tenantId);
+    return this.commissionService.findAll(user.effectiveTenantId);
   }
 
   @Get('commissions/summary')
   @RequirePermission('sales:commission:read')
   @ApiOperation({ summary: 'Get commission summary counts' })
   async getCommissionSummary(@CurrentUser() user: any) {
-    return this.commissionService.getSummary(user.tenantId);
+    return this.commissionService.getSummary(user.effectiveTenantId);
   }
 
   @Get('commissions/:id')
@@ -150,7 +150,7 @@ export class SalesController {
   @RequirePermission('sales:commission:read')
   @ApiOperation({ summary: 'List commissions by salesperson' })
   async listCommissionsBySalesperson(@CurrentUser() user: any, @Param('salespersonId') salespersonId: string) {
-    return this.commissionService.findBySalesperson(user.tenantId, salespersonId);
+    return this.commissionService.findBySalesperson(user.effectiveTenantId, salespersonId);
   }
 
   @Patch('commissions/:id/pay')
@@ -173,14 +173,18 @@ export class SalesController {
   @RequirePermission('sales:return:create')
   @ApiOperation({ summary: 'Create sales return' })
   async createReturn(@Body() dto: CreateSalesReturnDto, @CurrentUser() user: any) {
-    return this.returnService.create({ tenantId: user.tenantId, ...dto });
+    return this.returnService.create({
+      tenantId: user.effectiveTenantId,
+      userId: user.id,
+      ...dto,
+    });
   }
 
   @Get('returns')
   @RequirePermission('sales:return:read')
   @ApiOperation({ summary: 'List sales returns' })
   async listReturns(@CurrentUser() user: any) {
-    return this.returnService.findAll(user.tenantId);
+    return this.returnService.findAll(user.effectiveTenantId);
   }
 
   @Get('returns/:id')

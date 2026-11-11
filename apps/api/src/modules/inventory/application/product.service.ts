@@ -6,21 +6,27 @@ export class ProductService {
   constructor(@Inject('InventoryRepository') private readonly repo: InventoryRepository) {}
 
   async create(data: {
-    tenantId: string; sku: string; name: string; description?: string;
+    tenantId: string; sku: string; barcode?: string; name: string; description?: string;
     categoryId?: string; unitPrice: number; costPrice: number;
     taxId?: string; isService: boolean;
+    brandId?: string; baseUnit?: string; purchaseUnit?: string; conversionFactor?: number;
+    minStock?: number; maxStock?: number; reorderPoint?: number;
+    primarySupplierId?: string; supplierSku?: string;
   }) {
     if (data.unitPrice < 0) throw new BadRequestException('Unit price must be >= 0');
     if (data.costPrice < 0) throw new BadRequestException('Cost price must be >= 0');
     try {
       return await this.repo.createProduct(data);
     } catch (error: any) {
-      if (error?.code === 'P2002') throw new ConflictException('SKU already exists');
+      if (error?.code === 'P2002') throw new ConflictException('SKU or barcode already exists');
       throw error;
     }
   }
 
-  async findAll(tenantId: string, filter?: { categoryId?: string; isActive?: boolean; search?: string }) {
+  async findAll(tenantId: string, filter?: {
+    categoryId?: string; isActive?: boolean; search?: string;
+    page?: number; pageSize?: number; sortBy?: string; sortDir?: 'asc' | 'desc';
+  }) {
     return this.repo.findAllProducts(tenantId, filter);
   }
 
@@ -33,7 +39,18 @@ export class ProductService {
   async update(id: string, data: any) {
     const existing = await this.repo.findProductById(id);
     if (!existing) throw new NotFoundException('Product not found');
-    return this.repo.updateProduct(id, data);
+    try {
+      return await this.repo.updateProduct(id, data);
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new ConflictException('SKU or barcode already exists');
+      throw error;
+    }
+  }
+
+  async generateBarcode(id: string) {
+    const existing = await this.repo.findProductById(id);
+    if (!existing) throw new NotFoundException('Product not found');
+    return this.repo.generateProductBarcode(id);
   }
 
   async softDelete(id: string) {

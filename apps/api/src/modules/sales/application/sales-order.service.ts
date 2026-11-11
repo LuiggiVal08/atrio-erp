@@ -1,16 +1,31 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { SalesRepository } from '../domain/sales.repository.interface';
+import type { SalesRepository } from '../domain/sales.repository.interface';
+import { CustomerSnapshot } from '../domain/customer-snapshot.vo';
+import { CurrencySnapshot } from '../domain/currency-snapshot.vo';
+
 
 @Injectable()
 export class SalesOrderService {
   constructor(@Inject('SalesRepository') private readonly repo: SalesRepository) {}
 
   async create(data: {
-    tenantId: string; documentId: string; clientId: string;
+    tenantId: string; documentId?: string; clientId: string;
     subtotal: number; taxAmount: number; total: number; currency: string; notes?: string;
   }) {
     if (data.total < 0) throw new BadRequestException('Total must be >= 0');
-    return this.repo.createOrder(data);
+    return this.repo.createOrder({
+      tenantId: data.tenantId,
+      documentId: data.documentId ?? null,
+      clientId: data.clientId,
+      customerSnapshot: new CustomerSnapshot(
+        data.clientId,
+        'Legacy Client',
+        null, null, null, null,
+      ),
+      currency: data.currency,
+      notes: data.notes ?? null,
+      type: 'order',
+    });
   }
 
   async findAll(tenantId: string) {
@@ -27,7 +42,10 @@ export class SalesOrderService {
     const order = await this.repo.findOrderById(id);
     if (!order) throw new NotFoundException('Sales order not found');
     if (data.total !== undefined && data.total < 0) throw new BadRequestException('Total must be >= 0');
-    return this.repo.updateOrder(id, data as any);
+    return this.repo.updateOrder(id, {
+      clientId: data.clientId,
+      notes: data.notes ?? null,
+    });
   }
 
   async delete(id: string): Promise<void> {
