@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -16,6 +16,8 @@ const PERMISSIONS = [
   { code: 'employee.read', name: 'View employee', module: 'employee', action: 'read' },
   { code: 'employee.update', name: 'Edit employee', module: 'employee', action: 'update' },
   { code: 'employee.delete', name: 'Delete employee', module: 'employee', action: 'delete' },
+  { code: 'employee:bank-details:read', name: 'View employee payment details', module: 'employee', action: 'read' },
+  { code: 'employee:bank-details:update', name: 'Manage employee payment details', module: 'employee', action: 'update' },
   { code: 'role.create', name: 'Create role', module: 'role', action: 'create' },
   { code: 'role.read', name: 'View role', module: 'role', action: 'read' },
   { code: 'role.update', name: 'Edit role', module: 'role', action: 'update' },
@@ -86,6 +88,50 @@ const PERMISSIONS = [
   { code: 'employee:department:delete', name: 'Delete department', module: 'employee', action: 'delete' },
   { code: 'employee:salary:create', name: 'Create salary entry', module: 'employee', action: 'create' },
   { code: 'employee:salary:read', name: 'View salary history', module: 'employee', action: 'read' },
+  { code: 'inventory:category:create', name: 'Create category', module: 'inventory', action: 'create' },
+  { code: 'inventory:category:read', name: 'View categories', module: 'inventory', action: 'read' },
+  { code: 'inventory:category:update', name: 'Edit category', module: 'inventory', action: 'update' },
+  { code: 'inventory:category:delete', name: 'Delete category', module: 'inventory', action: 'delete' },
+  { code: 'inventory:brand:create', name: 'Create product brand', module: 'inventory', action: 'create' },
+  { code: 'inventory:brand:read', name: 'View product brands', module: 'inventory', action: 'read' },
+  { code: 'inventory:brand:update', name: 'Edit product brand', module: 'inventory', action: 'update' },
+  { code: 'inventory:brand:delete', name: 'Deactivate product brand', module: 'inventory', action: 'delete' },
+  { code: 'inventory:product:create', name: 'Create product', module: 'inventory', action: 'create' },
+  { code: 'inventory:product:read', name: 'View products', module: 'inventory', action: 'read' },
+  { code: 'inventory:product:update', name: 'Edit product', module: 'inventory', action: 'update' },
+  { code: 'inventory:product:delete', name: 'Delete product', module: 'inventory', action: 'delete' },
+  { code: 'inventory:warehouse:create', name: 'Create warehouse', module: 'inventory', action: 'create' },
+  { code: 'inventory:warehouse:read', name: 'View warehouses', module: 'inventory', action: 'read' },
+  { code: 'inventory:warehouse:delete', name: 'Delete warehouse', module: 'inventory', action: 'delete' },
+  { code: 'inventory:stock:read', name: 'View stock', module: 'inventory', action: 'read' },
+  { code: 'inventory:stock:adjust', name: 'Adjust stock', module: 'inventory', action: 'update' },
+  { code: 'inventory:transfer:cancel', name: 'Cancel transfer', module: 'inventory', action: 'update' },
+  { code: 'inventory:transfer:complete', name: 'Complete transfer', module: 'inventory', action: 'update' },
+  { code: 'inventory:reorder-point:manage', name: 'Manage reorder points', module: 'inventory', action: 'update' },
+  { code: 'client-vendor:client:create', name: 'Create client', module: 'client-vendor', action: 'create' },
+  { code: 'client-vendor:client:read', name: 'View clients', module: 'client-vendor', action: 'read' },
+  { code: 'client-vendor:client:update', name: 'Edit client', module: 'client-vendor', action: 'update' },
+  { code: 'client-vendor:client:delete', name: 'Delete client', module: 'client-vendor', action: 'delete' },
+  { code: 'client-vendor:vendor:create', name: 'Create vendor', module: 'client-vendor', action: 'create' },
+  { code: 'client-vendor:vendor:read', name: 'View vendors', module: 'client-vendor', action: 'read' },
+  { code: 'client-vendor:vendor:update', name: 'Edit vendor', module: 'client-vendor', action: 'update' },
+  { code: 'client-vendor:vendor:delete', name: 'Delete vendor', module: 'client-vendor', action: 'delete' },
+  { code: 'localization:tax:create', name: 'Create tax', module: 'localization', action: 'create' },
+  { code: 'localization:tax:read', name: 'View taxes', module: 'localization', action: 'read' },
+  { code: 'localization:tax:update', name: 'Edit tax', module: 'localization', action: 'update' },
+  { code: 'localization:tax:delete', name: 'Delete tax', module: 'localization', action: 'delete' },
+  { code: 'localization:currency-rate:create', name: 'Create currency rate', module: 'localization', action: 'create' },
+  { code: 'localization:currency-rate:read', name: 'View currency rates', module: 'localization', action: 'read' },
+  { code: 'purchasing:order:list', name: 'List purchase orders (v2)', module: 'purchasing', action: 'read' },
+  { code: 'sales:invoice:fiscal', name: 'Manage fiscal data on invoices', module: 'sales', action: 'update' },
+  { code: 'documents:create', name: 'Create document', module: 'documents', action: 'create' },
+  { code: 'documents:read', name: 'View documents', module: 'documents', action: 'read' },
+  { code: 'documents:submit', name: 'Submit document', module: 'documents', action: 'update' },
+  { code: 'documents:approve', name: 'Approve document', module: 'documents', action: 'update' },
+  { code: 'documents:reject', name: 'Reject document', module: 'documents', action: 'update' },
+  { code: 'documents:counter', name: 'Counter-sign document', module: 'documents', action: 'update' },
+  { code: 'documents:transition', name: 'Transition document state', module: 'documents', action: 'update' },
+  { code: 'documents:delete', name: 'Delete document', module: 'documents', action: 'delete' },
 ];
 
 async function main() {
@@ -103,12 +149,13 @@ async function main() {
 
   const tenant = await prisma.tenant.upsert({
     where: { id: DEMO_TENANT_ID },
-    update: { enabledModules: ['reports', 'sales', 'inventory', 'purchasing', 'cash-payments', 'cash', 'clients', 'vendors', 'localization', 'employees'] },
+    update: { enabledModules: ['reports', 'sales', 'inventory', 'purchasing', 'cash-payments', 'localization', 'employees', 'client-vendor', 'payroll'] },
     create: {
       id: DEMO_TENANT_ID,
+      slug: 'demo',
       legalName: 'Demo Company',
       taxId: 'J-123456789',
-      enabledModules: ['reports', 'sales', 'inventory', 'purchasing', 'cash-payments', 'cash', 'clients', 'vendors', 'localization', 'employees'],
+      enabledModules: ['reports', 'sales', 'inventory', 'purchasing', 'cash-payments', 'localization', 'employees', 'client-vendor', 'payroll'],
     },
   });
   console.log(`Seeded tenant: ${tenant.id}`);

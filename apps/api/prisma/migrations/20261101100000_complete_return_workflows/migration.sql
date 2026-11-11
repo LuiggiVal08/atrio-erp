@@ -1,0 +1,19 @@
+ALTER TABLE "sales_returns"
+  ADD COLUMN IF NOT EXISTS "reason_code" TEXT,
+  ADD COLUMN IF NOT EXISTS "product_condition" TEXT,
+  ADD COLUMN IF NOT EXISTS "destination" TEXT,
+  ADD COLUMN IF NOT EXISTS "resolution" TEXT,
+  ADD COLUMN IF NOT EXISTS "warehouse_id" UUID,
+  ADD COLUMN IF NOT EXISTS "cash_register_id" UUID,
+  ADD COLUMN IF NOT EXISTS "credit_note_id" TEXT,
+  ADD COLUMN IF NOT EXISTS "user_id" UUID,
+  ADD COLUMN IF NOT EXISTS "lines" JSONB,
+  ADD COLUMN IF NOT EXISTS "refunded_at" TIMESTAMP(3);
+
+ALTER TABLE "purchase_returns"
+  ADD COLUMN IF NOT EXISTS "reason_code" TEXT,
+  ADD COLUMN IF NOT EXISTS "resolution" TEXT,
+  ADD COLUMN IF NOT EXISTS "warehouse_id" UUID,
+  ADD COLUMN IF NOT EXISTS "supplier_credit_no" TEXT,
+  ADD COLUMN IF NOT EXISTS "user_id" UUID,
+  ADD COLUMN IF NOT EXISTS "lines" JSONB;
