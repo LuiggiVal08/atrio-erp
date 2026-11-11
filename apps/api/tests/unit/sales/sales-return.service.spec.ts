@@ -1,6 +1,8 @@
 import { SalesReturnService } from '../../../src/modules/sales/application/sales-return.service';
 import { SalesReturnRepository } from '../../../src/modules/sales/domain/sales-return.repository.interface';
+import { CommissionService } from '../../../src/modules/sales/application/commission.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('SalesReturnService', () => {
   let service: SalesReturnService;
@@ -12,8 +14,15 @@ describe('SalesReturnService', () => {
     delete: jest.fn(),
   };
 
+  const mockEventEmitter: Partial<EventEmitter2> = { emit: jest.fn() };
+  const mockCommissionService: Partial<CommissionService> = { adjustForReturn: jest.fn() };
+
   beforeEach(() => {
-    service = new SalesReturnService(mockRepo);
+    service = new SalesReturnService(
+      mockRepo,
+      mockEventEmitter as EventEmitter2,
+      mockCommissionService as CommissionService,
+    );
     jest.clearAllMocks();
   });
 
@@ -58,12 +67,37 @@ describe('SalesReturnService', () => {
   });
 
   describe('updateStatus', () => {
-    it('should update status when return exists', async () => {
-      (mockRepo.findById as jest.Mock).mockResolvedValue({ id: 'ret-1', status: 'draft' });
-      (mockRepo.updateStatus as jest.Mock).mockResolvedValue({ id: 'ret-1', status: 'approved' });
+    it('should approve the return, adjust commissions and emit the return event', async () => {
+      const lines = [{ productId: 'prod-1', warehouseId: 'wh-1', quantity: 2 }];
+      const existingReturn = {
+        id: 'ret-1', status: 'draft', tenantId: 't1', invoiceId: 'inv-1', total: 110,
+        userId: 'user-1', lines, productCondition: 'saleable',
+        resolution: 'refund_cash', cashRegisterId: 'reg-1',
+      };
+      (mockRepo.findById as jest.Mock).mockResolvedValue(existingReturn);
+      (mockRepo.updateStatus as jest.Mock).mockResolvedValue({ ...existingReturn, status: 'approved' });
       const result = await service.updateStatus('ret-1', 'approved');
       expect(mockRepo.updateStatus).toHaveBeenCalledWith('ret-1', 'approved');
       expect(result.status).toBe('approved');
+      expect(mockCommissionService.adjustForReturn).toHaveBeenCalledTimes(1);
+      expect(mockCommissionService.adjustForReturn).toHaveBeenCalledWith('inv-1', 110);
+      expect(mockEventEmitter.emit).toHaveBeenCalledTimes(1);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('document.returned', {
+        eventType: 'document.returned',
+        tenantId: 't1',
+        documentId: 'ret-1',
+        documentType: 'sales_return',
+        timestamp: expect.any(String),
+        triggeredBy: 'user-1',
+        metadata: {
+          invoiceId: 'inv-1',
+          lines,
+          productCondition: 'saleable',
+          resolution: 'refund_cash',
+          cashRegisterId: 'reg-1',
+          amount: 110,
+        },
+      });
     });
 
     it('should throw when return not found', async () => {

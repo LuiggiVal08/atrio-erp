@@ -1,20 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '../../../src/app.module';
+import { createTestApp, seedTestData, cleanupTestData } from '../../helpers/test-setup';
 
 describe('User Locale API (contract)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
@@ -22,10 +14,14 @@ describe('User Locale API (contract)', () => {
   });
 
   it('PATCH /api/v1/users/me/locale should return 400 without valid body', async () => {
+    const seed = await seedTestData(app);
     const res = await request(app.getHttpServer())
       .patch('/api/v1/users/me/locale')
+      .set('Authorization', `Bearer ${seed.token}`)
+      .set('X-Tenant-ID', seed.tenantId)
       .send({ locale: 'invalid' })
       .expect(400);
     expect(res.body).toHaveProperty('message');
+    await cleanupTestData(app, seed);
   });
 });

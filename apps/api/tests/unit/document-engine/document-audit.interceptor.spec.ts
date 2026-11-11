@@ -10,7 +10,7 @@ describe('DocumentAuditInterceptor', () => {
     const req = {
       method: overrides.method || 'POST',
       originalUrl: overrides.url || '/tenants/t1/documents',
-      user: overrides.user !== undefined ? overrides.user : { id: 'user-1', tenantId: 't1' },
+      user: overrides.user !== undefined ? overrides.user : { id: 'user-1', tenantId: 't1', effectiveTenantId: 't1' },
       tenantId: overrides.tenantId !== undefined ? overrides.tenantId : 't1',
       params: overrides.params || {},
       body: overrides.body || {},

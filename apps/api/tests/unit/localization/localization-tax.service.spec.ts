@@ -10,6 +10,7 @@ describe('LocalizationTaxService', () => {
     updateTax: jest.fn(),
     deleteTax: jest.fn(),
     createCurrencyRate: jest.fn(),
+    upsertCurrencyRate: jest.fn(),
     findRates: jest.fn(),
     findRateAtDate: jest.fn(),
   };

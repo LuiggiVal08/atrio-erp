@@ -1,20 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '../../src/app.module';
+import { createTestApp, seedTestData, cleanupTestData, TestSeed } from '../helpers/test-setup';
 
 describe('Audit Logs API (contract)', () => {
   let app: INestApplication;
+  let seed: TestSeed;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
@@ -22,11 +15,15 @@ describe('Audit Logs API (contract)', () => {
   });
 
   it('GET /api/v1/admin/audit-logs should return 200 and an object with items', async () => {
+    seed = await seedTestData(app);
     const res = await request(app.getHttpServer())
       .get('/api/v1/admin/audit-logs')
+      .set('Authorization', `Bearer ${seed.token}`)
+      .set('X-Tenant-ID', seed.tenantId)
       .expect(200);
 
     expect(res.body).toHaveProperty('items');
     expect(res.body).toHaveProperty('total');
+    await cleanupTestData(app, seed);
   });
 });

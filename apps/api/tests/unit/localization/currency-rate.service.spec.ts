@@ -10,6 +10,7 @@ describe('CurrencyRateService', () => {
     updateTax: jest.fn(),
     deleteTax: jest.fn(),
     createCurrencyRate: jest.fn(),
+    upsertCurrencyRate: jest.fn(),
     findRates: jest.fn(),
     findRateAtDate: jest.fn(),
   };
@@ -23,6 +24,26 @@ describe('CurrencyRateService', () => {
     (mockRepo.createCurrencyRate as jest.Mock).mockResolvedValue({ id: 'rate-1', rate: 89.5 });
     const result = await service.create({ tenantId: 't1', fromCurrency: 'USD', toCurrency: 'VES', rate: 89.5, date: new Date() });
     expect(result).toHaveProperty('id', 'rate-1');
+  });
+
+  it('should reject the same source and target currency', async () => {
+    await expect(service.create({
+      tenantId: 't1',
+      fromCurrency: 'USD',
+      toCurrency: 'USD',
+      rate: 1,
+      date: new Date(),
+    })).rejects.toThrow('diferentes');
+  });
+
+  it('should reject a non-positive rate', async () => {
+    await expect(service.create({
+      tenantId: 't1',
+      fromCurrency: 'USD',
+      toCurrency: 'VES',
+      rate: 0,
+      date: new Date(),
+    })).rejects.toThrow('mayor que cero');
   });
 
   it('should find rates by currency pair', async () => {

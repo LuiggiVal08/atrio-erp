@@ -11,6 +11,7 @@ describe('BankAccountService', () => {
     softDeleteRegister: jest.fn(),
     createPaymentMethod: jest.fn(),
     findAllPaymentMethods: jest.fn(),
+    updatePaymentMethod: jest.fn(),
     deletePaymentMethod: jest.fn(),
     createMovement: jest.fn(),
     findMovements: jest.fn(),

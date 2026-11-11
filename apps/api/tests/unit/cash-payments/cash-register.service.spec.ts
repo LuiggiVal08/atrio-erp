@@ -1,3 +1,4 @@
+import { PrismaService } from '../../../src/infrastructure/database/prisma.service';
 import { CashRegisterService } from '../../../src/modules/cash-payments/application/cash-register.service';
 import { CashPaymentsRepository } from '../../../src/modules/cash-payments/domain/cash-payments.repository.interface';
 
@@ -11,6 +12,7 @@ describe('CashRegisterService', () => {
     softDeleteRegister: jest.fn(),
     createPaymentMethod: jest.fn(),
     findAllPaymentMethods: jest.fn(),
+    updatePaymentMethod: jest.fn(),
     deletePaymentMethod: jest.fn(),
     createMovement: jest.fn(),
     findMovements: jest.fn(),
@@ -21,8 +23,15 @@ describe('CashRegisterService', () => {
     deleteBankAccount: jest.fn(),
   };
 
+  const mockPrisma = {
+    cashRegister: { findFirst: jest.fn() },
+    posSession: { findFirst: jest.fn() },
+    user: { findUnique: jest.fn() },
+    cashMovement: { findMany: jest.fn() },
+  };
+
   beforeEach(() => {
-    service = new CashRegisterService(mockRepo);
+    service = new CashRegisterService(mockRepo, mockPrisma as unknown as PrismaService);
     jest.clearAllMocks();
   });
 

@@ -11,6 +11,7 @@ describe('VendorService', () => {
     softDeleteClient: jest.fn(),
     createVendor: jest.fn(),
     findAllVendors: jest.fn(),
+    findVendorsByCategory: jest.fn(),
     findVendorById: jest.fn(),
     updateVendor: jest.fn(),
     softDeleteVendor: jest.fn(),
@@ -21,7 +22,7 @@ describe('VendorService', () => {
     jest.clearAllMocks();
   });
 
-  const valid = { tenantId: 't1', legalName: 'Vendor Corp', taxId: 'J-456' };
+  const valid = { tenantId: 't1', documentId: 'J-456', legalName: 'Vendor Corp', taxId: 'J-456' };
 
   it('should create a vendor', async () => {
     (mockRepo.createVendor as jest.Mock).mockResolvedValue({ id: 'v1', ...valid });
@@ -48,7 +49,7 @@ describe('VendorService', () => {
 
   it('should soft delete vendor', async () => {
     (mockRepo.findVendorById as jest.Mock).mockResolvedValue({ id: 'v1' });
-    await service.softDelete('v1');
-    expect(mockRepo.softDeleteVendor).toHaveBeenCalledWith('v1');
+    await service.softDelete('v1', 'user-1');
+    expect(mockRepo.softDeleteVendor).toHaveBeenCalledWith('v1', 'user-1');
   });
 });

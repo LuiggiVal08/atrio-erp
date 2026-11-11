@@ -26,6 +26,7 @@ describe('CashMovementEventHandler', () => {
     await handler.handleDocumentPaid(payload);
 
     expect(mockCashMovementService.register).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
       cashRegisterId: 'reg-1',
       type: 'in',
       amount: 1200.00,

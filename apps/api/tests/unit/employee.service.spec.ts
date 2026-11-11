@@ -9,6 +9,9 @@ describe('ManageEmployeeUseCase', () => {
     findById: jest.fn(),
     findByTenant: jest.fn(),
     update: jest.fn(),
+    findPaymentDetails: jest.fn(),
+    savePaymentDetails: jest.fn(),
+    clearPaymentDetails: jest.fn(),
     createDepartment: jest.fn(),
     findAllDepartments: jest.fn(),
     findDepartmentById: jest.fn(),
@@ -39,6 +42,42 @@ describe('ManageEmployeeUseCase', () => {
       (mockEmployeeRepo.create as jest.Mock).mockResolvedValue({ id: 'emp-1', ...dto });
       const result = await manageEmployeeUseCase.create(dto);
       expect(result.id).toBe('emp-1');
+    });
+
+    it('should pass employee contact details to the repository', async () => {
+      const contactDetails = {
+        phone: '+584121234567',
+        email: 'juan@example.com',
+        address: 'Av. Principal, Caracas',
+        emergencyContactName: 'Ana Pérez',
+        emergencyContactPhone: '+584141234567',
+        taxIdentifier: 'V-12345678',
+      };
+      (mockEmployeeRepo.create as jest.Mock).mockResolvedValue({ id: 'emp-1', ...dto, ...contactDetails });
+
+      await manageEmployeeUseCase.create({ ...dto, ...contactDetails });
+
+      expect(mockEmployeeRepo.create).toHaveBeenCalledWith({ ...dto, ...contactDetails });
+    });
+
+    it('should save payment details scoped to the employee tenant', async () => {
+      const details = {
+        method: 'BANK' as const,
+        bankName: 'Banco de prueba',
+        accountType: 'CHECKING' as const,
+        accountNumber: '000123456789',
+      };
+      (mockEmployeeRepo.savePaymentDetails as jest.Mock).mockResolvedValue({
+        id: 'payment-1',
+        employeeId: 'emp-1',
+        effectiveFrom: new Date('2026-11-02'),
+        ...details,
+      });
+
+      const result = await manageEmployeeUseCase.savePaymentDetails('emp-1', 'tenant-1', 'user-1', details);
+
+      expect(mockEmployeeRepo.savePaymentDetails).toHaveBeenCalledWith('emp-1', 'tenant-1', 'user-1', details);
+      expect(result?.accountNumber).toBe(details.accountNumber);
     });
 
     it('should throw on duplicate identityDoc', async () => {

@@ -11,11 +11,17 @@ describe('ProductCategoryService', () => {
     createProduct: jest.fn(),
     findAllProducts: jest.fn(),
     findProductById: jest.fn(),
+    generateProductBarcode: jest.fn(),
     updateProduct: jest.fn(),
     softDeleteProduct: jest.fn(),
     createWarehouse: jest.fn(),
     findAllWarehouses: jest.fn(),
+    updateWarehouse: jest.fn(),
     softDeleteWarehouse: jest.fn(),
+    createBranch: jest.fn(),
+    findAllBranches: jest.fn(),
+    updateBranch: jest.fn(),
+    softDeleteBranch: jest.fn(),
     getStock: jest.fn(),
     adjustStock: jest.fn(),
     createMovement: jest.fn(),
@@ -30,6 +36,8 @@ describe('ProductCategoryService', () => {
     findReorderPoint: jest.fn(),
     updateReorderPoint: jest.fn(),
     deleteReorderPoint: jest.fn(),
+    countProductsByCategory: jest.fn(),
+    countChildCategories: jest.fn(),
     findLowStock: jest.fn(),
   };
 
@@ -57,7 +65,22 @@ describe('ProductCategoryService', () => {
   });
 
   it('should delete a category', async () => {
+    (mockRepo.countProductsByCategory as jest.Mock).mockResolvedValue(0);
+    (mockRepo.countChildCategories as jest.Mock).mockResolvedValue(0);
     await service.delete('cat-1');
     expect(mockRepo.deleteCategory).toHaveBeenCalledWith('cat-1');
+  });
+
+  it('should reject delete when products are associated', async () => {
+    (mockRepo.countProductsByCategory as jest.Mock).mockResolvedValue(3);
+    await expect(service.delete('cat-1')).rejects.toThrow('producto(s) están asociados');
+    expect(mockRepo.deleteCategory).not.toHaveBeenCalled();
+  });
+
+  it('should reject delete when child categories exist', async () => {
+    (mockRepo.countProductsByCategory as jest.Mock).mockResolvedValue(0);
+    (mockRepo.countChildCategories as jest.Mock).mockResolvedValue(2);
+    await expect(service.delete('cat-1')).rejects.toThrow('subcategoría(s)');
+    expect(mockRepo.deleteCategory).not.toHaveBeenCalled();
   });
 });

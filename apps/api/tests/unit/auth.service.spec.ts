@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LoginUseCase } from '../../src/modules/auth/application/login.use-case';
 import { LogoutUseCase } from '../../src/modules/auth/application/logout.use-case';
 import { AuthRepository, UserCredentials } from '../../src/modules/auth/domain/auth.repository.interface';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 describe('LoginUseCase', () => {
   let loginUseCase: LoginUseCase;
@@ -15,8 +15,12 @@ describe('LoginUseCase', () => {
 
   const mockPrisma = {
     tenant: {
-      findUnique: jest.fn().mockResolvedValue({ enabledModules: [] }),
+      findUnique: jest.fn().mockResolvedValue({
+        enabledModules: [],
+        settings: { sessionTimeout: 45 },
+      }),
     },
+    user: { findUnique: jest.fn().mockResolvedValue({ roles: [] }) },
   };
 
   const mockBlacklist = {
@@ -30,7 +34,7 @@ describe('LoginUseCase', () => {
   });
 
   describe('login', () => {
-    const dto = { email: 'admin@acme.com', password: 'Pass123!', tenantId: 'tenant-1' };
+    const dto = { email: 'admin@acme.com', password: 'Pass123!', tenantId: '11111111-1111-4111-8111-111111111111' };
 
     it('should return user data on valid credentials', async () => {
       const hash = await bcrypt.hash('Pass123!', 10);
@@ -51,6 +55,7 @@ describe('LoginUseCase', () => {
 
       const result = await loginUseCase.execute(dto);
       expect(result.user.email).toBe(dto.email);
+      expect(result.user.sessionTimeoutMinutes).toBe(45);
       expect(result.jti).toBeDefined();
     });
 

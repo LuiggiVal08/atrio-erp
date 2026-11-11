@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { POSTerminalView } from '@/modules/sales/views/POSTerminalView';
 
 vi.mock('@/shared/hooks/useTranslation', () => ({
@@ -22,6 +23,10 @@ vi.mock('@/modules/sales/hooks/usePosSessions', () => ({
 
 vi.mock('@/modules/sales/hooks/useQuickSale', () => ({
   useQuickSale: () => ({ mutateAsync: vi.fn() }),
+}));
+
+vi.mock('@/modules/cash/hooks/useCashRegisters', () => ({
+  useCashRegisters: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock('@/modules/sales/hooks/useProductSearch', () => ({
@@ -58,19 +63,19 @@ describe('POS keyboard context', () => {
   });
 
   it('renders POS Terminal view', () => {
-    render(<POSTerminalView />);
+    render(<MemoryRouter><POSTerminalView /></MemoryRouter>);
     expect(screen.getByText('sales.pos.terminal')).toBeDefined();
   });
 
   it('registers keydown listener on mount', () => {
     const addSpy = vi.spyOn(window, 'addEventListener');
-    render(<POSTerminalView />);
+    render(<MemoryRouter><POSTerminalView /></MemoryRouter>);
     expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
   });
 
   it('removes keydown listener on unmount', () => {
     const removeSpy = vi.spyOn(window, 'removeEventListener');
-    const { unmount } = render(<POSTerminalView />);
+    const { unmount } = render(<MemoryRouter><POSTerminalView /></MemoryRouter>);
     unmount();
     expect(removeSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
   });

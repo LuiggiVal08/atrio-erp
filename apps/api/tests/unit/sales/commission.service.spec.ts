@@ -9,6 +9,8 @@ describe('CommissionService', () => {
     findByTenant: jest.fn(),
     findById: jest.fn(),
     findBySalesperson: jest.fn(),
+    findByInvoice: jest.fn(),
+    adjustAmount: jest.fn(),
     updateStatus: jest.fn(),
     getSummary: jest.fn(),
   };
@@ -19,6 +21,9 @@ describe('CommissionService', () => {
     updateOrderStatus: jest.fn(),
     updateOrder: jest.fn(),
     deleteOrder: jest.fn(),
+    addLine: jest.fn(),
+    removeLine: jest.fn(),
+    updateLineQuantity: jest.fn(),
     createInvoice: jest.fn(),
     findInvoicesByTenant: jest.fn(),
     findInvoiceById: jest.fn(),

@@ -1,23 +1,14 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { AppModule } from '../../src/app.module';
-import { PrismaService } from '../../src/infrastructure/database/prisma.service';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
+import { createTestApp } from '../helpers/test-setup';
+import { PrismaService } from '../../src/infrastructure/database/prisma.service';
 
 describe('Tenants API (contract)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    await app.init();
-
+    app = await createTestApp();
     prisma = app.get(PrismaService);
   });
 
@@ -28,6 +19,7 @@ describe('Tenants API (contract)', () => {
   it('POST /api/v1/admin/tenants should return 201 with tenant data', async () => {
     const uniqueId = Date.now();
     const payload = {
+      slug: `test-${uniqueId}`,
       legalName: 'Test Corp',
       taxId: `J-${uniqueId}-9`,
       baseCurrency: 'VED',

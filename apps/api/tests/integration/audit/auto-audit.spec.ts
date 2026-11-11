@@ -1,9 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '../../../src/app.module';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service';
-import { seedTestData, cleanupTestData, TestSeed } from '../../helpers/test-setup';
+import { createTestApp, seedTestData, cleanupTestData, TestSeed } from '../../helpers/test-setup';
 
 describe('Auto Audit (integration)', () => {
   let app: INestApplication;
@@ -12,15 +10,7 @@ describe('Auto Audit (integration)', () => {
   let categoryId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    await app.init();
-
+    app = await createTestApp();
     prisma = app.get(PrismaService);
   });
 
@@ -35,6 +25,7 @@ describe('Auto Audit (integration)', () => {
     const catRes = await request(app.getHttpServer())
       .post('/api/v1/inventory/categories')
       .set('Authorization', `Bearer ${seed.token}`)
+      .set('X-Tenant-ID', seed.tenantId)
       .send({ name: 'Test Category' })
       .expect(201);
 

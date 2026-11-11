@@ -1,24 +1,14 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '../../../src/app.module';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service';
-import { seedTestData, cleanupTestData, TestSeed } from '../../helpers/test-setup';
+import { createTestApp, seedTestData, cleanupTestData, TestSeed } from '../../helpers/test-setup';
 
 describe('Stock Events (integration)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    await app.init();
-
+    app = await createTestApp();
     prisma = app.get(PrismaService);
   });
 

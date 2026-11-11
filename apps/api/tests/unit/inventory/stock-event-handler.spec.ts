@@ -25,6 +25,7 @@ describe('StockEventHandler', () => {
     await handler.handleDocumentApproved(payload);
 
     expect(mockStockService.adjust).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
       productId: 'prod-1',
       warehouseId: 'wh-1',
       type: 'out',
@@ -73,6 +74,7 @@ describe('StockEventHandler', () => {
     await handler.handleDocumentDelivered(payload);
 
     expect(mockStockService.adjust).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
       productId: 'prod-1',
       warehouseId: 'wh-1',
       type: 'in',
@@ -107,6 +109,7 @@ describe('StockEventHandler', () => {
     await handler.handleDocumentReceived(payload);
 
     expect(mockStockService.adjust).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
       productId: 'prod-1',
       warehouseId: 'wh-1',
       type: 'in',

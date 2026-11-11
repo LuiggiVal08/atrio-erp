@@ -11,11 +11,17 @@ describe('TransferService', () => {
     createProduct: jest.fn(),
     findAllProducts: jest.fn(),
     findProductById: jest.fn(),
+    generateProductBarcode: jest.fn(),
     updateProduct: jest.fn(),
     softDeleteProduct: jest.fn(),
     createWarehouse: jest.fn(),
     findAllWarehouses: jest.fn(),
+    updateWarehouse: jest.fn(),
     softDeleteWarehouse: jest.fn(),
+    createBranch: jest.fn(),
+    findAllBranches: jest.fn(),
+    updateBranch: jest.fn(),
+    softDeleteBranch: jest.fn(),
     getStock: jest.fn(),
     adjustStock: jest.fn(),
     createMovement: jest.fn(),
@@ -30,6 +36,8 @@ describe('TransferService', () => {
     findReorderPoint: jest.fn(),
     updateReorderPoint: jest.fn(),
     deleteReorderPoint: jest.fn(),
+    countProductsByCategory: jest.fn(),
+    countChildCategories: jest.fn(),
     findLowStock: jest.fn(),
   };
 
@@ -101,14 +109,23 @@ describe('TransferService', () => {
         id: 'tr-1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2',
         productId: 'prod-1', quantity: 10, status: 'pending',
       });
-      (mockRepo.adjustStock as jest.Mock).mockResolvedValue({});
-      (mockRepo.createMovement as jest.Mock).mockResolvedValue({});
+      (mockRepo.getStock as jest.Mock).mockResolvedValue({ quantity: 20 });
       (mockRepo.completeTransfer as jest.Mock).mockResolvedValue({ id: 'tr-1', status: 'completed' });
 
       const result = await service.complete('tr-1');
       expect(result).toHaveProperty('status', 'completed');
-      expect(mockRepo.adjustStock).toHaveBeenCalledTimes(2);
-      expect(mockRepo.createMovement).toHaveBeenCalledTimes(2);
+      expect(mockRepo.completeTransfer).toHaveBeenCalledWith('tr-1');
+    });
+
+    it('should reject completion when source stock is insufficient', async () => {
+      (mockRepo.findTransferById as jest.Mock).mockResolvedValue({
+        id: 'tr-1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2',
+        productId: 'prod-1', quantity: 10, status: 'pending',
+      });
+      (mockRepo.getStock as jest.Mock).mockResolvedValue({ quantity: 5 });
+
+      await expect(service.complete('tr-1')).rejects.toThrow('Insufficient stock in source warehouse');
+      expect(mockRepo.completeTransfer).not.toHaveBeenCalled();
     });
 
     it('should throw if already completed', async () => {
