@@ -7,6 +7,13 @@ interface Vendor {
   taxId: string;
   email?: string;
   phone?: string;
+  commercialName?: string | null;
+  website?: string | null;
+  paymentTerms?: string | null;
+  deliveryDays?: number | null;
+  categoryIds?: string[];
+  categories?: { id: string; name: string }[];
+  contacts?: { id: string; fullName: string; position: string | null; email: string | null; phone: string | null; isPrimary: boolean }[];
 }
 
 export function useVendors(search?: string) {

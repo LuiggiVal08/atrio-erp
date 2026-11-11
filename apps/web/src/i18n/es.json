@@ -2,31 +2,95 @@
   "common": {
     "loading": "Cargando...",
     "error": "Error",
+    "saveUnconfirmed": "No se pudo confirmar el guardado. Comprueba la conexión y el listado antes de volver a intentarlo.",
     "save": "Guardar",
     "cancel": "Cancelar",
     "delete": "Eliminar",
     "edit": "Editar",
     "create": "Crear",
     "search": "Buscar",
+    "select": "Seleccionar",
     "noResults": "Sin resultados",
-    "confirm": "¿Estás seguro?"
+    "actions": "Acciones",
+    "notFound": "No se encontró el registro",
+    "noTenantSelected": "No hay una empresa seleccionada",
+    "confirm": "¿Estás seguro?",
+    "yes": "Sí",
+    "no": "No",
+    "notes": "Notas",
+    "close": "Cerrar"
   },
   "auth": {
     "login": "Iniciar sesión",
     "logout": "Cerrar sesión",
     "email": "Correo electrónico",
-    "password": "Contraseña"
+    "password": "Contraseña",
+    "name": "Nombre",
+    "locale": "Idioma"
   },
   "sidebar": {
-    "inventory": { "label": "Inventario" },
-    "sales": { "label": "Ventas" },
-    "purchasing": { "label": "Compras" },
-    "cash": { "label": "Caja" },
-    "clients": { "label": "Clientes" },
-    "vendors": { "label": "Proveedores" },
-    "localization": { "label": "Localización" },
-    "employees": { "label": "Empleados" },
-    "reports": { "label": "Reportes" }
+    "inventory": {
+      "label": "Inventario"
+    },
+    "branches": {
+      "label": "Sucursales"
+    },
+    "warehouses": {
+      "label": "Almacenes"
+    },
+    "sales": {
+      "label": "Ventas"
+    },
+    "purchasing": {
+      "label": "Compras"
+    },
+    "cash": {
+      "label": "Caja"
+    },
+    "clients": {
+      "label": "Clientes"
+    },
+    "vendors": {
+      "label": "Proveedores"
+    },
+    "localization": {
+      "label": "Localización"
+    },
+    "employees": {
+      "label": "Empleados"
+    },
+    "switchTenant": "Cambiar empresa",
+    "current": "Actual",
+    "reports": {
+      "label": "Dashboard"
+    },
+    "settings": {
+      "label": "Configuración"
+    },
+    "profile": {
+      "label": "Perfil"
+    },
+    "categories": {
+      "label": "Categorías"
+    },
+    "rbac": {
+      "label": "Roles y Permisos"
+    },
+    "users": {
+      "label": "Usuarios"
+    },
+    "payroll": {
+      "label": "Nómina"
+    },
+    "stock": {
+      "label": "Existencias y movimientos"
+    },
+    "transfers": {
+      "label": "Traslados"
+    },
+    "reorder-points": {
+      "label": "Puntos de reorden"
+    }
   },
   "document": {
     "status": {
@@ -59,14 +123,270 @@
     "warehouses": "Almacenes",
     "transfers": "Transferencias",
     "reorderPoints": "Puntos de reorden",
+    "productsSubtitle": "Catálogo, precios y existencias por producto",
+    "productsCount": "{count} productos",
+    "groupByCategory": "Agrupar por categoría",
+    "reorderPoint": {
+      "product": "Producto",
+      "warehouse": "Almacén",
+      "minimum": "Mínimo",
+      "maximum": "Máximo",
+      "empty": "Aún no hay puntos de reorden. Crea uno para recibir avisos de reposición.",
+      "subtitle": "Umbrales que avisan cuándo reponer cada producto",
+      "count": "{count} configurados",
+      "lowStock": "{count} bajo mínimo",
+      "lowStockNone": "Sin alertas de reposición",
+      "create": "Nuevo punto de reorden",
+      "save": "Guardar punto de reorden",
+      "delete": "Eliminar punto de reorden",
+      "deleteConfirm": "¿Eliminar el punto de reorden de {product} en {warehouse}?",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "deactivate": "Desactivar",
+      "activate": "Activar",
+      "createdAt": "Creado",
+      "minHint": "Se avisa cuando la existencia cae por debajo del mínimo.",
+      "maxHint": "Cantidad objetivo al reponer.",
+      "createSuccessTitle": "Punto de reorden guardado",
+      "createSuccessBody": "Se avisará cuando la existencia caiga por debajo del mínimo.",
+      "createErrorTitle": "No se pudo guardar el punto de reorden",
+      "createErrorBody": "Verifica el producto, el almacén y que el máximo sea mayor que el mínimo.",
+      "deleteSuccessTitle": "Punto de reorden eliminado",
+      "deleteErrorTitle": "No se pudo eliminar el punto de reorden",
+      "noProducts": "Crea un producto antes de configurar puntos de reorden.",
+      "noWarehouses": "Crea un almacén antes de configurar puntos de reorden."
+    },
+    "transfer": {
+      "title": "Traslados de inventario",
+      "subtitle": "Mueve stock entre almacenes sin perder trazabilidad",
+      "create": "Nuevo traslado",
+      "quantity": "Cantidad",
+      "empty": "No hay traslados registrados",
+      "product": "Producto",
+      "from": "Origen",
+      "to": "Destino",
+      "selectProduct": "Seleccione un producto",
+      "selectOrigin": "Seleccione origen",
+      "selectDestination": "Seleccione destino",
+      "complete": "Completar",
+      "completeConfirm": "¿Completar este traslado y mover {quantity} unidades de {product}?",
+      "cancelConfirm": "¿Cancelar este traslado pendiente? No se moverá stock.",
+      "createdSuccessTitle": "Traslado creado",
+      "createdSuccessBody": "El traslado quedó pendiente de ejecución.",
+      "createErrorTitle": "No se pudo crear el traslado",
+      "createErrorBody": "Verifica el producto, los almacenes y el stock disponible.",
+      "completeSuccessTitle": "Traslado completado",
+      "completeSuccessBody": "El stock fue movido entre los almacenes.",
+      "completeErrorTitle": "No se pudo completar el traslado",
+      "completeErrorBody": "Verifica que haya stock suficiente en el almacén origen.",
+      "cancelSuccessTitle": "Traslado cancelado",
+      "cancelErrorTitle": "No se pudo cancelar el traslado",
+      "status": {
+        "pending": "Pendiente",
+        "processing": "Procesando",
+        "completed": "Completado",
+        "cancelled": "Cancelado"
+      },
+      "statusLabel": "Estado"
+    },
     "stock": "Stock",
+    "stockView": {
+      "title": "Existencias y movimientos",
+      "subtitle": "Saldo independiente por producto y almacén",
+      "tabBalances": "Existencias",
+      "tabMovements": "Movimientos",
+      "branch": "Sucursal",
+      "warehouse": "Almacén",
+      "allBranches": "Todas las sucursales",
+      "allWarehouses": "Todos los almacenes",
+      "searchPlaceholder": "Buscar producto, SKU o motivo",
+      "product": "Producto",
+      "quantity": "Existencia",
+      "limits": "Mín. / Máx. / Reorden",
+      "totalCost": "Costo total",
+      "updatedAt": "Última actualización",
+      "adjust": "Ajustar",
+      "adjustTitle": "Ajustar existencia",
+      "currentStock": "Stock actual",
+      "entry": "Entrada",
+      "exit": "Salida",
+      "amount": "Cantidad",
+      "reason": "Motivo",
+      "reasonPlaceholder": "Conteo, merma, corrección...",
+      "lot": "Lote",
+      "serial": "Serie",
+      "expiration": "Fecha de caducidad",
+      "optional": "Opcional",
+      "registerAdjustment": "Registrar ajuste",
+      "date": "Fecha",
+      "type": "Tipo",
+      "reference": "Motivo / referencia",
+      "balance": "Saldo",
+      "user": "Usuario",
+      "systemUser": "Sistema",
+      "emptyBalances": "No hay existencias registradas",
+      "emptyMovements": "No hay movimientos registrados",
+      "noMatchBalances": "Ninguna existencia coincide con el filtro",
+      "noMatchMovements": "Ningún movimiento coincide con el filtro",
+      "adjustSuccessTitle": "Ajuste registrado",
+      "adjustSuccessBody": "El saldo y el movimiento fueron actualizados.",
+      "adjustErrorTitle": "No se pudo ajustar el stock",
+      "adjustErrorBody": "Verifique el saldo disponible y los datos ingresados."
+    },
+    "summary": {
+      "loading": "Cargando resumen de inventario",
+      "error": "No se pudo cargar el resumen de inventario",
+      "retry": "Reintentar",
+      "healthTitle": "Salud del stock",
+      "healthSubtitle": "Distribución del inventario activo",
+      "healthyPercentage": "{percent}% {healthy}",
+      "healthy": "Saludable",
+      "low": "Bajo",
+      "out": "Sin stock",
+      "overstock": "Sobrestock",
+      "emptyProducts": "Sin productos activos",
+      "valueTitle": "Valor por categoría",
+      "valueSubtitle": "Valor total a costo de compra",
+      "uncategorized": "Sin categoría",
+      "emptyValuation": "Sin existencias para valorar",
+      "coverTitle": "Días de cobertura",
+      "coverSubtitle": "Cuánto dura el stock al ritmo de ventas actual",
+      "days": "días",
+      "medianCaption": "Mediana · ventas aprobadas de los últimos {days} días",
+      "emptyCoverage": "Sin ventas recientes para estimar cobertura",
+      "under7": "Menos de 7 días",
+      "from7to30": "7 a 30 días",
+      "over30": "Más de 30 días",
+      "noSales": "Sin ventas"
+    },
+    "categoryView": {
+      "subtitle": "Organiza el catálogo en jerarquías",
+      "name": "Nombre",
+      "parent": "Categoría padre",
+      "noParent": "Sin categoría padre",
+      "namePlaceholder": "Nombre de la categoría",
+      "empty": "Aún no hay categorías. Crea la primera para organizar tus productos.",
+      "deleteConfirm": "¿Eliminar la categoría {name}? Esta acción no se puede deshacer.",
+      "createError": "No se pudo crear la categoría",
+      "updateError": "No se pudo actualizar la categoría",
+      "deleteError": "No se pudo eliminar la categoría"
+    },
+    "warehouseView": {
+      "subtitle": "Ubicación física que controla existencias independientes",
+      "createTitle": "Nuevo almacén",
+      "name": "Nombre",
+      "namePlaceholder": "Nombre del almacén",
+      "code": "Código",
+      "codePlaceholder": "Código",
+      "branch": "Sucursal",
+      "noBranch": "Sin sucursal asignada",
+      "location": "Ubicación física",
+      "noLocation": "Sin ubicación",
+      "aisle": "Pasillo",
+      "shelf": "Estante",
+      "level": "Nivel",
+      "bin": "Rack / bin",
+      "searchPlaceholder": "Buscar por almacén, código o sucursal",
+      "empty": "No hay almacenes registrados",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "branchView": {
+      "subtitle": "Una sucursal puede operar uno o varios almacenes",
+      "createTitle": "Nueva sucursal",
+      "name": "Nombre",
+      "namePlaceholder": "Nombre de la sucursal",
+      "code": "Código",
+      "codePlaceholder": "Código",
+      "address": "Dirección",
+      "addressPlaceholder": "Dirección",
+      "phone": "Teléfono",
+      "phonePlaceholder": "Teléfono",
+      "warehouses": "Almacenes",
+      "searchPlaceholder": "Buscar sucursal, código o dirección",
+      "empty": "No hay sucursales registradas",
+      "active": "Activa",
+      "inactive": "Inactiva"
+    },
+    "brandView": {
+      "subtitle": "Catálogo comercial para identificar tus productos",
+      "count": "{count} marcas",
+      "namePlaceholder": "Nombre de la nueva marca",
+      "empty": "Crea la primera marca para empezar a clasificar tus productos.",
+      "active": "Activa",
+      "inactive": "Inactiva",
+      "addLogo": "Agregar logo",
+      "changeLogo": "Cambiar logo",
+      "deactivate": "Desactivar",
+      "activate": "Activar",
+      "createError": "No se pudo crear la marca",
+      "updateError": "No se pudo actualizar la marca",
+      "logoError": "No se pudo cargar el logo"
+    },
     "product": {
       "create": "Crear producto",
       "edit": "Editar producto",
       "sku": "SKU",
       "name": "Nombre",
       "price": "Precio",
-      "cost": "Costo"
+      "cost": "Costo",
+      "isService": "Servicio",
+      "isActive": "Activo",
+      "notFound": "No se encontró el producto",
+      "groupIdentity": "Identificación",
+      "groupPricing": "Precios e impuesto",
+      "groupUnits": "Unidades y stock",
+      "barcode": "Código de barras",
+      "barcodePlaceholder": "Escanea o escribe el código",
+      "barcodeHint": "Para productos sin código del fabricante.",
+      "generateFromSku": "Generar desde SKU",
+      "generateInternal": "Generar código interno",
+      "purchaseCost": "Costo de compra",
+      "salePrice": "Precio de venta",
+      "baseUnit": "Unidad base",
+      "purchaseUnit": "Unidad de compra",
+      "purchaseUnitPlaceholder": "Caja, bulto, rollo...",
+      "conversionFactor": "Conversión a unidad base",
+      "minStock": "Stock mínimo",
+      "maxStock": "Stock máximo",
+      "reorderPoint": "Punto de reorden",
+      "supplierRef": "Referencia del proveedor",
+      "description": "Descripción",
+      "newCategoryPlaceholder": "Nueva categoría",
+      "label": "Etiqueta",
+      "labelHint": "Asigna un código o genera uno basado en el SKU para imprimir la etiqueta.",
+      "printLabel": "Imprimir etiqueta",
+      "saveSuccessTitle": "Producto actualizado",
+      "saveErrorTitle": "No se pudo actualizar el producto",
+      "barcodeSuccessTitle": "Código generado",
+      "barcodeErrorTitle": "No se pudo generar el código",
+      "statusActive": "Activo",
+      "statusInactive": "Inactivo",
+      "image": "Imagen",
+      "images": "Fotos del producto",
+      "imagesHint": "Arrastra fotos aquí o búscalas en tu dispositivo. Máximo 3.",
+      "dropImages": "Suelta las fotos aquí o haz clic para buscarlas",
+      "uploadImages": "Guardar fotos",
+      "removeImage": "Quitar foto",
+      "imageSlot": "Foto disponible",
+      "imageUploadError": "El producto se creó, pero no se pudieron guardar sus fotos. Inténtalo desde el detalle del producto.",
+      "uploadImage": "Subir",
+      "noImage": "Sin imagen"
+    },
+    "tax": "Impuesto",
+    "branches": "Sucursales",
+    "brands": "Marcas",
+    "subtitle": "Productos, existencias, almacenes y movimientos",
+    "nav": {
+      "aria": "Secciones de inventario",
+      "stock": "Existencias y movimientos",
+      "transfers": "Traslados",
+      "reorderPoints": "Puntos de reorden",
+      "warehouses": "Almacenes",
+      "branches": "Sucursales",
+      "products": "Productos",
+      "brands": "Marcas",
+      "categories": "Categorías"
     }
   },
   "clients": {
@@ -77,8 +397,10 @@
   },
   "vendors": {
     "title": "Proveedores",
+    "subtitle": "Directorio de proveedores y condiciones comerciales",
+    "count": "{count} proveedores",
     "create": "Registrar proveedor",
-    "documentId": "RIF / CI",
+    "documentId": "RIF / NIT",
     "legalName": "Razón social"
   },
   "localization": {
@@ -114,22 +436,83 @@
       "email": "Correo",
       "creditLimit": "Límite de crédito",
       "currentBalance": "Saldo actual",
-      "transactions": "Historial de transacciones"
+      "transactions": "Historial de transacciones",
+      "back": "Volver",
+      "overview": "Información general",
+      "documentId": "Documento",
+      "taxId": "Identificación fiscal",
+      "commercialName": "Nombre comercial",
+      "website": "Sitio web",
+      "paymentTerms": "Términos de pago",
+      "deliveryDays": "Días de entrega",
+      "notes": "Notas",
+      "status": "Estado",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "categories": "Categorías",
+      "contacts": "Contactos",
+      "noContacts": "Sin contactos registrados",
+      "contactName": "Nombre",
+      "position": "Rol / Puesto",
+      "primary": "Principal",
+      "vendor": "Proveedor",
+      "customer": "Cliente"
     }
   },
   "hr": {
     "title": "Empleados",
+    "employees": "Empleados",
+    "sections": "Secciones de empleados",
+    "workspaceTitle": "Empleados y nómina",
+    "workspaceDescription": "Expedientes, compensación y períodos de pago",
     "departments": "Departamentos",
     "employee": {
       "create": "Registrar empleado",
       "edit": "Editar empleado",
       "name": "Nombre",
+      "identityDoc": "Documento",
+      "identificationType": "Tipo de documento",
+      "taxIdentifier": "RIF / Identificador fiscal",
+      "phone": "Teléfono",
+      "address": "Dirección",
+      "emergencyContact": "Contacto de emergencia",
+      "emergencyContactName": "Nombre del contacto",
+      "emergencyContactPhone": "Teléfono del contacto",
+      "paymentDetails": "Datos de pago",
+      "paymentDetailsHistoryHelp": "El acceso requiere permiso de nómina. Cada cambio conserva la cuenta anterior en el historial.",
+      "bankName": "Banco receptor",
+      "accountType": "Tipo de cuenta",
+      "paymentMethod": "Forma de pago del empleado",
+      "paymentMethods": {
+        "BANK": "Transferencia bancaria",
+        "MOBILE_PAYMENT": "Pago móvil"
+      },
+      "accountTypes": {
+        "SAVINGS": "Ahorros",
+        "CHECKING": "Corriente",
+        "OTHER": "Otra"
+      },
+      "accountNumber": "Número de cuenta",
+      "mobilePaymentPhone": "Teléfono de pago móvil",
+      "savePaymentDetails": "Guardar datos de pago",
+      "clearPaymentDetails": "Quitar datos bancarios",
+      "paymentDetailsSaved": "Datos de pago guardados con historial.",
+      "paymentDetailsCleared": "Los datos bancarios actuales fueron desactivados.",
+      "paymentDetailsError": "No se pudieron cargar o guardar los datos bancarios. Verifica tus permisos e inténtalo de nuevo.",
+      "paymentDetailsRequired": "Completa los datos obligatorios para la forma de pago seleccionada.",
+      "confirmClearPaymentDetails": "¿Desactivar los datos bancarios actuales? Se conservarán en el historial.",
+      "department": "Departamento",
       "email": "Correo electrónico",
       "role": "Rol",
+      "position": "Cargo",
       "branch": "Sucursal",
       "status": "Estado",
+      "baseSalary": "Salario base",
       "active": "Activo",
       "inactive": "Inactivo",
+      "empty": "Sin empleados registrados",
+      "saveFailed": "No se pudo guardar el expediente. Revisa los datos e inténtalo de nuevo.",
+      "confirmDelete": "¿Eliminar este empleado?",
       "back": "Volver a empleados"
     },
     "department": {
@@ -154,6 +537,48 @@
       "create": "Crear caja",
       "name": "Nombre",
       "balance": "Saldo"
+    },
+    "audit": {
+      "title": "Auditoría de Caja",
+      "start": "Iniciar auditoría",
+      "expected": "Esperado",
+      "counted": "Contado",
+      "cash": "Efectivo",
+      "card": "Tarjeta",
+      "transfer": "Transferencia",
+      "difference": "Diferencia",
+      "balanced": "Cuadrado",
+      "unbalanced": "Descuadrado",
+      "approve": "Aprobar auditoría",
+      "reject": "Rechazar",
+      "blocked": "POS bloqueado durante auditoría",
+      "noRegister": "Seleccione una caja para auditar",
+      "summary": "Resumen de movimientos",
+      "status": {
+        "open": "Abierta",
+        "auditing": "Auditando",
+        "closed": "Cerrada"
+      }
+    },
+    "bankAccounts": {
+      "title": "Cuentas bancarias",
+      "name": "Nombre",
+      "bank": "Banco",
+      "accountNumber": "Número de cuenta",
+      "type": "Tipo",
+      "active": "Activa",
+      "types": {
+        "checking": "Corriente",
+        "savings": "Ahorros",
+        "cash": "Efectivo"
+      }
+    },
+    "empty": "Sin movimientos en esta caja",
+    "movementTypes": {
+      "sale": "Venta",
+      "payment": "Pago",
+      "expense": "Gasto",
+      "transfer": "Transferencia"
     }
   },
   "reports": {
@@ -261,7 +686,9 @@
       "emitInvoice": "Emitir factura (F10)",
       "offline": "Sin conexión",
       "blocked": "POS bloqueado — auditoría en curso",
-      "shortcutHint": "F8: Pago | F10: Facturar"
+      "shortcutHint": "F8: Pago | F10: Facturar",
+      "sessionOpen": "Turno abierto",
+      "noOpenSession": "Sin turno abierto"
     }
   },
   "purchasing": {
@@ -273,6 +700,7 @@
     "vendor": "Proveedor",
     "vendorPlaceholder": "Seleccionar proveedor",
     "expectedDate": "Fecha esperada",
+    "expectedDateSuggested": "Sugerido según los {days} días de entrega del proveedor",
     "notes": "Notas",
     "items": "Productos",
     "addItem": "Agregar producto",
@@ -285,12 +713,19 @@
     "costPerUnit": "Costo unitario",
     "emptyList": "Sin órdenes de compra",
     "returns": "Devoluciones",
+    "returnsEmpty": "No hay devoluciones",
     "createReturn": "Crear devolución",
     "returnReason": "Motivo",
     "returnTotal": "Total",
     "returnStatus": "Estado",
     "returnDate": "Fecha devolución",
     "priceLists": "Listas de precio",
+    "priceListEmpty": "No hay listas de precios",
+    "priceListActive": "Activa",
+    "priceListTypes": {
+      "purchase": "Compra",
+      "sale": "Venta"
+    },
     "createPriceList": "Nueva lista",
     "editPriceList": "Editar lista",
     "priceListName": "Nombre",
@@ -313,44 +748,285 @@
       "cancelled": "Anulada"
     }
   },
-  "cash": {
-    "title": "Caja",
-    "registers": "Cajas",
-    "paymentMethods": "Métodos de pago",
-    "movements": "Movimientos",
-    "register": {
-      "create": "Crear caja",
-      "name": "Nombre",
-      "balance": "Saldo"
+  "rbac": {
+    "title": "Roles y Permisos",
+    "roles": "Roles",
+    "permissions": "Permisos",
+    "role": {
+      "create": "Crear rol",
+      "edit": "Editar rol",
+      "name": "Nombre del rol",
+      "description": "Descripción",
+      "isSystem": "Sistema",
+      "confirmDelete": "¿Eliminar este rol?",
+      "noRoles": "Sin roles definidos"
     },
-    "audit": {
-      "title": "Auditoría de Caja",
-      "start": "Iniciar auditoría",
-      "expected": "Esperado",
-      "counted": "Contado",
-      "cash": "Efectivo",
-      "card": "Tarjeta",
-      "transfer": "Transferencia",
-      "difference": "Diferencia",
-      "balanced": "Cuadrado",
-      "unbalanced": "Descuadrado",
-      "approve": "Aprobar auditoría",
-      "reject": "Rechazar",
-      "blocked": "POS bloqueado durante auditoría",
-      "noRegister": "Seleccione una caja para auditar",
-      "summary": "Resumen de movimientos",
-      "status": {
-        "open": "Abierta",
-        "auditing": "Auditando",
-        "closed": "Cerrada"
+    "permissionList": "Lista de permisos"
+  },
+  "users": {
+    "title": "Usuarios",
+    "create": "Crear usuario",
+    "edit": "Editar usuario",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "phone": "Teléfono",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "roles": "Roles asignados",
+    "confirmDelete": "¿Eliminar este usuario?",
+    "noUsers": "Sin usuarios registrados",
+    "lastLogin": "Último acceso"
+  },
+  "settings": {
+    "title": "Configuración",
+    "saved": "Cambios guardados",
+    "groups": {
+      "general": "General",
+      "modules": "Módulos",
+      "sales": "Ventas",
+      "inventory": "Inventario",
+      "financial": "Financiero",
+      "system": "Sistema",
+      "theme": "Temas"
+    },
+    "tabs": {
+      "company": "Empresa",
+      "general": "General",
+      "modules": "Módulos",
+      "sales": "Ventas",
+      "fiscal": "Fiscal",
+      "inventory": "Inventario",
+      "financial": "Financiero",
+      "system": "Sistema",
+      "theme": "Temas"
+    },
+    "company": {
+      "title": "Información de la empresa",
+      "subtitle": "Datos fiscales y preferencias regionales",
+      "legalName": "Razón social",
+      "taxId": "RIF / NIT",
+      "baseCurrency": "Moneda base",
+      "timezone": "Zona horaria"
+    },
+    "modules": {
+      "title": "Módulos activos",
+      "subtitle": "Activa o desactiva módulos del sistema",
+      "reports": "Reportes",
+      "sales": "Ventas / POS",
+      "inventory": "Inventario",
+      "purchasing": "Compras",
+      "cash": "Caja",
+      "localization": "Localización",
+      "clients": "Clientes",
+      "vendors": "Proveedores",
+      "hr": "RRHH"
+    },
+    "general": {
+      "title": "Preferencias generales",
+      "subtitle": "Idioma, alertas y valores por defecto",
+      "language": "Idioma",
+      "stockThreshold": "Umbral de stock bajo",
+      "lowStockAlerts": "Activar alertas de stock bajo"
+    },
+    "notifications": {
+      "title": "Notificaciones",
+      "subtitle": "Alertas por correo y destinatarios",
+      "stockAlertEmail": "Enviar alertas de stock bajo por correo",
+      "stockAlertRecipients": "Correos destinatarios (separados por coma)"
+    },
+    "inventory": {
+      "title": "Configuración de inventario",
+      "subtitle": "Método de costo y políticas de stock",
+      "defaultCostMethod": "Método de costo por defecto",
+      "costMethods": {
+        "weightedAverage": "Promedio ponderado",
+        "fifo": "FIFO (Primero en entrar, primero en salir)",
+        "standard": "Costo estándar"
+      },
+      "allowNegativeStock": "Permitir stock negativo"
+    },
+    "sales": {
+      "title": "Configuración de ventas / POS",
+      "subtitle": "Tipos de documento, pagos y comisiones",
+      "defaultDocType": "Tipo de documento por defecto",
+      "docTypes": {
+        "salesInvoice": "Factura de venta",
+        "deliveryOrder": "Remisión / orden de entrega"
+      },
+      "defaultPaymentTerms": "Plazo de pago por defecto",
+      "paymentTerms": {
+        "cash": "Contado",
+        "credit15": "Crédito 15 días",
+        "credit30": "Crédito 30 días",
+        "credit45": "Crédito 45 días"
+      },
+      "receiptFooter": "Mensaje al pie del recibo",
+      "receiptFooterPlaceholder": "Ej: Gracias por su compra",
+      "enableCommissions": "Activar cálculo de comisiones por venta",
+      "autoInvoiceNumbering": "Numeración automática de facturas"
+    },
+    "fiscal": {
+      "title": "Configuración fiscal",
+      "subtitle": "Impuestos y retenciones",
+      "defaultVatRate": "IVA por defecto (%)",
+      "autoWithholding": "Aplicar retenciones automáticamente (ReteIVA / RenteFuente / ICA)",
+      "defaultContributorType": "Tipo de contribuyente por defecto",
+      "contributorTypes": {
+        "ordinary": "Ordinario",
+        "formal": "Formal",
+        "special": "Especial"
       }
     },
-    "empty": "Sin movimientos en esta caja",
-    "movementTypes": {
-      "sale": "Venta",
-      "payment": "Pago",
-      "expense": "Gasto",
-      "transfer": "Transferencia"
+    "financial": {
+      "title": "Configuración financiera",
+      "subtitle": "Monedas y tasas de cambio",
+      "foreignCurrency": "Moneda extranjera por defecto",
+      "multicurrency": "Activar operaciones en múltiples monedas",
+      "exchangeRateSource": "Fuente de tasa de cambio",
+      "rateSources": {
+        "bcv": "BCV (Venezuela)",
+        "trm": "TRM (Colombia)",
+        "manual": "Ingreso manual"
+      }
+    },
+    "system": {
+      "title": "Configuración del sistema",
+      "subtitle": "Sesión, seguridad y auditoría",
+      "sessionTimeout": "Tiempo de sesión (minutos)",
+      "enableAudit": "Activar registro de auditoría"
+    },
+    "theme": {
+      "title": "Temas visuales",
+      "subtitle": "Define qué tema se usa por defecto en modo oscuro y claro",
+      "primaryDark": "Tema oscuro principal",
+      "primaryLight": "Tema claro principal"
     }
+  },
+  "payroll": {
+    "title": "Nómina",
+    "detail": "Detalle de Nómina",
+    "tabs": {
+      "concepts": "Conceptos",
+      "process": "Procesar nómina",
+      "history": "Historial",
+      "loans": "Préstamos"
+    },
+    "processTitle": "Procesar nómina",
+    "historyTitle": "Historial de pagos",
+    "activeEmployees": "Empleados activos",
+    "periodsToReview": "Períodos por revisar",
+    "employeeCountUnavailable": "No disponible",
+    "loadError": "No se pudieron cargar los períodos de nómina. Intenta de nuevo.",
+    "retry": "Reintentar",
+    "createPeriodError": "No se pudo crear el período. Verifica las fechas y que no exista otro período abierto.",
+    "actionError": "No se pudo completar la acción. Revisa el estado del período e inténtalo nuevamente.",
+    "calculationScope": "Cálculo disponible",
+    "calculationAvailable": "Base, conceptos, comisiones y cuotas",
+    "conceptsTitle": "Conceptos de nómina",
+    "conceptsDescription": "Configura asignaciones y deducciones fijas o porcentuales que se aplican en cada período.",
+    "baseSalaryConcept": "Salario base",
+    "baseSalarySource": "Se toma del acuerdo de compensación vigente del empleado.",
+    "available": "Disponible",
+    "loansTitle": "Préstamos y anticipos",
+    "loansDescription": "Registra adelantos o préstamos y el saldo se descontará por cuotas al procesar períodos futuros.",
+    "createPeriod": "Crear período",
+    "review": "Revisar",
+    "period": "Período",
+    "frequency": "Frecuencia",
+    "frequencies": {
+      "WEEKLY": "Semanal",
+      "BIWEEKLY": "Cada dos semanas",
+      "SEMI_MONTHLY": "Quincenal",
+      "MONTHLY": "Mensual",
+      "CUSTOM": "Personalizada"
+    },
+    "statuses": {
+      "OPEN": "Abierto",
+      "CALCULATING": "Calculando",
+      "LOCKED": "En revisión",
+      "PAID": "Pagado",
+      "CLOSED": "Cerrado"
+    },
+    "startDate": "Fecha inicio",
+    "endDate": "Fecha fin",
+    "status": "Estado",
+    "notes": "Notas",
+    "noPeriods": "Sin períodos de nómina",
+    "noHistory": "Todavía no hay períodos pagados o cerrados",
+    "noPayslips": "Sin recibos de nómina",
+    "payslipCount": "Recibos",
+    "generate": "Generar",
+    "pay": "Pagar",
+    "close": "Cerrar",
+    "payslips": "Recibos de Nómina",
+    "receipt": "Recibo",
+    "downloadReceipt": "Descargar PDF",
+    "employee": "Empleado",
+    "position": "Cargo",
+    "department": "Departamento",
+    "contractType": "Contrato",
+    "baseSalary": "Salario Base",
+    "code": "Código",
+    "conceptName": "Nombre del concepto",
+    "conceptType": "Tipo",
+    "calculationMode": "Cálculo",
+    "fixedAmount": "Monto fijo",
+    "basePercentage": "Porcentaje del salario base",
+    "percentage": "Porcentaje",
+    "amount": "Monto",
+    "currency": "Moneda",
+    "recurring": "Recurrente",
+    "createConcept": "Crear concepto",
+    "saveError": "No se pudo guardar. Verifica los datos e inténtalo nuevamente.",
+    "noConcepts": "Aún no hay conceptos configurados.",
+    "earning": "Asignación",
+    "deduction": "Deducción",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "selectEmployee": "Selecciona un empleado",
+    "installments": "Número de cuotas",
+    "reason": "Motivo",
+    "registerLoan": "Registrar préstamo",
+    "principal": "Monto inicial",
+    "installment": "Cuota",
+    "installmentsPaid": "Cuotas pagadas",
+    "balance": "Saldo pendiente",
+    "settled": "Liquidado",
+    "noLoans": "Aún no hay préstamos ni anticipos registrados.",
+    "cashRegister": "Caja de pago",
+    "selectCashRegister": "Selecciona la caja",
+    "cashSessionRequired": "Debes tener una sesión abierta en la caja seleccionada.",
+    "cashRegisterLoadError": "No se pudieron cargar las cajas. Actualiza la pantalla antes de pagar.",
+    "noCashRegisters": "No hay cajas activas disponibles para el pago.",
+    "paymentMethod": "Forma de pago",
+    "paymentMethods": {
+      "cash": "Caja",
+      "bank": "Banco"
+    },
+    "bankAccount": "Cuenta bancaria",
+    "selectBankAccount": "Selecciona la cuenta",
+    "bankAccountLoadError": "No se pudieron cargar las cuentas bancarias. Actualiza la pantalla antes de pagar.",
+    "noBankAccounts": "No hay cuentas bancarias activas disponibles para el pago.",
+    "backToPeriods": "Volver a períodos",
+    "addAdjustments": "Novedades del período",
+    "adjustmentsHelp": "Agrega bonos, comisiones manuales u otras asignaciones y deducciones antes de calcular.",
+    "selectConcept": "Selecciona un concepto",
+    "description": "Descripción",
+    "addAdjustment": "Agregar novedad",
+    "editAdjustment": "Editar novedad",
+    "saveAdjustment": "Guardar cambios",
+    "noAdjustments": "No hay novedades cargadas para este período.",
+    "previewDescription": "Revisa el desglose individual antes de registrar el pago.",
+    "netTotal": "Neto total",
+    "earnings": "Asignaciones",
+    "deductions": "Deducciones",
+    "netPay": "Neto a pagar",
+    "details": "Detalle",
+    "viewLines": "Ver conceptos",
+    "confirmGenerate": "¿Generar recibos de nómina?",
+    "confirmPay": "¿Registrar el egreso en el origen seleccionado y marcar el período como pagado? Los montos pueden convertirse a la moneda de la cuenta.",
+    "confirmClose": "¿Cerrar período de nómina?"
   }
 }

@@ -42,11 +42,13 @@ export function LoginView() {
         className="w-full max-w-sm rounded-xl border border-border bg-surface p-8 shadow-lg"
       >
         <img src="/logos/isologo.png" alt="" className="mx-auto mb-2 h-20 w-auto drop-shadow-md" />
-        <img src="/logos/logotipo.png" alt="Atrio ERP" className="mx-auto mb-6 h-16 w-auto drop-shadow-md" />
+        <img
+          src="/logos/logotipo.png"
+          alt="Atrio ERP"
+          className="mx-auto mb-6 h-16 w-auto drop-shadow-md"
+        />
         {error && (
-          <div className="mb-4 rounded-lg bg-error/10 px-4 py-2 text-sm text-error">
-            {error}
-          </div>
+          <div className="mb-4 rounded-lg bg-error/10 px-4 py-2 text-sm text-error">{error}</div>
         )}
         <div className="mb-4">
           <label className="mb-1 block text-sm font-medium text-text-secondary" htmlFor="email">

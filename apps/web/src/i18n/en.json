@@ -2,31 +2,95 @@
   "common": {
     "loading": "Loading...",
     "error": "Error",
+    "saveUnconfirmed": "The save could not be confirmed. Check the connection and the list before trying again.",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
     "create": "Create",
     "search": "Search",
+    "select": "Select",
     "noResults": "No results",
-    "confirm": "Are you sure?"
+    "actions": "Actions",
+    "notFound": "Record not found",
+    "noTenantSelected": "No company selected",
+    "confirm": "Are you sure?",
+    "yes": "Yes",
+    "no": "No",
+    "notes": "Notes",
+    "close": "Close"
   },
   "auth": {
     "login": "Sign in",
     "logout": "Sign out",
     "email": "Email",
-    "password": "Password"
+    "password": "Password",
+    "name": "Name",
+    "locale": "Language"
   },
   "sidebar": {
-    "inventory": { "label": "Inventory" },
-    "sales": { "label": "Sales" },
-    "purchasing": { "label": "Purchasing" },
-    "cash": { "label": "Cash" },
-    "clients": { "label": "Clients" },
-    "vendors": { "label": "Vendors" },
-    "localization": { "label": "Localization" },
-    "employees": { "label": "Employees" },
-    "reports": { "label": "Reports" }
+    "inventory": {
+      "label": "Inventory"
+    },
+    "branches": {
+      "label": "Branches"
+    },
+    "warehouses": {
+      "label": "Warehouses"
+    },
+    "sales": {
+      "label": "Sales"
+    },
+    "purchasing": {
+      "label": "Purchasing"
+    },
+    "cash": {
+      "label": "Cash"
+    },
+    "clients": {
+      "label": "Clients"
+    },
+    "vendors": {
+      "label": "Vendors"
+    },
+    "localization": {
+      "label": "Localization"
+    },
+    "employees": {
+      "label": "Employees"
+    },
+    "switchTenant": "Switch company",
+    "current": "Current",
+    "reports": {
+      "label": "Dashboard"
+    },
+    "settings": {
+      "label": "Settings"
+    },
+    "profile": {
+      "label": "Profile"
+    },
+    "categories": {
+      "label": "Categories"
+    },
+    "rbac": {
+      "label": "Roles & Permissions"
+    },
+    "users": {
+      "label": "Users"
+    },
+    "payroll": {
+      "label": "Payroll"
+    },
+    "stock": {
+      "label": "Stock and movements"
+    },
+    "transfers": {
+      "label": "Transfers"
+    },
+    "reorder-points": {
+      "label": "Reorder points"
+    }
   },
   "document": {
     "status": {
@@ -59,14 +123,270 @@
     "warehouses": "Warehouses",
     "transfers": "Transfers",
     "reorderPoints": "Reorder points",
+    "productsSubtitle": "Catalog, prices and stock by product",
+    "productsCount": "{count} products",
+    "groupByCategory": "Group by category",
+    "reorderPoint": {
+      "product": "Product",
+      "warehouse": "Warehouse",
+      "minimum": "Minimum",
+      "maximum": "Maximum",
+      "empty": "No reorder points yet. Create one to get replenishment alerts.",
+      "subtitle": "Thresholds that warn you when to replenish each product",
+      "count": "{count} configured",
+      "lowStock": "{count} below minimum",
+      "lowStockNone": "No replenishment alerts",
+      "create": "New reorder point",
+      "save": "Save reorder point",
+      "delete": "Delete reorder point",
+      "deleteConfirm": "Delete the reorder point for {product} in {warehouse}?",
+      "active": "Active",
+      "inactive": "Inactive",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "createdAt": "Created",
+      "minHint": "You are alerted when stock falls below the minimum.",
+      "maxHint": "Target quantity when replenishing.",
+      "createSuccessTitle": "Reorder point saved",
+      "createSuccessBody": "You will be alerted when stock falls below the minimum.",
+      "createErrorTitle": "Could not save the reorder point",
+      "createErrorBody": "Check the product, the warehouse, and that the maximum is greater than the minimum.",
+      "deleteSuccessTitle": "Reorder point deleted",
+      "deleteErrorTitle": "Could not delete the reorder point",
+      "noProducts": "Create a product before configuring reorder points.",
+      "noWarehouses": "Create a warehouse before configuring reorder points."
+    },
+    "transfer": {
+      "title": "Stock transfers",
+      "subtitle": "Move stock between warehouses without losing traceability",
+      "create": "New transfer",
+      "quantity": "Quantity",
+      "empty": "No transfers yet",
+      "product": "Product",
+      "from": "From",
+      "to": "To",
+      "selectProduct": "Select a product",
+      "selectOrigin": "Select origin",
+      "selectDestination": "Select destination",
+      "complete": "Complete",
+      "completeConfirm": "Complete this transfer and move {quantity} units of {product}?",
+      "cancelConfirm": "Cancel this pending transfer? No stock will be moved.",
+      "createdSuccessTitle": "Transfer created",
+      "createdSuccessBody": "The transfer is pending execution.",
+      "createErrorTitle": "Could not create the transfer",
+      "createErrorBody": "Check the product, the warehouses and the available stock.",
+      "completeSuccessTitle": "Transfer completed",
+      "completeSuccessBody": "Stock was moved between warehouses.",
+      "completeErrorTitle": "Could not complete the transfer",
+      "completeErrorBody": "Check that the source warehouse has enough stock.",
+      "cancelSuccessTitle": "Transfer cancelled",
+      "cancelErrorTitle": "Could not cancel the transfer",
+      "status": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "statusLabel": "Status"
+    },
     "stock": "Stock",
+    "stockView": {
+      "title": "Stock and movements",
+      "subtitle": "Independent balance by product and warehouse",
+      "tabBalances": "Stock",
+      "tabMovements": "Movements",
+      "branch": "Branch",
+      "warehouse": "Warehouse",
+      "allBranches": "All branches",
+      "allWarehouses": "All warehouses",
+      "searchPlaceholder": "Search product, SKU or reason",
+      "product": "Product",
+      "quantity": "On hand",
+      "limits": "Min. / Max. / Reorder",
+      "totalCost": "Total cost",
+      "updatedAt": "Last updated",
+      "adjust": "Adjust",
+      "adjustTitle": "Adjust stock",
+      "currentStock": "Current stock",
+      "entry": "In",
+      "exit": "Out",
+      "amount": "Quantity",
+      "reason": "Reason",
+      "reasonPlaceholder": "Count, shrinkage, correction...",
+      "lot": "Lot",
+      "serial": "Serial",
+      "expiration": "Expiration date",
+      "optional": "Optional",
+      "registerAdjustment": "Record adjustment",
+      "date": "Date",
+      "type": "Type",
+      "reference": "Reason / reference",
+      "balance": "Balance",
+      "user": "User",
+      "systemUser": "System",
+      "emptyBalances": "No stock records yet",
+      "emptyMovements": "No movements yet",
+      "noMatchBalances": "No stock matches the filter",
+      "noMatchMovements": "No movements match the filter",
+      "adjustSuccessTitle": "Adjustment recorded",
+      "adjustSuccessBody": "The balance and movement were updated.",
+      "adjustErrorTitle": "Could not adjust stock",
+      "adjustErrorBody": "Check the available balance and the entered data."
+    },
+    "summary": {
+      "loading": "Loading inventory summary",
+      "error": "Could not load inventory summary",
+      "retry": "Retry",
+      "healthTitle": "Stock Health",
+      "healthSubtitle": "Active inventory distribution",
+      "healthyPercentage": "{percent}% {healthy}",
+      "healthy": "Healthy",
+      "low": "Low",
+      "out": "Out",
+      "overstock": "Overstock",
+      "emptyProducts": "No active products",
+      "valueTitle": "Value by Category",
+      "valueSubtitle": "On hand at cost",
+      "uncategorized": "Uncategorized",
+      "emptyValuation": "No stock to value",
+      "coverTitle": "Days of Cover",
+      "coverSubtitle": "How long stock lasts at current sales",
+      "days": "days",
+      "medianCaption": "Median · approved sales, last {days} days",
+      "emptyCoverage": "No recent sales to estimate coverage",
+      "under7": "Under 7 days",
+      "from7to30": "7 to 30 days",
+      "over30": "Over 30 days",
+      "noSales": "No sales"
+    },
+    "categoryView": {
+      "subtitle": "Organize the catalog into hierarchies",
+      "name": "Name",
+      "parent": "Parent category",
+      "noParent": "No parent category",
+      "namePlaceholder": "Category name",
+      "empty": "No categories yet. Create the first one to organize your products.",
+      "deleteConfirm": "Delete the category {name}? This action cannot be undone.",
+      "createError": "Could not create the category",
+      "updateError": "Could not update the category",
+      "deleteError": "Could not delete the category"
+    },
+    "warehouseView": {
+      "subtitle": "Physical location that controls independent stock",
+      "createTitle": "New warehouse",
+      "name": "Name",
+      "namePlaceholder": "Warehouse name",
+      "code": "Code",
+      "codePlaceholder": "Code",
+      "branch": "Branch",
+      "noBranch": "No branch assigned",
+      "location": "Physical location",
+      "noLocation": "No location",
+      "aisle": "Aisle",
+      "shelf": "Shelf",
+      "level": "Level",
+      "bin": "Rack / bin",
+      "searchPlaceholder": "Search by warehouse, code or branch",
+      "empty": "No warehouses registered",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "branchView": {
+      "subtitle": "A branch can operate one or more warehouses",
+      "createTitle": "New branch",
+      "name": "Name",
+      "namePlaceholder": "Branch name",
+      "code": "Code",
+      "codePlaceholder": "Code",
+      "address": "Address",
+      "addressPlaceholder": "Address",
+      "phone": "Phone",
+      "phonePlaceholder": "Phone",
+      "warehouses": "Warehouses",
+      "searchPlaceholder": "Search branch, code or address",
+      "empty": "No branches registered",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "brandView": {
+      "subtitle": "Commercial catalog to identify your products",
+      "count": "{count} brands",
+      "namePlaceholder": "New brand name",
+      "empty": "Create the first brand to start classifying your products.",
+      "active": "Active",
+      "inactive": "Inactive",
+      "addLogo": "Add logo",
+      "changeLogo": "Change logo",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "createError": "Could not create the brand",
+      "updateError": "Could not update the brand",
+      "logoError": "Could not upload the logo"
+    },
     "product": {
       "create": "Create product",
       "edit": "Edit product",
       "sku": "SKU",
       "name": "Name",
       "price": "Price",
-      "cost": "Cost"
+      "cost": "Cost",
+      "isService": "Service",
+      "isActive": "Active",
+      "notFound": "Product not found",
+      "groupIdentity": "Identification",
+      "groupPricing": "Pricing and tax",
+      "groupUnits": "Units and stock",
+      "barcode": "Barcode",
+      "barcodePlaceholder": "Scan or type the code",
+      "barcodeHint": "For products without a manufacturer code.",
+      "generateFromSku": "Generate from SKU",
+      "generateInternal": "Generate internal code",
+      "purchaseCost": "Purchase cost",
+      "salePrice": "Sale price",
+      "baseUnit": "Base unit",
+      "purchaseUnit": "Purchase unit",
+      "purchaseUnitPlaceholder": "Box, pack, roll...",
+      "conversionFactor": "Conversion to base unit",
+      "minStock": "Minimum stock",
+      "maxStock": "Maximum stock",
+      "reorderPoint": "Reorder point",
+      "supplierRef": "Supplier reference",
+      "description": "Description",
+      "newCategoryPlaceholder": "New category",
+      "label": "Label",
+      "labelHint": "Assign a code or generate one from the SKU to print the label.",
+      "printLabel": "Print label",
+      "saveSuccessTitle": "Product updated",
+      "saveErrorTitle": "Could not update the product",
+      "barcodeSuccessTitle": "Code generated",
+      "barcodeErrorTitle": "Could not generate the code",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "image": "Image",
+      "images": "Product photos",
+      "imagesHint": "Drop photos here or browse your device. Maximum 3.",
+      "dropImages": "Drop photos here or click to browse",
+      "uploadImages": "Save photos",
+      "removeImage": "Remove photo",
+      "imageSlot": "Available photo",
+      "imageUploadError": "The product was created, but its photos could not be saved. Try again from the product details.",
+      "uploadImage": "Upload",
+      "noImage": "No image"
+    },
+    "tax": "Tax",
+    "branches": "Branches",
+    "brands": "Brands",
+    "subtitle": "Products, stock, warehouses and movements",
+    "nav": {
+      "aria": "Inventory sections",
+      "stock": "Stock & movements",
+      "transfers": "Transfers",
+      "reorderPoints": "Reorder points",
+      "warehouses": "Warehouses",
+      "branches": "Branches",
+      "products": "Products",
+      "brands": "Brands",
+      "categories": "Categories"
     }
   },
   "clients": {
@@ -77,6 +397,8 @@
   },
   "vendors": {
     "title": "Vendors",
+    "subtitle": "Vendor directory and commercial terms",
+    "count": "{count} vendors",
     "create": "Register vendor",
     "documentId": "Tax ID",
     "legalName": "Legal name"
@@ -114,22 +436,83 @@
       "email": "Email",
       "creditLimit": "Credit limit",
       "currentBalance": "Current balance",
-      "transactions": "Transaction history"
+      "transactions": "Transaction history",
+      "back": "Back",
+      "overview": "Overview",
+      "documentId": "Document",
+      "taxId": "Tax ID",
+      "commercialName": "Commercial name",
+      "website": "Website",
+      "paymentTerms": "Payment terms",
+      "deliveryDays": "Delivery days",
+      "notes": "Notes",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "categories": "Categories",
+      "contacts": "Contacts",
+      "noContacts": "No contacts registered",
+      "contactName": "Name",
+      "position": "Role / Position",
+      "primary": "Primary",
+      "vendor": "Vendor",
+      "customer": "Customer"
     }
   },
   "hr": {
     "title": "Employees",
+    "employees": "Employees",
+    "sections": "Employee sections",
+    "workspaceTitle": "Employees & payroll",
+    "workspaceDescription": "Employee records, compensation, and pay periods",
     "departments": "Departments",
     "employee": {
       "create": "Register employee",
       "edit": "Edit employee",
       "name": "Name",
+      "identityDoc": "Document",
+      "identificationType": "Document type",
+      "taxIdentifier": "Tax identifier",
+      "phone": "Phone",
+      "address": "Address",
+      "emergencyContact": "Emergency contact",
+      "emergencyContactName": "Contact name",
+      "emergencyContactPhone": "Contact phone",
+      "paymentDetails": "Payment details",
+      "paymentDetailsHistoryHelp": "Payroll permission is required. Changes preserve the previous account in history.",
+      "bankName": "Receiving bank",
+      "accountType": "Account type",
+      "paymentMethod": "Employee payment method",
+      "paymentMethods": {
+        "BANK": "Bank transfer",
+        "MOBILE_PAYMENT": "Mobile payment"
+      },
+      "accountTypes": {
+        "SAVINGS": "Savings",
+        "CHECKING": "Checking",
+        "OTHER": "Other"
+      },
+      "accountNumber": "Account number",
+      "mobilePaymentPhone": "Mobile payment phone",
+      "savePaymentDetails": "Save payment details",
+      "clearPaymentDetails": "Remove bank details",
+      "paymentDetailsSaved": "Payment details saved and versioned.",
+      "paymentDetailsCleared": "The current bank details were deactivated.",
+      "paymentDetailsError": "Bank details could not be loaded or saved. Check your permissions and try again.",
+      "paymentDetailsRequired": "Complete the required fields for the selected payment method.",
+      "confirmClearPaymentDetails": "Deactivate the current bank details? They will remain in history.",
+      "department": "Department",
       "email": "Email",
       "role": "Role",
+      "position": "Position",
       "branch": "Branch",
       "status": "Status",
+      "baseSalary": "Base salary",
       "active": "Active",
       "inactive": "Inactive",
+      "empty": "No employees registered",
+      "saveFailed": "The employee record could not be saved. Check the details and try again.",
+      "confirmDelete": "Delete this employee?",
       "back": "Back to employees"
     },
     "department": {
@@ -154,6 +537,48 @@
       "create": "Create register",
       "name": "Name",
       "balance": "Balance"
+    },
+    "audit": {
+      "title": "Cash Audit",
+      "start": "Start audit",
+      "expected": "Expected",
+      "counted": "Counted",
+      "cash": "Cash",
+      "card": "Card",
+      "transfer": "Transfer",
+      "difference": "Difference",
+      "balanced": "Balanced",
+      "unbalanced": "Unbalanced",
+      "approve": "Approve audit",
+      "reject": "Reject",
+      "blocked": "POS blocked during audit",
+      "noRegister": "Select a register to audit",
+      "summary": "Movement summary",
+      "status": {
+        "open": "Open",
+        "auditing": "Auditing",
+        "closed": "Closed"
+      }
+    },
+    "bankAccounts": {
+      "title": "Bank accounts",
+      "name": "Name",
+      "bank": "Bank",
+      "accountNumber": "Account number",
+      "type": "Type",
+      "active": "Active",
+      "types": {
+        "checking": "Checking",
+        "savings": "Savings",
+        "cash": "Cash"
+      }
+    },
+    "empty": "No movements in this register",
+    "movementTypes": {
+      "sale": "Sale",
+      "payment": "Payment",
+      "expense": "Expense",
+      "transfer": "Transfer"
     }
   },
   "reports": {
@@ -261,7 +686,9 @@
       "emitInvoice": "Emit invoice (F10)",
       "offline": "Offline",
       "blocked": "POS blocked — audit in progress",
-      "shortcutHint": "F8: Pay | F10: Invoice"
+      "shortcutHint": "F8: Pay | F10: Invoice",
+      "sessionOpen": "Session open",
+      "noOpenSession": "No open session"
     }
   },
   "purchasing": {
@@ -273,6 +700,7 @@
     "vendor": "Vendor",
     "vendorPlaceholder": "Select vendor",
     "expectedDate": "Expected date",
+    "expectedDateSuggested": "Suggested from the supplier's {days}-day delivery time",
     "notes": "Notes",
     "items": "Items",
     "addItem": "Add item",
@@ -285,12 +713,19 @@
     "costPerUnit": "Unit cost",
     "emptyList": "No purchase orders",
     "returns": "Returns",
+    "returnsEmpty": "No returns",
     "createReturn": "Create return",
     "returnReason": "Reason",
     "returnTotal": "Total",
     "returnStatus": "Status",
     "returnDate": "Return date",
     "priceLists": "Price lists",
+    "priceListEmpty": "No price lists",
+    "priceListActive": "Active",
+    "priceListTypes": {
+      "purchase": "Purchase",
+      "sale": "Sale"
+    },
     "createPriceList": "New price list",
     "editPriceList": "Edit price list",
     "priceListName": "Name",
@@ -313,44 +748,285 @@
       "cancelled": "Cancelled"
     }
   },
-  "cash": {
-    "title": "Cash",
-    "registers": "Registers",
-    "paymentMethods": "Payment methods",
-    "movements": "Movements",
-    "register": {
-      "create": "Create register",
-      "name": "Name",
-      "balance": "Balance"
+  "rbac": {
+    "title": "Roles & Permissions",
+    "roles": "Roles",
+    "permissions": "Permissions",
+    "role": {
+      "create": "Create role",
+      "edit": "Edit role",
+      "name": "Role name",
+      "description": "Description",
+      "isSystem": "System",
+      "confirmDelete": "Delete this role?",
+      "noRoles": "No roles defined"
     },
-    "audit": {
-      "title": "Cash Audit",
-      "start": "Start audit",
-      "expected": "Expected",
-      "counted": "Counted",
+    "permissionList": "Permission list"
+  },
+  "users": {
+    "title": "Users",
+    "create": "Create user",
+    "edit": "Edit user",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "phone": "Phone",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "roles": "Assigned roles",
+    "confirmDelete": "Delete this user?",
+    "noUsers": "No users registered",
+    "lastLogin": "Last login"
+  },
+  "settings": {
+    "title": "Settings",
+    "saved": "Changes saved",
+    "groups": {
+      "general": "General",
+      "modules": "Modules",
+      "sales": "Sales",
+      "inventory": "Inventory",
+      "financial": "Financial",
+      "system": "System",
+      "theme": "Themes"
+    },
+    "tabs": {
+      "company": "Company",
+      "general": "General",
+      "modules": "Modules",
+      "sales": "Sales",
+      "fiscal": "Fiscal",
+      "inventory": "Inventory",
+      "financial": "Financial",
+      "system": "System",
+      "theme": "Themes"
+    },
+    "company": {
+      "title": "Company information",
+      "subtitle": "Tax data and regional preferences",
+      "legalName": "Legal name",
+      "taxId": "Tax ID",
+      "baseCurrency": "Base currency",
+      "timezone": "Timezone"
+    },
+    "modules": {
+      "title": "Active modules",
+      "subtitle": "Enable or disable system modules",
+      "reports": "Reports",
+      "sales": "Sales / POS",
+      "inventory": "Inventory",
+      "purchasing": "Purchasing",
       "cash": "Cash",
-      "card": "Card",
-      "transfer": "Transfer",
-      "difference": "Difference",
-      "balanced": "Balanced",
-      "unbalanced": "Unbalanced",
-      "approve": "Approve audit",
-      "reject": "Reject",
-      "blocked": "POS blocked during audit",
-      "noRegister": "Select a register to audit",
-      "summary": "Movement summary",
-      "status": {
-        "open": "Open",
-        "auditing": "Auditing",
-        "closed": "Closed"
+      "localization": "Localization",
+      "clients": "Clients",
+      "vendors": "Vendors",
+      "hr": "HR"
+    },
+    "general": {
+      "title": "General preferences",
+      "subtitle": "Language, alerts and defaults",
+      "language": "Language",
+      "stockThreshold": "Low stock threshold",
+      "lowStockAlerts": "Enable low stock alerts"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "subtitle": "Email alerts and recipients",
+      "stockAlertEmail": "Send low stock alerts by email",
+      "stockAlertRecipients": "Recipient emails (comma separated)"
+    },
+    "inventory": {
+      "title": "Inventory settings",
+      "subtitle": "Cost method and stock policies",
+      "defaultCostMethod": "Default cost method",
+      "costMethods": {
+        "weightedAverage": "Weighted average",
+        "fifo": "FIFO (First In, First Out)",
+        "standard": "Standard cost"
+      },
+      "allowNegativeStock": "Allow negative stock"
+    },
+    "sales": {
+      "title": "Sales / POS settings",
+      "subtitle": "Document types, payments and commissions",
+      "defaultDocType": "Default document type",
+      "docTypes": {
+        "salesInvoice": "Sales invoice",
+        "deliveryOrder": "Delivery order"
+      },
+      "defaultPaymentTerms": "Default payment terms",
+      "paymentTerms": {
+        "cash": "Cash",
+        "credit15": "Credit 15 days",
+        "credit30": "Credit 30 days",
+        "credit45": "Credit 45 days"
+      },
+      "receiptFooter": "Receipt footer message",
+      "receiptFooterPlaceholder": "e.g. Thank you for your purchase",
+      "enableCommissions": "Enable sales commission calculation",
+      "autoInvoiceNumbering": "Automatic invoice numbering"
+    },
+    "fiscal": {
+      "title": "Fiscal settings",
+      "subtitle": "Taxes and withholding configuration",
+      "defaultVatRate": "Default VAT rate (%)",
+      "autoWithholding": "Apply withholding taxes automatically (ReteIVA / RenteFuente / ICA)",
+      "defaultContributorType": "Default contributor type",
+      "contributorTypes": {
+        "ordinary": "Ordinary",
+        "formal": "Formal",
+        "special": "Special"
       }
     },
-    "empty": "No movements in this register",
-    "movementTypes": {
-      "sale": "Sale",
-      "payment": "Payment",
-      "expense": "Expense",
-      "transfer": "Transfer"
+    "financial": {
+      "title": "Financial settings",
+      "subtitle": "Currencies and exchange rates",
+      "foreignCurrency": "Default foreign currency",
+      "multicurrency": "Enable multicurrency operations",
+      "exchangeRateSource": "Exchange rate source",
+      "rateSources": {
+        "bcv": "BCV (Venezuela)",
+        "trm": "TRM (Colombia)",
+        "manual": "Manual entry"
+      }
+    },
+    "system": {
+      "title": "System settings",
+      "subtitle": "Session, security and auditing",
+      "sessionTimeout": "Session timeout (minutes)",
+      "enableAudit": "Enable audit logging"
+    },
+    "theme": {
+      "title": "Visual themes",
+      "subtitle": "Choose which theme is used by default in dark and light mode",
+      "primaryDark": "Primary dark theme",
+      "primaryLight": "Primary light theme"
     }
+  },
+  "payroll": {
+    "title": "Payroll",
+    "detail": "Payroll Detail",
+    "tabs": {
+      "concepts": "Concepts",
+      "process": "Process payroll",
+      "history": "History",
+      "loans": "Loans"
+    },
+    "processTitle": "Process payroll",
+    "historyTitle": "Payment history",
+    "activeEmployees": "Active employees",
+    "periodsToReview": "Periods to review",
+    "employeeCountUnavailable": "Unavailable",
+    "loadError": "Payroll periods could not be loaded. Try again.",
+    "retry": "Retry",
+    "createPeriodError": "The period could not be created. Check the dates and make sure no other period is open.",
+    "actionError": "The action could not be completed. Check the period status and try again.",
+    "calculationScope": "Available calculation",
+    "calculationAvailable": "Base, concepts, commissions, and installments",
+    "conceptsTitle": "Payroll concepts",
+    "conceptsDescription": "Configure fixed or percentage-based earnings and deductions to apply to each period.",
+    "baseSalaryConcept": "Base salary",
+    "baseSalarySource": "Taken from the employee's current compensation agreement.",
+    "available": "Available",
+    "loansTitle": "Loans and advances",
+    "loansDescription": "Record an advance or loan; its balance will be deducted in installments from future payroll periods.",
+    "createPeriod": "Create Period",
+    "review": "Review",
+    "period": "Period",
+    "frequency": "Frequency",
+    "frequencies": {
+      "WEEKLY": "Weekly",
+      "BIWEEKLY": "Every two weeks",
+      "SEMI_MONTHLY": "Semi-monthly",
+      "MONTHLY": "Monthly",
+      "CUSTOM": "Custom"
+    },
+    "statuses": {
+      "OPEN": "Open",
+      "CALCULATING": "Calculating",
+      "LOCKED": "In review",
+      "PAID": "Paid",
+      "CLOSED": "Closed"
+    },
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "status": "Status",
+    "notes": "Notes",
+    "noPeriods": "No payroll periods",
+    "noHistory": "There are no paid or closed periods yet",
+    "noPayslips": "No payslips",
+    "payslipCount": "Payslips",
+    "generate": "Generate",
+    "pay": "Pay",
+    "close": "Close",
+    "payslips": "Payslips",
+    "receipt": "Receipt",
+    "downloadReceipt": "Download PDF",
+    "employee": "Employee",
+    "position": "Position",
+    "department": "Department",
+    "contractType": "Contract",
+    "baseSalary": "Base Salary",
+    "code": "Code",
+    "conceptName": "Concept name",
+    "conceptType": "Type",
+    "calculationMode": "Calculation",
+    "fixedAmount": "Fixed amount",
+    "basePercentage": "Base salary percentage",
+    "percentage": "Percentage",
+    "amount": "Amount",
+    "currency": "Currency",
+    "recurring": "Recurring",
+    "createConcept": "Create concept",
+    "saveError": "Could not save this item. Check the details and try again.",
+    "noConcepts": "No payroll concepts configured yet.",
+    "earning": "Earning",
+    "deduction": "Deduction",
+    "active": "Active",
+    "inactive": "Inactive",
+    "selectEmployee": "Select an employee",
+    "installments": "Number of installments",
+    "reason": "Reason",
+    "registerLoan": "Register loan",
+    "principal": "Principal",
+    "installment": "Installment",
+    "installmentsPaid": "Installments paid",
+    "balance": "Outstanding balance",
+    "settled": "Settled",
+    "noLoans": "No loans or advances recorded yet.",
+    "cashRegister": "Payment register",
+    "selectCashRegister": "Select a register",
+    "cashSessionRequired": "An open session is required on the selected register.",
+    "cashRegisterLoadError": "Cash registers could not be loaded. Refresh before paying.",
+    "noCashRegisters": "No active cash registers are available for payment.",
+    "paymentMethod": "Payment method",
+    "paymentMethods": {
+      "cash": "Cash register",
+      "bank": "Bank"
+    },
+    "bankAccount": "Bank account",
+    "selectBankAccount": "Select an account",
+    "bankAccountLoadError": "Bank accounts could not be loaded. Refresh before paying.",
+    "noBankAccounts": "No active bank accounts are available for payment.",
+    "backToPeriods": "Back to periods",
+    "addAdjustments": "Period adjustments",
+    "adjustmentsHelp": "Add bonuses, manual commissions, or other earnings and deductions before calculating.",
+    "selectConcept": "Select a concept",
+    "description": "Description",
+    "addAdjustment": "Add adjustment",
+    "editAdjustment": "Edit adjustment",
+    "saveAdjustment": "Save changes",
+    "noAdjustments": "No adjustments have been added to this period.",
+    "previewDescription": "Review each employee's payslip breakdown before recording payment.",
+    "netTotal": "Net total",
+    "earnings": "Earnings",
+    "deductions": "Deductions",
+    "netPay": "Net pay",
+    "details": "Details",
+    "viewLines": "View lines",
+    "confirmGenerate": "Generate payslips?",
+    "confirmPay": "Record the outflow from the selected source and mark the period as paid? Amounts may be converted to the account currency.",
+    "confirmClose": "Close payroll period?"
   }
 }

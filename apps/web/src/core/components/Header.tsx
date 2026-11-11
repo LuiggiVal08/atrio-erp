@@ -1,84 +1,142 @@
-import { useState, useRef, useEffect, Fragment } from 'react';
-import { useHeaderStore } from '@/core/store/header-store';
-import { useAuthStore } from '@/core/auth/store';
+import { useState, useEffect } from 'react';
+import { useSidebarStore } from '@/core/store/sidebar-store';
 import { useTranslation } from '@/shared/hooks/useTranslation';
-import { Search, ChevronRight, LogOut, User } from 'lucide-react';
+import { Bell, Settings, User } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { SearchModal } from './SearchModal';
+import { Logo } from './Logo';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/core/auth/store';
+import { UserCircle, LogOut } from 'lucide-react';
 import api from '@/shared/lib/api/client';
 
+
 export function Header() {
-  const { breadcrumbs, tenantName, branchName } = useHeaderStore();
-  const { user, logout } = useAuthStore();
+  const { modules, setActiveModule } = useSidebarStore();
+
   const { t } = useTranslation();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuthStore();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const primaryModuleIds = ['reports', 'pos', 'purchasing', 'inventory', 'clients', 'rbac', 'users'];
+  const headerModules = modules
+    .filter((mod) => primaryModuleIds.includes(mod.id))
+    .sort((a, b) => primaryModuleIds.indexOf(a.id) - primaryModuleIds.indexOf(b.id));
+  const currentModule = headerModules
+    .filter((mod) => location.pathname === mod.route || location.pathname.startsWith(`${mod.route}/`))
+    .sort((a, b) => b.route.length - a.route.length)[0];
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {}
+    logout();
+    setProfileOpen(false);
+  };
 
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === '/' && !searchOpen) {
+        const isInput = (e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA';
+        if (!isInput) {
+          e.preventDefault();
+          setSearchOpen(true);
+        }
       }
     }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [searchOpen]);
+
+  useEffect(() => {
+    const openSearch = () => setSearchOpen(true);
+    window.addEventListener('atrio:open-search', openSearch);
+    return () => window.removeEventListener('atrio:open-search', openSearch);
   }, []);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-6">
-      <div className="flex items-center gap-3 text-sm">
-        <img src="/logos/isologo.png" alt="Atrio" className="h-6 w-auto drop-shadow-md" />
-        <img src="/logos/logotipo.png" alt="Atrio ERP" className="h-6 w-auto opacity-70 drop-shadow-md" />
-        {breadcrumbs.map((crumb, i) => (
-          <Fragment key={crumb.label}>
-            {i > 0 && <ChevronRight size={14} className="text-text-secondary" />}
-            {crumb.href ? (
-              <a href={crumb.href} className="text-text-secondary hover:text-text-primary">
-                {t(crumb.label)}
-              </a>
-            ) : (
-              <span className="text-text-primary font-medium">{t(crumb.label)}</span>
-            )}
-          </Fragment>
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <ThemeSwitcher />
-        <button className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover">
-          <Search size={14} />
-          <span>{t('common.search')}</span>
-          <kbd className="ml-1 rounded border border-border px-1 text-[10px]">/</kbd>
-        </button>
-        <div className="flex items-center gap-2 text-xs text-text-secondary">
-          {tenantName && (
-            <span className="rounded bg-accent/10 px-2 py-0.5 text-accent">{tenantName}</span>
-          )}
-          {branchName && <span>{branchName}</span>}
-          <div ref={menuRef} className="relative">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-text-secondary hover:bg-surface-hover"
+    <>
+    <div className="col-start-1 row-start-1 z-40 flex h-14 items-center justify-center gap-2 self-start px-1">
+      <Logo variant="isologo" className="h-9 w-9" />
+      <Logo variant="logotipo" className="h-8 max-w-[84px]" />
+    </div>
+    <header
+      className="col-start-2 row-start-1 z-40 flex h-14 min-w-0 justify-center"
+    >
+      <nav className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-[28px] border border-white/10 bg-overlay/85 px-2 shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+        {headerModules.map((mod) => {
+          const Icon = mod.icon;
+          const isActive = currentModule?.id === mod.id || location.pathname.startsWith(mod.route);
+          return (
+            <NavLink
+              key={mod.id}
+              to={mod.route}
+              onClick={() => setActiveModule(mod.id)}
+              className={`flex h-10 shrink-0 items-center gap-2 rounded-[14px] px-3 text-xs font-medium transition-colors ${
+                isActive
+                  ? 'bg-surface-active text-text-primary shadow-sm'
+                  : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+              }`}
             >
-              <User size={16} />
-              <span className="text-sm">{user?.name ?? user?.email ?? 'User'}</span>
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-border bg-surface p-1 shadow-lg">
-                <button
-                  onClick={async () => {
-                    try { await api.post('/auth/logout'); } catch {}
-                    logout();
-                    setMenuOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-surface-hover hover:text-error"
-                >
-                  <LogOut size={16} />
-                  Cerrar sesión
+              <Icon size={14} />
+              <span className="hidden xl:inline">
+                {mod.label.startsWith('sidebar.') ? t(mod.label) : mod.label}
+              </span>
+            </NavLink>
+          );
+        })}
+      </nav>
+    </header>
+
+      <div className="col-start-3 row-start-1 z-40 flex h-14 items-center justify-end gap-2 pr-2">
+        <button
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-border/80 bg-overlay/85 text-text-secondary shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl hover:bg-surface-hover hover:text-text-primary"
+          aria-label="Notifications"
+        >
+          <Bell size={17} />
+        </button>
+        <ThemeSwitcher compact />
+        <div className="relative">
+          <button
+            onClick={() => setProfileOpen((open) => !open)}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border/80 bg-overlay/85 text-text-primary shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl hover:bg-surface-hover"
+            aria-label="Profile menu"
+            aria-expanded={profileOpen}
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border-light bg-surface-active">
+              <User size={18} />
+            </span>
+          </button>
+          {profileOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+              <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-border/80 bg-overlay/95 py-1 shadow-2xl backdrop-blur-xl">
+                <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-alpha text-accent">
+                    <User size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-text-primary">{user?.name ?? 'User'}</p>
+                    <p className="truncate text-xs text-text-muted">{user?.email ?? ''}</p>
+                  </div>
+                </div>
+                <button onClick={() => { navigate('/profile'); setProfileOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-surface-hover hover:text-text-primary">
+                  <UserCircle size={16} />{t('sidebar.profile.label')}
+                </button>
+                <button onClick={() => { navigate('/settings'); setProfileOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-surface-hover hover:text-text-primary">
+                  <Settings size={16} />{t('sidebar.settings.label')}
+                </button>
+                <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-surface-hover hover:text-error">
+                  <LogOut size={16} />{t('auth.logout')}
                 </button>
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
-    </header>
+      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+    </>
   );
 }

@@ -1,28 +1,39 @@
+@import "sileo/styles.css";
 @import "tailwindcss";
+@import "@heroui/react/styles";
 
 @theme {
-  --color-canvas: var(--bg-canvas, #0B0F19);
-  --color-canvas-elevated: var(--bg-overlay, #111827);
-  --color-surface: var(--bg-surface, #1E293B);
-  --color-surface-hover: var(--bg-surface-hover, #253348);
-  --color-overlay: var(--bg-overlay, #111827);
-  --color-border: var(--border-thin, #334155);
-  --color-focus: var(--border-focus, #3B82F6);
-  --color-text-primary: var(--text-primary, #F1F5F9);
-  --color-text-secondary: var(--text-secondary, #94A3B8);
-  --color-text-muted: var(--text-muted, #64748B);
-  --color-accent: var(--accent-main, #3B82F6);
-  --color-accent-hover: var(--accent-main-hover, #2563EB);
-  --color-accent-alpha: var(--accent-alpha, rgba(59,130,246,0.12));
-  --color-success: var(--status-success, #22c55e);
-  --color-error: var(--status-error, #ef4444);
-  --color-warning: var(--status-warning, #f59e0b);
+  --color-canvas: var(--bg-canvas, #0D0F14);
+  --color-canvas-elevated: var(--bg-overlay, #161A24);
+  --color-surface: var(--bg-surface, #181C26);
+  --color-surface-hover: var(--bg-surface-hover, #1E2330);
+  --color-surface-active: var(--bg-surface-active, #242A3A);
+  --color-overlay: var(--bg-overlay, #161A24);
+  --color-border: var(--border-thin, #222838);
+  --color-border-light: var(--border-light, #2C3348);
+  --color-focus: var(--border-focus, #D4785C);
+  --color-text-primary: var(--text-primary, #E8EAED);
+  --color-text-secondary: var(--text-secondary, #9098AD);
+  --color-text-muted: var(--text-muted, #5C637A);
+  --color-accent: var(--accent-main, #D4785C);
+  --color-accent-hover: var(--accent-main-hover, #C06448);
+  --color-accent-alpha: var(--accent-alpha, rgba(212, 120, 92, 0.12));
+  --color-accent-glow: var(--accent-glow, rgba(212, 120, 92, 0.25));
+  --color-success: var(--status-success, #3DA06B);
+  --color-error: var(--status-error, #D45C5C);
+  --color-warning: var(--status-warning, #D4A04A);
+  --color-info: var(--status-info, #5C8DD4);
+  --font-brand: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Menlo', monospace;
 }
 
 html {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  background-color: var(--bg-canvas, #0B0F19);
-  color: var(--text-primary, #F1F5F9);
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  background-color: var(--bg-canvas, #0D0F14);
+  color: var(--text-primary, #E8EAED);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -30,48 +41,172 @@ body {
   overflow: hidden;
 }
 
+::selection {
+  background-color: rgba(212, 120, 92, 0.3);
+  color: #E8EAED;
+}
+
+:focus-visible {
+  outline: 1px solid var(--accent-main, #D4785C);
+  outline-offset: 1px;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-label,
+  .print-label * {
+    visibility: visible;
+  }
+
+  .print-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-thin, #222838);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light, #2C3348);
+}
+
 .state-badge {
-  font-family: Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  padding: 2px 6px;
+  font-family: 'JetBrains Mono', Menlo, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  padding: 2px 7px;
   border-radius: 4px;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.state-badge[data-state] {
+  border: 1px solid transparent;
 }
 
 .state-badge[data-state="draft"] {
-  background-color: rgba(148, 163, 184, 0.1);
-  color: #94A3B8;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background-color: rgba(92, 99, 122, 0.12);
+  color: #9098AD;
+  border-color: rgba(92, 99, 122, 0.2);
+}
+
+.state-badge[data-state="pending"] {
+  background-color: rgba(92, 141, 212, 0.12);
+  color: #5C8DD4;
+  border-color: rgba(92, 141, 212, 0.2);
 }
 
 .state-badge[data-state="approved"] {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #60A5FA;
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background-color: rgba(212, 120, 92, 0.12);
+  color: #D4785C;
+  border-color: rgba(212, 120, 92, 0.2);
+}
+
+.state-badge[data-state="posted"] {
+  background-color: rgba(61, 160, 107, 0.12);
+  color: #3DA06B;
+  border-color: rgba(61, 160, 107, 0.2);
 }
 
 .state-badge[data-state="paid"] {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #34D399;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background-color: rgba(61, 160, 107, 0.12);
+  color: #3DA06B;
+  border-color: rgba(61, 160, 107, 0.2);
 }
 
 .state-badge[data-state="cancelled"] {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #F87171;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background-color: rgba(212, 92, 92, 0.12);
+  color: #D45C5C;
+  border-color: rgba(212, 92, 92, 0.2);
 }
 
 .state-badge[data-state="received"] {
-  background-color: rgba(139, 92, 246, 0.1);
-  color: #A78BFA;
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background-color: rgba(92, 141, 212, 0.12);
+  color: #5C8DD4;
+  border-color: rgba(92, 141, 212, 0.2);
 }
 
 .state-badge[data-state="partial"] {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #FBBF24;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background-color: rgba(212, 160, 74, 0.12);
+  color: #D4A04A;
+  border-color: rgba(212, 160, 74, 0.2);
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes moduleLoadingEnter {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes moduleLoadingSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes accentPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 120, 92, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(212, 120, 92, 0); }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.2s ease-out;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.15s ease-out;
+}
+
+.module-loading-enter {
+  animation: moduleLoadingEnter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.module-loading-spinner {
+  animation: moduleLoadingSpin 700ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .module-loading-enter,
+  .module-loading-spinner {
+    animation: none;
+  }
+}
+
+.page-title {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--text-primary, #E8EAED);
+  letter-spacing: -0.02em;
+}
+
+.data-value {
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary, #E8EAED);
 }

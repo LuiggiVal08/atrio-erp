@@ -20,15 +20,10 @@ interface SidebarState {
 }
 
 export const useSidebarStore = create<SidebarState>((set) => ({
-  isCollapsed: false,
+  isCollapsed: true,
   modules: [],
   activeModule: null,
   toggleCollapse: () => set((s) => ({ isCollapsed: !s.isCollapsed })),
-  setModules: (modules) =>
-    set((s) => {
-      const merged = new Map(s.modules.map((m) => [m.id, m]));
-      for (const m of modules) merged.set(m.id, m);
-      return { modules: [...merged.values()] };
-    }),
+  setModules: (modules) => set({ modules }),
   setActiveModule: (moduleId) => set({ activeModule: moduleId }),
 }));

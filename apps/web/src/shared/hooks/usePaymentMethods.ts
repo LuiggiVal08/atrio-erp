@@ -4,7 +4,7 @@ import api from '@/shared/lib/api/client';
 interface PaymentMethod {
   id: string;
   name: string;
-  type: 'cash' | 'transfer' | 'card' | 'check' | 'other';
+  type: 'cash' | 'digital' | 'card' | 'other';
 }
 
 export function usePaymentMethods() {

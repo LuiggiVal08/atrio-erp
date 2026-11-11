@@ -87,7 +87,7 @@ export function VirtualGrid<T extends Record<string, any>>({
     );
   }
 
-  if (data.length === 0 || !data) {
+  if (!data || data.length === 0) {
     return (
       <div ref={parentRef} style={{ ...style, overflow: 'auto' }} className="flex items-center justify-center">
         <EmptyState
@@ -139,7 +139,7 @@ export function VirtualGrid<T extends Record<string, any>>({
                         height: rowHeight,
                         transform: `translateY(${virtualRow.start}px)`,
                       }}
-                      className="flex border-b border-border hover:bg-surface-hover cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="group relative flex border-b border-border hover:bg-surface-hover cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       onClick={() => onRowClick?.(row)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') onRowClick?.(row);
@@ -147,6 +147,7 @@ export function VirtualGrid<T extends Record<string, any>>({
                       tabIndex={0}
                       role="row"
                     >
+                      <div className="absolute left-0 top-0 h-full w-0.5 scale-y-0 bg-accent transition-transform duration-150 group-hover:scale-y-100" />
                       {columns.map((col) => (
                         <div
                           key={String(col.key)}
@@ -167,7 +168,7 @@ export function VirtualGrid<T extends Record<string, any>>({
             data.map((row, i) => (
               <tr
                 key={i}
-                className="border-b border-border hover:bg-surface-hover cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent"
+                className="group relative border-b border-border cursor-pointer transition-all hover:bg-surface-hover hover:shadow-[inset_2px_0_0_0_var(--accent-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={() => onRowClick?.(row)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') onRowClick?.(row);
