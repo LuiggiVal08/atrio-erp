@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/shared/hooks/useTranslation';
-import { usePurchaseOrder, useApprovePurchaseOrder, useReceivePurchaseOrder, useCompleteReceivePurchaseOrder, useDeletePurchaseOrder } from '@/modules/purchases/hooks/usePurchaseOrders';
+import { usePurchaseOrder, useApprovePurchaseOrder, useReceivePurchaseOrder, useCompleteReceivePurchaseOrder, useDeletePurchaseOrder, useUpdatePurchaseOrder } from '@/modules/purchases/hooks/usePurchaseOrders';
 import { DocumentStateBadge } from '@/core/components/DocumentStateBadge';
 import { DocumentTimeline } from '@/core/components/DocumentTimeline';
+
+const toDateInput = (value: string) => value.slice(0, 10);
 
 export function PurchaseOrderDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -13,9 +16,29 @@ export function PurchaseOrderDetailView() {
   const receiveMutation = useReceivePurchaseOrder();
   const completeReceiveMutation = useCompleteReceivePurchaseOrder();
   const deleteMutation = useDeletePurchaseOrder();
+  const updateMutation = useUpdatePurchaseOrder();
+  const [editingExpectedDate, setEditingExpectedDate] = useState(false);
+  const [expectedDate, setExpectedDate] = useState('');
+
+  useEffect(() => {
+    if (!editingExpectedDate) {
+      setExpectedDate(order?.expectedDate ? toDateInput(order.expectedDate) : '');
+    }
+  }, [order?.id, order?.expectedDate, editingExpectedDate]);
 
   if (isLoading) return <div className="p-6 text-sm text-text-secondary">{t('common.loading')}</div>;
   if (!order) return <div className="p-6 text-sm text-text-secondary">{t('common.noResults')}</div>;
+
+  const handleSaveExpectedDate = async () => {
+    if (!expectedDate) return;
+    await updateMutation.mutateAsync({ id: order.id, expectedDate });
+    setEditingExpectedDate(false);
+  };
+
+  const handleCancelExpectedDate = () => {
+    setExpectedDate(order.expectedDate ? toDateInput(order.expectedDate) : '');
+    setEditingExpectedDate(false);
+  };
 
   const handleApprove = () => approveMutation.mutate(order.id);
   const handleReceive = () => receiveMutation.mutate({ id: order.id, lines: [] });
@@ -54,10 +77,47 @@ export function PurchaseOrderDetailView() {
           <p className="text-sm font-medium text-text-primary">{order.vendorId}</p>
         </div>
         <div>
-          <span className="text-xs text-text-secondary">{t('purchasing.expectedDate')}</span>
-          <p className="text-sm font-medium text-text-primary">
-            {order.expectedDate ? new Date(order.expectedDate).toLocaleDateString() : '-'}
-          </p>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-text-secondary">{t('purchasing.expectedDate')}</span>
+            {!editingExpectedDate && (
+              <button
+                type="button"
+                onClick={() => setEditingExpectedDate(true)}
+                className="text-xs text-accent hover:underline"
+              >
+                {t('common.edit')}
+              </button>
+            )}
+          </div>
+          {editingExpectedDate ? (
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="date"
+                value={expectedDate}
+                onChange={(e) => setExpectedDate(e.target.value)}
+                className="rounded-lg border border-border bg-surface px-2 py-1 text-sm text-text-primary focus:border-accent focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleSaveExpectedDate}
+                disabled={!expectedDate || updateMutation.isPending}
+                className="rounded-lg bg-accent px-2 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {updateMutation.isPending ? t('common.loading') : t('common.save')}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelExpectedDate}
+                className="rounded-lg border border-border px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-text-primary">
+              {order.expectedDate ? new Date(order.expectedDate).toLocaleDateString() : '-'}
+            </p>
+          )}
         </div>
         <div>
           <span className="text-xs text-text-secondary">{t('sales.pos.subtotal')}</span>

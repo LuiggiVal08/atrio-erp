@@ -26,7 +26,7 @@ export class PurchasingController {
   @RequirePermission('purchasing:order:create')
   @ApiOperation({ summary: 'Create purchase order' })
   async createOrder(@Body() dto: CreatePurchaseOrderDto, @CurrentUser() user: any) {
-    return this.orderService.create({ tenantId: user.effectiveTenantId, ...dto });
+    return this.orderService.create({ tenantId: user.effectiveTenantId, createdById: user.id, ...dto });
   }
 
   @Get('orders')

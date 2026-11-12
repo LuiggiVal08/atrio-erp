@@ -12,5 +12,7 @@ export class PurchaseOrder {
     public readonly notes: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public readonly expectedDate: Date | null = null,
+    public readonly receivedAt: Date | null = null,
   ) {}
 }

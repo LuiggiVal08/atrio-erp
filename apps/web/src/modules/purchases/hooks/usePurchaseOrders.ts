@@ -64,7 +64,6 @@ export function useCreatePurchaseOrder() {
   return useMutation({
     mutationFn: async (input: CreatePurchaseOrderInput) => {
       const res = await api.post('/purchasing/orders', {
-        documentId: crypto.randomUUID(),
         ...input,
         currency: input.currency ?? 'VED',
       });
@@ -84,8 +83,9 @@ export function useUpdatePurchaseOrder() {
       const res = await api.patch(`/purchasing/orders/${id}`, data);
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.id] });
     },
   });
 }

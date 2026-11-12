@@ -2,7 +2,7 @@ import { IsString, IsNumber, IsOptional, IsDateString, Min, IsArray, ValidateNes
 import { Type } from 'class-transformer';
 
 export class CreatePurchaseOrderDto {
-  @IsString() documentId!: string;
+  @IsOptional() @IsString() documentId?: string;
   @IsString() vendorId!: string;
   @IsNumber() @Min(0) subtotal!: number;
   @IsNumber() @Min(0) taxAmount!: number;

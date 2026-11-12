@@ -7,6 +7,7 @@ describe('PurchaseOrderService', () => {
     createOrder: jest.fn(),
     findOrdersByTenant: jest.fn(),
     findOrderById: jest.fn(),
+    findVendorDeliveryDays: jest.fn(),
     updateOrderStatus: jest.fn(),
     updateOrder: jest.fn(),
     deleteOrder: jest.fn(),
@@ -20,16 +21,68 @@ describe('PurchaseOrderService', () => {
     updateLineReceivedQuantity: jest.fn(),
   };
   const mockEventEmitter = { emit: jest.fn() };
+  const mockCreateDocument = { execute: jest.fn() };
 
   beforeEach(() => {
-    service = new PurchaseOrderService(mockRepo, mockEventEmitter as any);
+    service = new PurchaseOrderService(mockRepo, mockEventEmitter as any, mockCreateDocument as any);
     jest.clearAllMocks();
+    (mockRepo.findVendorDeliveryDays as jest.Mock).mockResolvedValue(null);
+    mockCreateDocument.execute.mockResolvedValue({ id: 'doc-new' });
   });
+
+  const dateIn = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
 
   it('should create an order', async () => {
     (mockRepo.createOrder as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'pending' });
-    const result = await service.create({ tenantId: 't1', documentId: 'doc-1', vendorId: 'v1', subtotal: 800, taxAmount: 200, total: 1000, currency: 'VED' });
+    const result = await service.create({ tenantId: 't1', createdById: 'u1', documentId: 'doc-1', vendorId: 'v1', subtotal: 800, taxAmount: 200, total: 1000, currency: 'VED' });
     expect(result).toHaveProperty('id', 'po-1');
+  });
+
+  it('creates a purchase document when no documentId is provided', async () => {
+    (mockRepo.createOrder as jest.Mock).mockResolvedValue({ id: 'po-1' });
+
+    await service.create({ tenantId: 't1', createdById: 'u1', vendorId: 'v1', subtotal: 800, taxAmount: 200, total: 1000, currency: 'VED' });
+
+    expect(mockCreateDocument.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ documentType: 'purchase_order' }),
+      { tenantId: 't1', userId: 'u1' },
+    );
+    expect(mockRepo.createOrder).toHaveBeenCalledWith(expect.objectContaining({ documentId: 'doc-new' }));
+  });
+
+  describe('expected date', () => {
+    const baseInput = { tenantId: 't1', createdById: 'u1', vendorId: 'v1', subtotal: 800, taxAmount: 200, total: 1000, currency: 'VED' };
+
+    it('auto-fills from the vendor delivery days when omitted', async () => {
+      (mockRepo.findVendorDeliveryDays as jest.Mock).mockResolvedValue(5);
+      (mockRepo.createOrder as jest.Mock).mockResolvedValue({ id: 'po-1' });
+
+      await service.create(baseInput);
+
+      expect(mockRepo.findVendorDeliveryDays).toHaveBeenCalledWith('t1', 'v1');
+      expect(mockRepo.createOrder).toHaveBeenCalledWith(expect.objectContaining({ expectedDate: dateIn(5) }));
+    });
+
+    it('keeps an explicit expected date and skips the vendor lookup', async () => {
+      (mockRepo.createOrder as jest.Mock).mockResolvedValue({ id: 'po-1' });
+
+      await service.create({ ...baseInput, expectedDate: '2030-01-15' });
+
+      expect(mockRepo.findVendorDeliveryDays).not.toHaveBeenCalled();
+      expect(mockRepo.createOrder).toHaveBeenCalledWith(expect.objectContaining({ expectedDate: '2030-01-15' }));
+    });
+
+    it('leaves the expected date empty when the vendor has no delivery days', async () => {
+      (mockRepo.createOrder as jest.Mock).mockResolvedValue({ id: 'po-1' });
+
+      await service.create(baseInput);
+
+      expect(mockRepo.createOrder).toHaveBeenCalledWith(expect.objectContaining({ expectedDate: undefined }));
+    });
   });
 
   it('should list orders', async () => {

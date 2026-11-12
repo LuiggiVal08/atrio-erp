@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DocumentModule } from '@/modules/document-engine/infrastructure/document.module';
 import { PurchasingController } from './infrastructure/purchasing.controller';
 import { PurchasingV2Controller } from './infrastructure/purchasing-v2.controller';
 import { PriceListController } from './infrastructure/price-list.controller';
@@ -13,7 +14,7 @@ import { ManagePurchasingUseCase } from './application/manage-purchasing.use-cas
 import { PurchasingMetricsService } from './application/purchasing-metrics.service';
 
 @Module({
-  imports: [],
+  imports: [DocumentModule],
   controllers: [PurchasingController, PurchasingV2Controller, PriceListController],
   providers: [
     PurchaseOrderService,

@@ -16,6 +16,7 @@ export interface PurchasingRepository {
   }): Promise<PurchaseOrder>;
   findOrdersByTenant(tenantId: string): Promise<PurchaseOrder[]>;
   findOrderById(id: string): Promise<PurchaseOrder | null>;
+  findVendorDeliveryDays(tenantId: string, vendorId: string): Promise<number | null>;
   updateOrderStatus(id: string, status: string): Promise<PurchaseOrder>;
   updateOrder(id: string, data: Partial<{ vendorId: string; subtotal: number; taxAmount: number; total: number; currency: string; notes: string | null; status: string; receivedAt: Date | null; expectedDate: Date | null }>): Promise<PurchaseOrder>;
   deleteOrder(id: string): Promise<void>;

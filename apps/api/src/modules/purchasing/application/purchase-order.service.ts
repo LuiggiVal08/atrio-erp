@@ -1,19 +1,69 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PurchasingRepository, OrderLineInfo } from '../domain/purchasing.repository.interface';
+import { CreateDocumentUseCase } from '@/modules/document-engine/application/create-document.use-case';
+import { DocumentType } from '@/modules/document-engine/domain/document.entity';
 
 @Injectable()
 export class PurchaseOrderService {
   constructor(
     @Inject('PurchasingRepository') private readonly repo: PurchasingRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly createDocument: CreateDocumentUseCase,
   ) {}
 
   async create(data: {
-    tenantId: string; documentId: string; vendorId: string;
+    tenantId: string; createdById: string; documentId?: string; vendorId: string;
     subtotal: number; taxAmount: number; total: number; currency: string; notes?: string; expectedDate?: string;
   }) {
-    return this.repo.createOrder(data);
+    const documentId = data.documentId ?? await this.createPurchaseDocument(data);
+    const expectedDate = data.expectedDate ?? await this.defaultExpectedDate(data.tenantId, data.vendorId);
+    return this.repo.createOrder({
+      tenantId: data.tenantId,
+      documentId,
+      vendorId: data.vendorId,
+      subtotal: data.subtotal,
+      taxAmount: data.taxAmount,
+      total: data.total,
+      currency: data.currency,
+      notes: data.notes,
+      expectedDate,
+    });
+  }
+
+  private async createPurchaseDocument(data: {
+    tenantId: string; createdById: string; subtotal: number; taxAmount: number; currency: string; notes?: string;
+  }): Promise<string> {
+    const taxRate = data.subtotal > 0 ? (data.taxAmount / data.subtotal) * 100 : 0;
+    const document = await this.createDocument.execute(
+      {
+        documentType: DocumentType.PURCHASE_ORDER,
+        currency: data.currency,
+        notes: data.notes,
+        lines: [
+          {
+            description: 'Purchase order',
+            quantity: 1,
+            unitPrice: data.subtotal,
+            taxRate,
+          },
+        ],
+      },
+      { tenantId: data.tenantId, userId: data.createdById },
+    );
+    return document.id;
+  }
+
+  private async defaultExpectedDate(tenantId: string, vendorId: string): Promise<string | undefined> {
+    const deliveryDays = await this.repo.findVendorDeliveryDays(tenantId, vendorId);
+    if (deliveryDays == null) return undefined;
+
+    const date = new Date();
+    date.setDate(date.getDate() + deliveryDays);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   async findAll(tenantId: string) {

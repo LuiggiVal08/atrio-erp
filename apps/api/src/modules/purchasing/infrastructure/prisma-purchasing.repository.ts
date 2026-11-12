@@ -9,7 +9,7 @@ export class PrismaPurchasingRepository implements PurchasingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   private map(r: any): PurchaseOrder {
-    return new PurchaseOrder(r.id, r.tenantId, r.documentId, r.vendorId, r.status, r.subtotal, r.taxAmount, r.total, r.currency, r.notes, r.createdAt, r.updatedAt);
+    return new PurchaseOrder(r.id, r.tenantId, r.documentId, r.vendorId, r.status, r.subtotal, r.taxAmount, r.total, r.currency, r.notes, r.createdAt, r.updatedAt, r.expectedDate ?? null, r.receivedAt ?? null);
   }
 
   private mapReturn(r: any): PurchaseReturn {
@@ -34,6 +34,14 @@ export class PrismaPurchasingRepository implements PurchasingRepository {
     const r = await this.prisma.purchaseOrder.findUnique({ where: { id } });
     if (!r) return null;
     return this.map(r);
+  }
+
+  async findVendorDeliveryDays(tenantId: string, vendorId: string): Promise<number | null> {
+    const partner = await this.prisma.partner.findFirst({
+      where: { id: vendorId, tenantId },
+      select: { deliveryDays: true },
+    });
+    return partner?.deliveryDays ?? null;
   }
 
   async updateOrderStatus(id: string, status: string): Promise<PurchaseOrder> {

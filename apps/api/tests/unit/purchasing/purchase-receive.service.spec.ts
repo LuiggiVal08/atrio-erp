@@ -7,6 +7,7 @@ describe('PurchaseOrderService.receive', () => {
     createOrder: jest.fn(),
     findOrdersByTenant: jest.fn(),
     findOrderById: jest.fn(),
+    findVendorDeliveryDays: jest.fn(),
     updateOrderStatus: jest.fn(),
     updateOrder: jest.fn(),
     deleteOrder: jest.fn(),
@@ -21,9 +22,10 @@ describe('PurchaseOrderService.receive', () => {
   };
 
   const mockEventEmitter = { emit: jest.fn() };
+  const mockCreateDocument = { execute: jest.fn() };
 
   beforeEach(() => {
-    service = new PurchaseOrderService(mockRepo, mockEventEmitter as any);
+    service = new PurchaseOrderService(mockRepo, mockEventEmitter as any, mockCreateDocument as any);
     jest.clearAllMocks();
   });
 
