@@ -49,9 +49,9 @@ All paths are relative to `apps/web/` per plan.md.
 ### Implementation for User Story 1
 
 - [x] T009 [US1] `src/core/components/ModuleSkeleton.tsx` — reemplazar spinner central por skeleton de layout (header + toolbar + filas)
-- [ ] T010 [US1] (DIFERIDO: archivo con WIP de otro agente) `src/core/components/VirtualGrid.tsx:86` — reemplazar spinner por N filas skeleton según `rowHeight`/viewport
+- [x] T010 [US1] `src/core/components/VirtualGrid.tsx:86` — reemplazar spinner por N filas skeleton (reusa header) manteniendo `sr-only` `common.loading`
 - [x] T011 [P] [US1] Añadir `placeholderData: keepPreviousData` en `src/shared/hooks/{useClients,useVendors,useCategories,useWarehouses,useCashRegisters,usePaymentMethods}.ts`
-- [ ] T012 [P] [US1] (PENDIENTE) Añadir `placeholderData: keepPreviousData` en hooks de módulo: inventory, sales, purchases, cash, payroll, users/rbac
+- [ ] T012 [P] [US1] (PENDIENTE: la mayoría de hooks de módulo usan keys estáticas → `keepPreviousData` solo aporta en hooks con params: `useProductSearch`, `usePosSearch`, `useCustomerSearch`; ya tienen `staleTime` 30s)
 - [x] T013 [US1] Aplicar `staleTime` por tipo vía `query-defaults.ts` en datos de referencia (taxes, categories, warehouses, payment methods, branches, currency rates, roles/permissions)
 - [ ] T014 [US1] (DIFERIDO: vistas con WIP de otro agente) `useDeferredValue` en inputs de búsqueda/filtro (inventory, clients, vendors, purchases, users)
 - [x] T015 [US1] `AnimatedNumber` en `src/modules/reports/components/KpiCard.tsx`
@@ -71,14 +71,14 @@ All paths are relative to `apps/web/` per plan.md.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T019 [P] [US2] Unit test de `useInventoryList` (sin side-effects en `queryFn`) en `tests/unit/modules/inventory/useInventoryList.spec.ts`
+- [x] T019 [P] [US2] Unit test del store de inventario reducido a UI state (sin `products`/`loading`/`total`) en `tests/unit/inventory/inventory-store.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] `src/modules/inventory/hooks/useInventoryList.ts` — quitar `setProducts`/`setLoading` del `queryFn`; retornar `data`/`isPending`/`isFetching`
-- [ ] T021 [US2] `src/modules/inventory/store/inventory-store.ts` — reducir a UI state (filter/sort/page/pageSize) sin `products`/`loading`/`total`
-- [ ] T022 [US2] Actualizar consumidores del store: `InventoryListView.tsx`, `PurchaseOrderFormView.tsx` (usar `data` de la query)
-- [ ] T023 [US2] `src/modules/reports/views/DashboardView.tsx` — cargar con `useQueries` coordinado (summary + trend + products + low-stock) y un skeleton por sección
+- [x] T020 [US2] `src/modules/inventory/hooks/useInventoryList.ts` — quitar `setProducts`/`setLoading` del `queryFn`; retornar `{ items, total, isLoading, isFetching, refetch }`; añade `useInventoryProducts()`
+- [x] T021 [US2] `src/modules/inventory/store/inventory-store.ts` — reducir a UI state (filter/sort/page/pageSize) sin `products`/`loading`/`total`
+- [x] T022 [US2] Actualizar consumidores: `InventoryListView.tsx`, `TransferListView.tsx`, `ReorderPointListView.tsx`, `PurchaseOrderFormView.tsx` (usar `items` de la query)
+- [x] T023 [US2] `useDashboard.ts` con `txQueryOptions()`/`listQueryOptions()` + `CardSkeleton` en KPIs de `DashboardView.tsx` (coordinación vía cache de react-query; `useQueries` no necesario con keys estáticas)
 
 **Checkpoint**: Inventario con fuente única; dashboard con carga coordinada sin módulo backend nuevo.
 
