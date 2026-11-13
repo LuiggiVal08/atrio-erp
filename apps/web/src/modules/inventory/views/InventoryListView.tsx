@@ -6,6 +6,8 @@ import { useCreateProduct } from '../hooks/useCreateProduct';
 import { useCategories } from '@/shared/hooks/useCategories';
 import { useCreateCategory } from '../hooks/useCreateCategory';
 import { useTaxes, type Tax } from '../hooks/useTaxes';
+import { useBrands, useCreateBrand } from '../hooks/useBrands';
+import { Combobox } from '@/core/components/Combobox';
 import { Drawer } from '@heroui/react';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
@@ -45,6 +47,8 @@ export function InventoryListView() {
   const { data: categories } = useCategories();
   const createCategory = useCreateCategory();
   const { data: taxes } = useTaxes();
+  const { data: brands } = useBrands();
+  const createBrand = useCreateBrand();
 
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
@@ -56,6 +60,9 @@ export function InventoryListView() {
   const [desc, setDesc] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [catName, setCatName] = useState('');
+  const [brandId, setBrandId] = useState('');
+  const [brandName, setBrandName] = useState('');
+  const [showBrandForm, setShowBrandForm] = useState(false);
   const [unitPrice, setUnitPrice] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [taxId, setTaxId] = useState('');
@@ -126,6 +133,7 @@ export function InventoryListView() {
         name: pname.trim(),
         description: desc.trim() || undefined,
         categoryId: categoryId || undefined,
+        brandId: brandId || undefined,
         unitPrice: Number(unitPrice),
         costPrice: Number(costPrice),
         taxId: taxId || undefined,
@@ -167,6 +175,9 @@ export function InventoryListView() {
           setMaxStock('');
           setReorderPoint('0');
           setSupplierSku('');
+          setBrandId('');
+          setBrandName('');
+          setShowBrandForm(false);
           setProductImages([]);
           setImageUploadError(false);
           setShowForm(false);
@@ -180,6 +191,14 @@ export function InventoryListView() {
     await createCategory.mutateAsync({ name: catName.trim() });
     setCatName('');
     setShowCatForm(false);
+  };
+
+  const handleCreateBrand = async () => {
+    if (!brandName.trim()) return;
+    const created = await createBrand.mutateAsync({ name: brandName.trim() });
+    setBrandId(created.id);
+    setBrandName('');
+    setShowBrandForm(false);
   };
 
   const productFields = (
@@ -233,19 +252,16 @@ export function InventoryListView() {
           <div className="sm:col-span-2">
             <Field label={t('inventory.categories')} htmlFor="product-category">
               <div className="flex gap-2">
-                <select
-                  id="product-category"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className={`flex-1 ${inputClass}`}
-                >
-                  <option value="">-- {t('common.select')} --</option>
-                  {(categories ?? []).map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <Combobox
+                    id="product-category"
+                    value={categoryId}
+                    onChange={setCategoryId}
+                    options={(categories ?? []).map((c: any) => ({ id: c.id, name: c.name }))}
+                    placeholder={t('common.select')}
+                    aria-label={t('inventory.categories')}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowCatForm(!showCatForm)}
@@ -270,6 +286,52 @@ export function InventoryListView() {
                 <button
                   onClick={handleCreateCategory}
                   disabled={createCategory.isPending}
+                  className="rounded-lg bg-accent px-3 text-sm text-white disabled:opacity-50"
+                >
+                  {t('common.save')}
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="sm:col-span-2">
+            <Field label={t('inventory.product.brand')} htmlFor="product-brand">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Combobox
+                    id="product-brand"
+                    value={brandId}
+                    onChange={setBrandId}
+                    options={(brands ?? []).map((b) => ({ id: b.id, name: b.name }))}
+                    placeholder={t('common.select')}
+                    aria-label={t('inventory.product.brand')}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBrandForm(!showBrandForm)}
+                  aria-label={t('inventory.product.newBrand')}
+                  aria-expanded={showBrandForm}
+                  className="rounded-lg bg-accent px-3 text-sm text-white hover:bg-accent-hover"
+                >
+                  +
+                </button>
+              </div>
+            </Field>
+            {showBrandForm && (
+              <div className="mt-2 flex gap-2">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    aria-label={t('inventory.product.newBrand')}
+                    placeholder={t('inventory.product.newBrand')}
+                    className={inputClass}
+                  />
+                </div>
+                <button
+                  onClick={handleCreateBrand}
+                  disabled={createBrand.isPending}
                   className="rounded-lg bg-accent px-3 text-sm text-white disabled:opacity-50"
                 >
                   {t('common.save')}
@@ -464,16 +526,20 @@ export function InventoryListView() {
             onPageSizeChange={setPageSize}
           />
         }
-        actions={
-          <>
-            <input
-              type="text"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder={t('common.search')}
-              aria-label={t('common.search')}
-              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
-            />
+      >
+        <div className="shrink-0">
+          <InventorySummaryCards />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={t('common.search')}
+            aria-label={t('common.search')}
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+          />
+          <div className="ml-auto flex flex-wrap items-center gap-3">
             <span className="text-xs text-text-secondary">
               {t('inventory.productsCount').replace('{count}', String(total))}
             </span>
@@ -501,11 +567,7 @@ export function InventoryListView() {
             >
               + {t('inventory.product.create')}
             </button>
-          </>
-        }
-      >
-        <div className="shrink-0">
-          <InventorySummaryCards />
+          </div>
         </div>
         <div className="flex shrink-0 flex-col">
           {groupByCategory &&
@@ -525,6 +587,7 @@ export function InventoryListView() {
                           data={items}
                           columns={columns}
                           loading={loading}
+                          onRowClick={(row) => navigate(`/inventory/${row.id}`)}
                           emptyMessage=""
                           scrollable={false}
                         />
@@ -542,6 +605,7 @@ export function InventoryListView() {
               sortColumn={sortColumn as keyof InventoryProduct | undefined}
               sortDirection={sortDirection}
               onSort={(col) => setSort(col as keyof InventoryProduct)}
+              onRowClick={(row) => navigate(`/inventory/${row.id}`)}
               emptyMessage={filter ? t('common.noResults') : t('inventory.summary.emptyProducts')}
               scrollable={false}
             />

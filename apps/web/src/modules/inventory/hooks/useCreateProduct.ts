@@ -6,7 +6,7 @@ export function useCreateProduct() {
   return useMutation({
     mutationFn: async (data: {
       sku: string; barcode?: string; name: string; description?: string;
-      categoryId?: string; unitPrice: number; costPrice: number;
+      categoryId?: string; brandId?: string; unitPrice: number; costPrice: number;
       taxId?: string; isService: boolean;
       baseUnit?: string; purchaseUnit?: string; conversionFactor?: number;
       minStock?: number; maxStock?: number; reorderPoint?: number;

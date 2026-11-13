@@ -172,6 +172,7 @@ describe('product label printing', () => {
     expect(screen.queryByRole('group', { name: 'Copias' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Imprimir etiqueta' })).toBeNull();
     expect(getSheet()).toBeNull();
-    expect(screen.getByRole('button', { name: 'Generar código interno' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Generar código interno' })).toBeNull();
+    expect(screen.getByText('El código de barras se genera automáticamente al crear el producto.')).toBeDefined();
   });
 });
