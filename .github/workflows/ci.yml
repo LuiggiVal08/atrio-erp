@@ -50,9 +50,20 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: apps/api/package-lock.json
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            packages/core-accounting/package-lock.json
+            packages/l10n_ve/package-lock.json
+            packages/l10n_co/package-lock.json
 
       - run: npm ci
+
+      - name: Build @atrio packages
+        run: |
+          for pkg in core-accounting l10n_ve l10n_co; do
+            npm ci --prefix ../../packages/$pkg
+            npm run build --prefix ../../packages/$pkg
+          done
 
       - name: Generate Prisma client
         run: npx prisma generate
