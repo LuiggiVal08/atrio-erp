@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { useSalesTrend } from '../hooks/useDashboard';
 import { useReportsStore } from '../store/reports-store';
+import { Skeleton } from '@/core/components/Skeleton';
 
 export function SalesTrendChart() {
   const { dateRange } = useReportsStore();
@@ -17,8 +18,20 @@ export function SalesTrendChart() {
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      <div
+        role="status"
+        aria-busy="true"
+        className="flex h-64 items-end gap-2 rounded-xl border border-border bg-surface p-4"
+      >
+        <span className="sr-only">Cargando tendencia de ventas</span>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton
+            key={i}
+            variant="rect"
+            className="flex-1"
+            height={`${30 + ((i * 37) % 60)}%`}
+          />
+        ))}
       </div>
     );
   }
@@ -74,6 +87,8 @@ export function SalesTrendChart() {
             fill="var(--accent-main)"
             radius={[4, 4, 0, 0]}
             maxBarSize={40}
+            isAnimationActive
+            animationDuration={600}
           />
         </BarChart>
       </ResponsiveContainer>

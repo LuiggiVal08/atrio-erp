@@ -1,6 +1,9 @@
+import { keepPreviousData } from '@tanstack/react-query';
+
 export interface QueryDefaults {
   staleTime?: number;
   gcTime?: number;
+  placeholderData?: typeof keepPreviousData;
 }
 
 export const REFERENCE_STALE_TIME = 1000 * 60 * 60;
@@ -18,6 +21,13 @@ export function refQueryOptions(overrides: QueryDefaults = {}): QueryDefaults {
 export function txQueryOptions(overrides: QueryDefaults = {}): QueryDefaults {
   return {
     staleTime: TRANSACTIONAL_STALE_TIME,
+    ...overrides,
+  };
+}
+
+export function listQueryOptions(overrides: QueryDefaults = {}): QueryDefaults {
+  return {
+    placeholderData: keepPreviousData,
     ...overrides,
   };
 }

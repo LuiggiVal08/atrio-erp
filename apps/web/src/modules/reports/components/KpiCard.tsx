@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { type LucideIcon } from 'lucide-react';
+import { AnimatedNumber } from '@/core/components/AnimatedNumber';
 
 interface KpiCardProps {
   title: string;
@@ -48,7 +49,16 @@ export function KpiCard({ title, value, change, icon: Icon, color = 'accent' }: 
         </div>
       </div>
       <span className="text-2xl font-bold text-text-primary">
-        {typeof value === 'number' ? value.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : value}
+        {typeof value === 'number' ? (
+          <AnimatedNumber
+            value={value}
+            format={(v) =>
+              v.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            }
+          />
+        ) : (
+          value
+        )}
       </span>
       {change !== undefined && (
         <div className="flex items-center gap-1">

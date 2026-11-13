@@ -15,8 +15,9 @@ export function AnimatedBar({ value, className = '', duration = 0.7, enabled = t
   return (
     <motion.div
       className={className}
-      initial={{ width: 0 }}
-      animate={{ width: `${target}%` }}
+      style={{ width: `${target}%`, transformOrigin: 'left' }}
+      initial={{ scaleX: 0 }}
+      animate={{ scaleX: 1 }}
       transition={{ duration: animDuration, ease: 'easeOut' }}
     />
   );

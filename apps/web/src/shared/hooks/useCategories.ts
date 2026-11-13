@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { refQueryOptions } from '@/core/lib/query-defaults';
 
 interface Category {
   id: string;
@@ -14,5 +15,6 @@ export function useCategories() {
       const res = await api.get('/inventory/categories');
       return res.data;
     },
+    ...refQueryOptions(),
   });
 }

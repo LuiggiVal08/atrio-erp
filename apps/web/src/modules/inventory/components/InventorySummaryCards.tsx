@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { BarChart3, HeartPulse, Timer, type LucideIcon } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { AnimatedBar } from '@/core/components/AnimatedBar';
+import { CardSkeleton } from '@/core/components/CardSkeleton';
 import { useInventorySummary } from '../hooks/useInventorySummary';
 
 export function InventorySummaryCards() {
@@ -12,7 +14,7 @@ export function InventorySummaryCards() {
       <div role="status" className="mb-4 grid gap-4 md:grid-cols-3">
         <span className="sr-only">{t('inventory.summary.loading')}</span>
         {[0, 1, 2].map((i) => (
-          <div key={i} aria-hidden="true" className="h-48 animate-pulse rounded-xl border border-border bg-surface" />
+          <CardSkeleton key={i} className="h-48" lines={4} />
         ))}
       </div>
     );
@@ -78,10 +80,10 @@ export function InventorySummaryCards() {
             </p>
             <div role="img" aria-label={healthBarLabel} className="flex h-2.5 w-full gap-0.5">
               {healthSegments.map((s) => (
-                <div
+                <AnimatedBar
                   key={s.key}
+                  value={(s.count / data.totalProducts) * 100}
                   className={`${s.color} rounded-full`}
-                  style={{ width: `${(s.count / data.totalProducts) * 100}%` }}
                 />
               ))}
             </div>
@@ -118,7 +120,7 @@ export function InventorySummaryCards() {
                       aria-label={`${name}: ${Math.round(pct)}%`}
                       className="h-1.5 w-full rounded-full bg-surface-hover"
                     >
-                      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                      <AnimatedBar value={pct} className="h-full rounded-full bg-accent" />
                     </div>
                     <span className="shrink-0 font-medium tabular-nums text-text-primary">{formatMoney(c.value)}</span>
                   </div>
@@ -153,7 +155,7 @@ export function InventorySummaryCards() {
                     aria-label={`${b.label}: ${numberFmt.format(b.count)}`}
                     className="h-2 w-full rounded-full bg-surface-hover"
                   >
-                    <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                    <AnimatedBar value={pct} className="h-full rounded-full bg-accent" />
                   </div>
                   <span className="text-sm font-semibold tabular-nums text-text-primary">{numberFmt.format(b.count)}</span>
                 </div>
