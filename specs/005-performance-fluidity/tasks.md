@@ -48,16 +48,16 @@ All paths are relative to `apps/web/` per plan.md.
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] `src/core/components/ModuleSkeleton.tsx` — reemplazar spinner central por skeleton de layout (header + toolbar + filas)
-- [ ] T010 [US1] `src/core/components/VirtualGrid.tsx:86` — reemplazar spinner por N filas skeleton según `rowHeight`/viewport
-- [ ] T011 [P] [US1] Añadir `placeholderData: keepPreviousData` en `src/shared/hooks/{useClients,useVendors,useCategories,useWarehouses,useCashRegisters,usePaymentMethods}.ts`
-- [ ] T012 [P] [US1] Añadir `placeholderData: keepPreviousData` en hooks de módulo: inventory, sales, purchases, cash, payroll, users/rbac
-- [ ] T013 [US1] Aplicar `staleTime` por tipo vía `query-defaults.ts` en datos de referencia (taxes, categories, warehouses, payment methods, branches, currency rates, roles/permissions)
-- [ ] T014 [US1] `useDeferredValue` en inputs de búsqueda/filtro (inventory, clients, vendors, purchases, users)
-- [ ] T015 [US1] `AnimatedNumber` en `src/modules/reports/components/KpiCard.tsx`
-- [ ] T016 [US1] `AnimatedBar` en `src/modules/inventory/components/InventorySummaryCards.tsx` (health, valuación, cobertura)
-- [ ] T017 [US1] Fijar `animationDuration`/`isAnimationActive` en `SalesTrendChart.tsx` y `TopProductsChart.tsx`
-- [ ] T018 [US1] Distinguir `isPending` (skeleton) de `isFetching` (sin spinner) en las vistas migradas; animar solo en primera carga
+- [x] T009 [US1] `src/core/components/ModuleSkeleton.tsx` — reemplazar spinner central por skeleton de layout (header + toolbar + filas)
+- [ ] T010 [US1] (DIFERIDO: archivo con WIP de otro agente) `src/core/components/VirtualGrid.tsx:86` — reemplazar spinner por N filas skeleton según `rowHeight`/viewport
+- [x] T011 [P] [US1] Añadir `placeholderData: keepPreviousData` en `src/shared/hooks/{useClients,useVendors,useCategories,useWarehouses,useCashRegisters,usePaymentMethods}.ts`
+- [ ] T012 [P] [US1] (PENDIENTE) Añadir `placeholderData: keepPreviousData` en hooks de módulo: inventory, sales, purchases, cash, payroll, users/rbac
+- [x] T013 [US1] Aplicar `staleTime` por tipo vía `query-defaults.ts` en datos de referencia (taxes, categories, warehouses, payment methods, branches, currency rates, roles/permissions)
+- [ ] T014 [US1] (DIFERIDO: vistas con WIP de otro agente) `useDeferredValue` en inputs de búsqueda/filtro (inventory, clients, vendors, purchases, users)
+- [x] T015 [US1] `AnimatedNumber` en `src/modules/reports/components/KpiCard.tsx`
+- [x] T016 [US1] `AnimatedBar` en `src/modules/inventory/components/InventorySummaryCards.tsx` (health, valuación, cobertura)
+- [x] T017 [US1] Fijar `animationDuration`/`isAnimationActive` en `SalesTrendChart.tsx` y `TopProductsChart.tsx`
+- [ ] T018 [US1] (DIFERIDO: vistas con WIP de otro agente) Distinguir `isPending` (skeleton) de `isFetching` (sin spinner) en las vistas migradas; animar solo en primera carga
 
 **Checkpoint**: Navegación y paginación sin saltos ni spinners de pantalla completa.
 
