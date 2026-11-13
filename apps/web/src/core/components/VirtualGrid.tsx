@@ -53,7 +53,7 @@ export function VirtualGrid<T extends Record<string, any>>({
   const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
 
-  const shouldVirtualize = scrollable && virtualized && data.length > 100;
+  const shouldVirtualize = scrollable && virtualized && data.length > 50;
 
   const rowVirtualizer = useVirtualizer({
     count: data.length,

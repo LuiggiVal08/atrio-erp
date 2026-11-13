@@ -93,7 +93,7 @@ All paths are relative to `apps/web/` per plan.md.
 ### Implementation for User Story 3
 
 - [ ] T024 [P] [US3] `React.memo` en filas/tarjetas pesadas (`KardexRow.tsx` y componentes de tarjeta equivalentes)
-- [ ] T025 [US3] `src/core/components/VirtualGrid.tsx` — bajar umbral de virtualización de >100 a ~50 filas
+- [x] T025 [US3] `src/core/components/VirtualGrid.tsx` — umbral de virtualización bajado de >100 a >50 filas
 - [ ] T026 [US3] Montaje diferido con `IntersectionObserver` en secciones del dashboard
 - [ ] T027 [US3] Revisar invalidaciones amplias (`['inventory']`, `['employees']`) → keys específicas para evitar refetch en cascada
 
@@ -112,7 +112,7 @@ All paths are relative to `apps/web/` per plan.md.
 - [ ] T028 [P] [US4] `index.html` — añadir `&display=swap` al `<link>` de Google Fonts
 - [ ] T029 [P] [US4] `nginx/default.conf` — evaluar `gzip_static`/Brotli (gzip ya activo)
 - [ ] T030 [US4] Polling (cash detail 10s, cash registers 30s, reports): usar `isFetching`, no resetear UI
-- [ ] T031 [P] [US4] `src/shared/ws/*` — eliminar o documentar como código muerto (sin consumidores)
+- [x] T031 [P] [US4] `src/shared/ws/*` eliminado (socket.ts, useSocket.ts, useChannel.ts sin consumidores)
 
 **Checkpoint**: Carga inicial y refetch en background sin parpadeos.
 
