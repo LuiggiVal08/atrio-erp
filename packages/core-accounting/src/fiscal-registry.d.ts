@@ -6,4 +6,3 @@ export declare class FiscalRegistry {
     hasStrategy(countryCode: string): boolean;
     getAllCountries(): string[];
 }
-//# sourceMappingURL=fiscal-registry.d.ts.map

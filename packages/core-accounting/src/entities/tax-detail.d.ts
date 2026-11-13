@@ -8,4 +8,3 @@ export interface TaxDetail {
     amount: number;
     isWithholding: boolean;
 }
-//# sourceMappingURL=tax-detail.d.ts.map

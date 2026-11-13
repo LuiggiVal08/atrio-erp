@@ -49,4 +49,3 @@ export interface FiscalInvoiceData {
     countryCode: string;
     createdAt: Date;
 }
-//# sourceMappingURL=types.d.ts.map
