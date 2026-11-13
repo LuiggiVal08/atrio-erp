@@ -31,6 +31,15 @@ Use `git add -p` to separate unrelated changes into distinct commits.
 - Tests: Jest (unit), Supertest (E2E), Vitest (web unit), Playwright (web E2E)
 - TDD mandatory per Constitution Principle III
 
+### Data Loading & Perceived Performance (Web)
+- **`isPending` vs `isFetching`:** use `isPending`/`isLoading` to render skeletons (first load, no data). `isFetching` only drives subtle indicators (refresh button, `refreshing` prop) — never blank the UI on a background refetch or poll.
+- **`keepPreviousData`:** paginated/searchable lists must set `placeholderData: keepPreviousData` so page/filter changes don't blank the grid. Use `listQueryOptions()` from `@/core/lib/query-defaults`.
+- **`staleTime` map (via `query-defaults.ts`):** reference data (`refQueryOptions`) 1h; transactional data (`txQueryOptions`) 30s; list queries (`listQueryOptions`) keep previous data. Never call `queryClient.setQueryData` from inside a `queryFn`.
+- **Zustand stores hold UI state only** (filter/sort/page/selection). Server data lives in react-query — no mirrored `products`/`loading`/`total` in stores.
+- **Skeletons are mandatory in lists/tables:** use `Skeleton`, `TableSkeleton`, `CardSkeleton`, `ModuleSkeleton` instead of spinners. `VirtualGrid` renders skeleton rows while loading.
+- **Entry animations run only on first load** and respect `prefers-reduced-motion` (see `useCountUp`, `AnimatedNumber`, `AnimatedBar`).
+- **Below-the-fold dashboard sections** mount lazily via `DeferredMount` (IntersectionObserver).
+
 ### Docker Strategy
 - `apps/api/Dockerfile`: multi-stage (build + runtime), Node 24 Alpine, Prisma via direct connection for migrations
 - **Note:** `npm ci` in Docker build frequently times out (network issue). Workaround: removed `node_modules/` from `.dockerignore` and use `COPY node_modules ./node_modules/` instead of `RUN npm ci`. Context is ~480MB but builds reliably.
