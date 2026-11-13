@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { type LucideIcon } from 'lucide-react';
 import { AnimatedNumber } from '@/core/components/AnimatedNumber';
@@ -33,7 +34,7 @@ const colorMap = {
   },
 };
 
-export function KpiCard({ title, value, change, icon: Icon, color = 'accent' }: KpiCardProps) {
+function KpiCardComponent({ title, value, change, icon: Icon, color = 'accent' }: KpiCardProps) {
   const colors = colorMap[color];
 
   return (
@@ -75,3 +76,5 @@ export function KpiCard({ title, value, change, icon: Icon, color = 'accent' }: 
     </motion.div>
   );
 }
+
+export const KpiCard = memo(KpiCardComponent);
