@@ -15,6 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useAuthStore } from '@/core/auth/store';
+import { CardSkeleton } from '@/core/components/CardSkeleton';
 import { useDashboardSummary } from '../hooks/useDashboard';
 import { KpiCard } from '../components/KpiCard';
 import { DateRangeFilter } from '../components/DateRangeFilter';
@@ -125,7 +126,7 @@ export function DashboardView() {
         return summaryLoading ? (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl bg-surface" />
+              <CardSkeleton key={i} lines={2} className="h-28" />
             ))}
           </div>
         ) : (

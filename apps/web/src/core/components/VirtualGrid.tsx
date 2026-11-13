@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Inbox } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { EmptyState } from './EmptyState';
+import { Skeleton } from './Skeleton';
 
 export interface GridColumn<T> {
   key: keyof T | string;
@@ -85,11 +86,48 @@ export function VirtualGrid<T extends Record<string, any>>({
 
   if (loading) {
     return (
-      <div ref={parentRef} style={scrollStyle} className="flex items-center justify-center">
-        <div className="flex items-center gap-2 text-xs text-text-secondary">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          {t('common.loading')}
-        </div>
+      <div ref={parentRef} style={scrollStyle} className="relative" role="status" aria-busy="true">
+        <span className="sr-only">{t('common.loading')}</span>
+        <table className="w-full border-collapse" aria-hidden="true">
+          <thead className="sticky top-0 z-10 bg-surface">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={String(col.key)}
+                  className={`border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-secondary ${
+                    col.align === 'right'
+                      ? 'text-right'
+                      : col.align === 'center'
+                        ? 'text-center'
+                        : 'text-left'
+                  }`}
+                  style={{ width: col.width, minWidth: col.minWidth }}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 8 }).map((_, rowIndex) => (
+              <tr key={rowIndex} className="border-b border-border" style={{ height: rowHeight }}>
+                {columns.map((col, colIndex) => (
+                  <td
+                    key={String(col.key)}
+                    className="px-3"
+                    style={{ width: col.width, minWidth: col.minWidth }}
+                  >
+                    <Skeleton
+                      variant="text"
+                      height={12}
+                      width={`${50 + ((rowIndex * 17 + colIndex * 29) % 45)}%`}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
