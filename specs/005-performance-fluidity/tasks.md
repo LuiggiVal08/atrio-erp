@@ -120,8 +120,8 @@ All paths are relative to `apps/web/` per plan.md.
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T032 Run `npm run typecheck && npm test && npm run test:e2e` en `apps/web`; verificar Playwright keyboard de POS intactos
-- [ ] T033 Actualizar `AGENTS.md` con convenciones: `isPending` vs `isFetching`, mapa de `staleTime`, skeletons obligatorios en listas
+- [ ] T032 (BLOQUEADO: WIP concurrente del otro agente en `VendorListView.tsx` rompe `tsc`; reintentar cuando estabilice) Run `npm run typecheck && npm test && npm run test:e2e` en `apps/web`; verificar Playwright keyboard de POS intactos
+- [x] T033 `AGENTS.md` — sección "Data Loading & Perceived Performance (Web)": `isPending` vs `isFetching`, `keepPreviousData`, mapa de `staleTime`, stores solo UI state, skeletons obligatorios, animaciones en primera carga, `DeferredMount`
 
 ---
 
