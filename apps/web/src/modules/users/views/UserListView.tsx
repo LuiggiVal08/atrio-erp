@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
 import { RotateCw, Trash2 } from 'lucide-react';
@@ -12,12 +12,13 @@ export function UserListView() {
   const { data: users = [], isLoading, refetch, isFetching } = useUsers();
   const deleteUser = useDeleteUser();
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
 
-  const displayed = search
+  const displayed = deferredSearch
     ? users.filter(
         (u) =>
-          u.name.toLowerCase().includes(search.toLowerCase()) ||
-          u.email.toLowerCase().includes(search.toLowerCase()),
+          u.name.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+          u.email.toLowerCase().includes(deferredSearch.toLowerCase()),
       )
     : users;
   const pagination = usePagination(displayed, { resetKey: search });

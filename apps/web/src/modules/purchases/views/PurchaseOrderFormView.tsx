@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useDeferredValue } from 'react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
 import { useCreatePurchaseOrder } from '@/modules/purchases/hooks/usePurchaseOrders';
@@ -24,6 +24,8 @@ export function PurchaseOrderFormView() {
   const [taxAmount, setTaxAmount] = useState('0');
   const [notes, setNotes] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const deferredVendorSearch = useDeferredValue(vendorSearch);
+  const deferredProductSearch = useDeferredValue(productSearch);
   const [suggestedCategoryId, setSuggestedCategoryId] = useState<string | null>(null);
   const vendorRef = useRef<HTMLDivElement>(null);
 
@@ -38,13 +40,13 @@ export function PurchaseOrderFormView() {
   }, []);
 
   const filteredVendors = (vendors ?? []).filter((v: any) =>
-    v.legalName.toLowerCase().includes(vendorSearch.toLowerCase()) ||
-    v.taxId.toLowerCase().includes(vendorSearch.toLowerCase())
+    v.legalName.toLowerCase().includes(deferredVendorSearch.toLowerCase()) ||
+    v.taxId.toLowerCase().includes(deferredVendorSearch.toLowerCase())
   );
 
   const filteredProducts = (products ?? []).filter((p) =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.sku.toLowerCase().includes(productSearch.toLowerCase())
+    p.name.toLowerCase().includes(deferredProductSearch.toLowerCase()) ||
+    p.sku.toLowerCase().includes(deferredProductSearch.toLowerCase())
   );
 
   const handleSubmit = async (e: React.FormEvent) => {

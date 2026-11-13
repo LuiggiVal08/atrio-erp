@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
 import type { ProductSearchResult } from '../store/pos-store';
 
@@ -19,5 +19,6 @@ export function useProductSearch(query: string) {
     },
     enabled: query.length >= 2,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 }

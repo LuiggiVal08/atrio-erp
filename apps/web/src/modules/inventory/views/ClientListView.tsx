@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
@@ -51,9 +51,10 @@ export function ClientListView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);
   const [serverError, setServerError] = useState('');
-  const { data: clients, isLoading, refetch, isFetching } = useClients(search || undefined);
+  const { data: clients, isLoading, refetch, isFetching } = useClients(deferredSearch || undefined);
   const createClient = useCreateClient();
 
   const form = useForm({

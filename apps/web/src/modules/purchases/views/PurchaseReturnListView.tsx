@@ -6,7 +6,7 @@ import {
 } from '@/modules/purchases/hooks/usePurchaseReturns';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { DocumentStateBadge } from '@/core/components/DocumentStateBadge';
-import { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { Plus, RotateCcw, CheckCircle2, RotateCw } from 'lucide-react';
 import { Modal } from '@/core/components/Modal';
 import { usePurchaseOrders } from '@/modules/purchases/hooks/usePurchaseOrders';
@@ -38,7 +38,8 @@ export function PurchaseReturnListView() {
   const [total, setTotal] = useState('');
   const [supplierCreditNo, setSupplierCreditNo] = useState('');
   const [productSearch, setProductSearch] = useState('');
-  const { data: products = [] } = useProductSearch(productSearch);
+  const deferredProductSearch = useDeferredValue(productSearch);
+  const { data: products = [] } = useProductSearch(deferredProductSearch);
 
   const pagination = usePagination(returns ?? []);
 

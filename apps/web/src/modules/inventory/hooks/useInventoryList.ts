@@ -1,3 +1,4 @@
+import { useDeferredValue } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
 import { useInventoryStore, type InventoryProduct } from '../store/inventory-store';
@@ -26,14 +27,15 @@ function mapItems(data: any): { items: InventoryProduct[]; total: number } {
 
 export function useInventoryList() {
   const { page, pageSize, filter, sortColumn, sortDirection } = useInventoryStore();
+  const deferredFilter = useDeferredValue(filter);
 
   const query = useQuery({
-    queryKey: ['inventory', page, pageSize, filter, sortColumn, sortDirection],
+    queryKey: ['inventory', page, pageSize, deferredFilter, sortColumn, sortDirection],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize),
-        ...(filter && { search: filter }),
+        ...(deferredFilter && { search: deferredFilter }),
         ...(sortColumn && { sortBy: String(sortColumn), sortDir: sortDirection }),
       });
       const res = await api.get(`/inventory/products?${params}`);
