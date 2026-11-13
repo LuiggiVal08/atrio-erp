@@ -5,6 +5,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { validationExceptionFactory } from './common/validation/validation-exception.factory';
 import { TenantAccessGuard } from './common/guards/tenant-access.guard';
 import { PrismaService } from './infrastructure/database/prisma.service';
 
@@ -15,7 +16,13 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads' });
 
   app.setGlobalPrefix('api/v1');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      exceptionFactory: validationExceptionFactory,
+    }),
+  );
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   const prismaService = app.get(PrismaService);

@@ -51,10 +51,32 @@ describe('ProductService', () => {
     unitPrice: 100, costPrice: 60, isService: false,
   };
 
-  it('should create a product', async () => {
-    (mockRepo.createProduct as jest.Mock).mockResolvedValue({ id: 'prod-1', ...validProduct });
+  it('should delegate creation to the repository without altering the barcode', async () => {
+    (mockRepo.createProduct as jest.Mock).mockImplementation(async (data) => ({ id: 'prod-1', ...data }));
     const result = await service.create(validProduct);
     expect(result).toHaveProperty('id', 'prod-1');
+    expect(mockRepo.createProduct).toHaveBeenCalledWith(validProduct);
+  });
+
+  it('should keep provided barcode when creating a product', async () => {
+    (mockRepo.createProduct as jest.Mock).mockImplementation(async (data) => ({ id: 'prod-1', ...data }));
+    const result = await service.create({ ...validProduct, barcode: '7501234567890' });
+    expect(result).toHaveProperty('barcode', '7501234567890');
+    expect(mockRepo.createProduct).toHaveBeenCalledWith(expect.objectContaining({
+      barcode: '7501234567890',
+    }));
+  });
+
+  it('should delegate internal barcode generation to the repository', async () => {
+    (mockRepo.generateProductBarcode as jest.Mock).mockResolvedValue({ id: 'prod-1', barcode: '2000000000015' });
+    const result = await service.generateBarcode('tenant-1', 'prod-1');
+    expect(mockRepo.generateProductBarcode).toHaveBeenCalledWith('tenant-1', 'prod-1');
+    expect(result).toHaveProperty('barcode', '2000000000015');
+  });
+
+  it('should map a duplicate barcode conflict when generating', async () => {
+    (mockRepo.generateProductBarcode as jest.Mock).mockRejectedValue({ code: 'P2002' });
+    await expect(service.generateBarcode('tenant-1', 'prod-1')).rejects.toThrow('Barcode already exists');
   });
 
   it('should reject negative unit price', async () => {

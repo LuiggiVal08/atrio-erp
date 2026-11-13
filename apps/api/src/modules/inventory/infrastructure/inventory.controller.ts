@@ -159,9 +159,9 @@ export class InventoryController {
 
   @Post('products/:id/barcode')
   @RequirePermission('inventory:product:update')
-  @ApiOperation({ summary: 'Generate an internal Code128 barcode from the SKU' })
-  async generateProductBarcode(@Param('id') id: string) {
-    return this.productService.generateBarcode(id);
+  @ApiOperation({ summary: 'Generate an internal EAN-13 barcode (restricted circulation prefix 200)' })
+  async generateProductBarcode(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.productService.generateBarcode(user.effectiveTenantId, id);
   }
 
   @Delete('products/:id')

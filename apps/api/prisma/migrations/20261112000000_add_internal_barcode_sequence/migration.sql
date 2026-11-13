@@ -1,0 +1,1 @@
+CREATE SEQUENCE "internal_barcode_seq" START 1;
