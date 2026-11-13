@@ -1,22 +1,26 @@
 import { useState } from 'react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { RotateCw, Trash2 } from 'lucide-react';
+import { ListPagination } from '@/core/components/ListPagination';
+import { usePagination } from '@/shared/hooks/usePagination';
 import { useUsers, useDeleteUser } from '../hooks/useUsers';
 
 export function UserListView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: users = [], isLoading } = useUsers();
+  const { data: users = [], isLoading, refetch, isFetching } = useUsers();
   const deleteUser = useDeleteUser();
   const [search, setSearch] = useState('');
 
   const displayed = search
-    ? users.filter((u) =>
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase()),
+    ? users.filter(
+        (u) =>
+          u.name.toLowerCase().includes(search.toLowerCase()) ||
+          u.email.toLowerCase().includes(search.toLowerCase()),
       )
     : users;
+  const pagination = usePagination(displayed, { resetKey: search });
 
   if (isLoading) {
     return (
@@ -39,6 +43,16 @@ export function UserListView() {
             className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
           />
           <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            aria-label={t('common.refresh')}
+            title={t('common.refresh')}
+            className="rounded-lg border border-border p-1.5 text-text-secondary transition-colors hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RotateCw size={14} aria-hidden="true" className={isFetching ? 'animate-spin' : ''} />
+          </button>
+          <button
             onClick={() => navigate('/users/new')}
             className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-accent/90"
           >
@@ -60,15 +74,18 @@ export function UserListView() {
               </tr>
             </thead>
             <tbody>
-              {displayed.length === 0 ? (
+              {pagination.total === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-text-secondary">
                     {t('users.noUsers')}
                   </td>
                 </tr>
               ) : (
-                displayed.map((user) => (
-                  <tr key={user.id} className="border-b border-border last:border-b-0 hover:bg-bg/50">
+                pagination.pageItems.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="border-b border-border last:border-b-0 hover:bg-bg/50"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">
@@ -95,14 +112,14 @@ export function UserListView() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-medium ${user.status === 'active' ? 'text-emerald-500' : 'text-text-secondary'}`}>
+                      <span
+                        className={`text-xs font-medium ${user.status === 'active' ? 'text-emerald-500' : 'text-text-secondary'}`}
+                      >
                         {user.status === 'active' ? t('users.active') : t('users.inactive')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary">
-                      {user.lastLoginAt
-                        ? new Date(user.lastLoginAt).toLocaleDateString()
-                        : '-'}
+                      {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
@@ -123,6 +140,16 @@ export function UserListView() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-3">
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </div>
       </div>
     </div>

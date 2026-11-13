@@ -1,6 +1,8 @@
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, RotateCw, Trash2 } from 'lucide-react';
+import { ListPagination } from '@/core/components/ListPagination';
+import { usePagination } from '@/shared/hooks/usePagination';
 import { useEmployees, useDeleteEmployee } from '../hooks/useEmployees';
 import { useTenantStore } from '@/core/tenant/store';
 
@@ -8,8 +10,9 @@ export function EmployeeListView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const tenantId = useTenantStore.getState().activeTenantId;
-  const { data: employees = [], isLoading } = useEmployees();
+  const { data: employees = [], isLoading, refetch, isFetching } = useEmployees();
   const deleteEmployee = useDeleteEmployee();
+  const pagination = usePagination(employees);
 
   if (isLoading) {
     return (
@@ -23,13 +26,25 @@ export function EmployeeListView() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="text-lg font-bold text-text-primary">{t('hr.employees')}</h1>
-        <button
-          onClick={() => navigate('/employees/new')}
-          className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-accent/90"
-        >
-          <Plus size={14} className="inline mr-1" />
-          {t('hr.employee.create')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            aria-label={t('common.refresh')}
+            title={t('common.refresh')}
+            className="rounded-lg border border-border p-1.5 text-text-secondary transition-colors hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RotateCw size={14} aria-hidden="true" className={isFetching ? 'animate-spin' : ''} />
+          </button>
+          <button
+            onClick={() => navigate('/employees/new')}
+            className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-accent/90"
+          >
+            <Plus size={14} className="inline mr-1" />
+            {t('hr.employee.create')}
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-auto p-6">
         <div className="rounded-xl border border-border bg-surface">
@@ -46,14 +61,14 @@ export function EmployeeListView() {
               </tr>
             </thead>
             <tbody>
-              {employees.length === 0 ? (
+              {pagination.total === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-text-secondary">
                     {t('hr.employee.empty')}
                   </td>
                 </tr>
               ) : (
-                employees.map((emp) => (
+                pagination.pageItems.map((emp) => (
                   <tr
                     key={emp.id}
                     className="border-b border-border last:border-b-0 hover:bg-bg/50 cursor-pointer"
@@ -62,9 +77,12 @@ export function EmployeeListView() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">
-                          {emp.firstName.charAt(0)}{emp.lastName.charAt(0)}
+                          {emp.firstName.charAt(0)}
+                          {emp.lastName.charAt(0)}
                         </div>
-                        <span className="text-text-primary">{emp.firstName} {emp.lastName}</span>
+                        <span className="text-text-primary">
+                          {emp.firstName} {emp.lastName}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-text-secondary">{emp.identityDoc}</td>
@@ -74,7 +92,9 @@ export function EmployeeListView() {
                       ${Number(emp.baseSalary).toLocaleString()}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-medium ${emp.status === 'active' ? 'text-emerald-500' : 'text-text-secondary'}`}>
+                      <span
+                        className={`text-xs font-medium ${emp.status === 'active' ? 'text-emerald-500' : 'text-text-secondary'}`}
+                      >
                         {emp.status === 'active' ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
@@ -96,6 +116,16 @@ export function EmployeeListView() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-3">
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </div>
       </div>
     </div>

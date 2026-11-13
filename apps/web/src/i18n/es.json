@@ -9,6 +9,14 @@
     "edit": "Editar",
     "create": "Crear",
     "search": "Buscar",
+  "refresh": "Recargar",
+  "pagination": {
+    "showing": "Mostrando {from}–{to} de {total}",
+    "rowsPerPage": "Filas por página",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "page": "Página {page} de {totalPages}"
+  },
     "select": "Seleccionar",
     "noResults": "Sin resultados",
     "actions": "Acciones",
@@ -309,6 +317,7 @@
       "inactive": "Inactiva"
     },
     "brandView": {
+      "name": "Nombre",
       "subtitle": "Catálogo comercial para identificar tus productos",
       "count": "{count} marcas",
       "namePlaceholder": "Nombre de la nueva marca",
@@ -337,10 +346,8 @@
       "groupPricing": "Precios e impuesto",
       "groupUnits": "Unidades y stock",
       "barcode": "Código de barras",
-      "barcodePlaceholder": "Escanea o escribe el código",
-      "barcodeHint": "Para productos sin código del fabricante.",
-      "generateFromSku": "Generar desde SKU",
-      "generateInternal": "Generar código interno",
+      "barcodePlaceholder": "Escanea o escribe el código del fabricante",
+      "barcodeHint": "Opcional — si no se indica, se generará uno interno automáticamente.",
       "purchaseCost": "Costo de compra",
       "salePrice": "Precio de venta",
       "baseUnit": "Unidad base",
@@ -354,12 +361,10 @@
       "description": "Descripción",
       "newCategoryPlaceholder": "Nueva categoría",
       "label": "Etiqueta",
-      "labelHint": "Asigna un código o genera uno basado en el SKU para imprimir la etiqueta.",
+      "labelHint": "El código de barras se genera automáticamente al crear el producto.",
       "printLabel": "Imprimir etiqueta",
       "saveSuccessTitle": "Producto actualizado",
       "saveErrorTitle": "No se pudo actualizar el producto",
-      "barcodeSuccessTitle": "Código generado",
-      "barcodeErrorTitle": "No se pudo generar el código",
       "statusActive": "Activo",
       "statusInactive": "Inactivo",
       "image": "Imagen",
@@ -391,6 +396,7 @@
   },
   "clients": {
     "title": "Clientes",
+    "subtitle": "Directorio de clientes y datos de contacto",
     "create": "Registrar cliente",
     "documentId": "RIF / CI",
     "legalName": "Razón social"
@@ -531,7 +537,9 @@
   "cash": {
     "title": "Caja",
     "registers": "Cajas",
+    "registersSubtitle": "Puntos de cobro y turnos de caja",
     "paymentMethods": "Métodos de pago",
+    "paymentMethodsSubtitle": "Formas de pago aceptadas en el punto de venta",
     "movements": "Movimientos",
     "register": {
       "create": "Crear caja",
@@ -562,6 +570,7 @@
     },
     "bankAccounts": {
       "title": "Cuentas bancarias",
+      "subtitle": "Cuentas para conciliación y pagos",
       "name": "Nombre",
       "bank": "Banco",
       "accountNumber": "Número de cuenta",

@@ -25,6 +25,7 @@ interface InventoryState {
   setFilter: (filter: string) => void;
   setSort: (column: keyof InventoryProduct) => void;
   setPage: (page: number) => void;
+  setPageSize: (pageSize: number) => void;
   setProducts: (products: InventoryProduct[], total: number) => void;
   setLoading: (loading: boolean) => void;
   updateStatus: (id: string, status: DocumentStatus) => void;
@@ -44,8 +45,10 @@ export const useInventoryStore = create<InventoryState>((set) => ({
     set((s) => ({
       sortColumn: column,
       sortDirection: s.sortColumn === column && s.sortDirection === 'asc' ? 'desc' : 'asc',
+      page: 1,
     })),
   setPage: (page) => set({ page }),
+  setPageSize: (pageSize) => set({ pageSize, page: 1 }),
   setProducts: (products, total) => set({ products, total, loading: false }),
   setLoading: (loading) => set({ loading }),
   updateStatus: (id, status) =>

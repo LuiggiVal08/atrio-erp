@@ -3,6 +3,9 @@ import { isAxiosError } from 'axios';
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
+import { ListPage } from '@/core/components/ListPage';
+import { ListPagination } from '@/core/components/ListPagination';
+import { usePagination } from '@/shared/hooks/usePagination';
 import { Modal } from '@/core/components/Modal';
 import { toastService } from '@/core/services/toast-service';
 import { useInventoryStore } from '../store/inventory-store';
@@ -24,7 +27,7 @@ export function ReorderPointListView() {
   const { products } = useInventoryStore();
   useInventoryList();
   const { data: warehouses } = useWarehouses();
-  const { data: reorderPoints = [], isLoading } = useReorderPoints();
+  const { data: reorderPoints = [], isLoading, refetch, isFetching } = useReorderPoints();
   const { data: lowStock = [] } = useLowStock();
   const setReorderPoint = useSetReorderPoint();
   const deleteReorderPoint = useDeleteReorderPoint();
@@ -94,6 +97,8 @@ export function ReorderPointListView() {
     }
   };
 
+  const pagination = usePagination(reorderPoints);
+
   const columns: GridColumn<ReorderPoint>[] = [
     {
       key: 'productId',
@@ -114,8 +119,20 @@ export function ReorderPointListView() {
       label: t('inventory.reorderPoint.warehouse'),
       render: (_v, row) => warehouseMap.get(row.warehouseId)?.name ?? row.warehouseId,
     },
-    { key: 'minQuantity', label: t('inventory.reorderPoint.minimum'), width: 100, align: 'right', sortable: true },
-    { key: 'maxQuantity', label: t('inventory.reorderPoint.maximum'), width: 100, align: 'right', sortable: true },
+    {
+      key: 'minQuantity',
+      label: t('inventory.reorderPoint.minimum'),
+      width: 100,
+      align: 'right',
+      sortable: true,
+    },
+    {
+      key: 'maxQuantity',
+      label: t('inventory.reorderPoint.maximum'),
+      width: 100,
+      align: 'right',
+      sortable: true,
+    },
     {
       key: 'createdAt',
       label: t('inventory.reorderPoint.createdAt'),
@@ -143,41 +160,58 @@ export function ReorderPointListView() {
   const noOptions = !products.length || !(warehouses ?? []).length;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3">
-        <div>
-          <h1 className="text-lg font-bold text-text-primary">{t('inventory.reorderPoints')}</h1>
-          <p className="mt-0.5 text-xs text-text-secondary">{t('inventory.reorderPoint.subtitle')}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            lowStock.length ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
-          }`}>
-            {lowStock.length
-              ? t('inventory.reorderPoint.lowStock').replace('{count}', String(lowStock.length))
-              : t('inventory.reorderPoint.lowStockNone')}
-          </span>
-          <button
-            onClick={() => setShowForm(true)}
-            disabled={noOptions}
-            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            + {t('inventory.reorderPoint.create')}
-          </button>
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 p-6">
+    <>
+      <ListPage
+        title={t('inventory.reorderPoints')}
+        subtitle={t('inventory.reorderPoint.subtitle')}
+        onRefresh={refetch}
+        refreshing={isFetching}
+        pagination={
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        }
+        actions={
+          <>
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                lowStock.length ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
+              }`}
+            >
+              {lowStock.length
+                ? t('inventory.reorderPoint.lowStock').replace('{count}', String(lowStock.length))
+                : t('inventory.reorderPoint.lowStockNone')}
+            </span>
+            <button
+              onClick={() => setShowForm(true)}
+              disabled={noOptions}
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              + {t('inventory.reorderPoint.create')}
+            </button>
+          </>
+        }
+      >
         <VirtualGrid
-          data={reorderPoints}
+          data={pagination.pageItems}
           columns={columns}
           loading={isLoading}
           emptyMessage={t('inventory.reorderPoint.empty')}
           emptyActionLabel={noOptions ? undefined : t('inventory.reorderPoint.create')}
           emptyAction={noOptions ? undefined : () => setShowForm(true)}
         />
-      </div>
+      </ListPage>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title={t('inventory.reorderPoint.create')}>
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        title={t('inventory.reorderPoint.create')}
+      >
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -186,7 +220,10 @@ export function ReorderPointListView() {
           className="space-y-4"
         >
           <div>
-            <label htmlFor="reorder-product" className="mb-1 block text-xs font-medium text-text-secondary">
+            <label
+              htmlFor="reorder-product"
+              className="mb-1 block text-xs font-medium text-text-secondary"
+            >
               {t('inventory.reorderPoint.product')}
             </label>
             <select
@@ -205,7 +242,10 @@ export function ReorderPointListView() {
             </select>
           </div>
           <div>
-            <label htmlFor="reorder-warehouse" className="mb-1 block text-xs font-medium text-text-secondary">
+            <label
+              htmlFor="reorder-warehouse"
+              className="mb-1 block text-xs font-medium text-text-secondary"
+            >
               {t('inventory.reorderPoint.warehouse')}
             </label>
             <select
@@ -217,13 +257,18 @@ export function ReorderPointListView() {
             >
               <option value="">-- {t('common.select')} --</option>
               {(warehouses ?? []).map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+                <option key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name}
+                </option>
               ))}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="reorder-min" className="mb-1 block text-xs font-medium text-text-secondary">
+              <label
+                htmlFor="reorder-min"
+                className="mb-1 block text-xs font-medium text-text-secondary"
+              >
                 {t('inventory.reorderPoint.minimum')}
               </label>
               <input
@@ -235,10 +280,15 @@ export function ReorderPointListView() {
                 onChange={(event) => setMinQuantity(event.target.value)}
                 className={inputClass}
               />
-              <p className="mt-1 text-[11px] text-text-muted">{t('inventory.reorderPoint.minHint')}</p>
+              <p className="mt-1 text-[11px] text-text-muted">
+                {t('inventory.reorderPoint.minHint')}
+              </p>
             </div>
             <div>
-              <label htmlFor="reorder-max" className="mb-1 block text-xs font-medium text-text-secondary">
+              <label
+                htmlFor="reorder-max"
+                className="mb-1 block text-xs font-medium text-text-secondary"
+              >
                 {t('inventory.reorderPoint.maximum')}
               </label>
               <input
@@ -251,7 +301,9 @@ export function ReorderPointListView() {
                 onChange={(event) => setMaxQuantity(event.target.value)}
                 className={inputClass}
               />
-              <p className="mt-1 text-[11px] text-text-muted">{t('inventory.reorderPoint.maxHint')}</p>
+              <p className="mt-1 text-[11px] text-text-muted">
+                {t('inventory.reorderPoint.maxHint')}
+              </p>
             </div>
           </div>
           {setReorderPoint.isError && (
@@ -260,7 +312,11 @@ export function ReorderPointListView() {
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-border px-4 py-2 text-sm">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="rounded-lg border border-border px-4 py-2 text-sm"
+            >
               {t('common.cancel')}
             </button>
             <button
@@ -273,6 +329,6 @@ export function ReorderPointListView() {
           </div>
         </form>
       </Modal>
-    </div>
+    </>
   );
 }

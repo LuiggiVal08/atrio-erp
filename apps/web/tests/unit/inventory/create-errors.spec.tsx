@@ -24,9 +24,9 @@ vi.mock('@/shared/lib/api/client', () => ({
   },
 }));
 vi.mock('@/core/components/VirtualGrid', () => ({ VirtualGrid: () => null }));
-vi.mock('@/modules/inventory/hooks/useInventoryList', () => ({ useInventoryList: () => {} }));
+vi.mock('@/modules/inventory/hooks/useInventoryList', () => ({ useInventoryList: () => ({ refetch: vi.fn(), isFetching: false }) }));
 vi.mock('@/modules/inventory/store/inventory-store', () => ({
-  useInventoryStore: () => ({ products: [], filter: '', setFilter: vi.fn(), setSort: vi.fn(), loading: false }),
+  useInventoryStore: () => ({ products: [], filter: '', setFilter: vi.fn(), setSort: vi.fn(), loading: false, sortColumn: null, sortDirection: 'asc', page: 1, pageSize: 25, total: 0, setPage: vi.fn(), setPageSize: vi.fn() }),
 }));
 vi.mock('@/shared/ui/DocumentInput', () => ({
   DocumentInput: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (

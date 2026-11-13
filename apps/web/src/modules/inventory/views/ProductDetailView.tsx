@@ -8,7 +8,6 @@ import { useUpdateProduct } from '../hooks/useUpdateProduct';
 import { ProductImageUploader } from '../components/ProductImageUploader';
 import { useCategories } from '@/shared/hooks/useCategories';
 import { useTaxes } from '../hooks/useTaxes';
-import api from '@/shared/lib/api/client';
 import { ProductBarcodeLabel } from '../components/ProductBarcodeLabel';
 
 interface FormData {
@@ -100,17 +99,6 @@ export function ProductDetailView() {
       setEditing(false);
     } catch {
       toastService.error(t('inventory.product.saveErrorTitle'), t('common.saveUnconfirmed'));
-    }
-  };
-
-  const generateBarcode = async () => {
-    if (!id) return;
-    try {
-      await api.post(`/inventory/products/${id}/barcode`);
-      await queryClient.invalidateQueries({ queryKey: ['product', id] });
-      toastService.success(t('inventory.product.barcodeSuccessTitle'));
-    } catch {
-      toastService.error(t('inventory.product.barcodeErrorTitle'), t('common.saveUnconfirmed'));
     }
   };
 
@@ -314,18 +302,11 @@ export function ProductDetailView() {
         <div className="rounded-lg border border-border bg-surface p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-bold text-text-primary">{t('inventory.product.label')}</h2>
-            <div className="flex gap-2">
-              {!product.barcode && (
-                <button onClick={generateBarcode} className="rounded-lg border border-border px-3 py-2 text-sm text-text-primary hover:bg-canvas">
-                  {t('inventory.product.generateInternal')}
-                </button>
-              )}
-              {product.barcode && (
-                <button onClick={() => window.print()} className="rounded-lg bg-accent px-3 py-2 text-sm text-white hover:bg-accent-hover">
-                  {t('inventory.product.printLabel')}
-                </button>
-              )}
-            </div>
+            {product.barcode && (
+              <button onClick={() => window.print()} className="rounded-lg bg-accent px-3 py-2 text-sm text-white hover:bg-accent-hover">
+                {t('inventory.product.printLabel')}
+              </button>
+            )}
           </div>
           {product.barcode ? (
             <ProductBarcodeLabel name={product.name} price={Number(product.unitPrice ?? 0)} sku={product.sku} barcode={product.barcode} />
