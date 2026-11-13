@@ -3,8 +3,7 @@ import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
 import { useCreatePurchaseOrder } from '@/modules/purchases/hooks/usePurchaseOrders';
 import { useVendors } from '@/shared/hooks/useVendors';
-import { useInventoryList } from '@/modules/inventory/hooks/useInventoryList';
-import { useInventoryStore } from '@/modules/inventory/store/inventory-store';
+import { useInventoryProducts } from '@/modules/inventory/hooks/useInventoryList';
 import { useCategories } from '@/shared/hooks/useCategories';
 
 export function PurchaseOrderFormView() {
@@ -13,8 +12,7 @@ export function PurchaseOrderFormView() {
   const createMutation = useCreatePurchaseOrder();
   const { data: vendors } = useVendors();
   const { data: categories } = useCategories();
-  const { products } = useInventoryStore();
-  useInventoryList();
+  const { data: products = [] } = useInventoryProducts();
 
   const [vendorSearch, setVendorSearch] = useState('');
   const [vendorId, setVendorId] = useState('');

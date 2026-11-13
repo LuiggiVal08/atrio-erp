@@ -9,7 +9,7 @@ import {
 } from '@/modules/inventory/hooks/useTransfers';
 import { useWarehouses } from '@/modules/inventory/hooks/useWarehouses';
 import { useInventoryList } from '@/modules/inventory/hooks/useInventoryList';
-import { useInventoryStore } from '@/modules/inventory/store/inventory-store';
+import { useInventoryProducts } from '@/modules/inventory/hooks/useInventoryList';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
@@ -27,7 +27,7 @@ export function TransferListView() {
   const cancelMutation = useCancelTransfer();
   const { data: warehouses } = useWarehouses();
   useInventoryList();
-  const { products } = useInventoryStore();
+  const { data: products = [] } = useInventoryProducts();
   const [showForm, setShowForm] = useState(false);
   const [productId, setProductId] = useState('');
   const [fromWarehouseId, setFromWarehouseId] = useState('');

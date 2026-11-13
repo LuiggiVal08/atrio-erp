@@ -8,8 +8,7 @@ import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { Modal } from '@/core/components/Modal';
 import { toastService } from '@/core/services/toast-service';
-import { useInventoryStore } from '../store/inventory-store';
-import { useInventoryList } from '../hooks/useInventoryList';
+import { useInventoryProducts } from '../hooks/useInventoryList';
 import { useWarehouses } from '../hooks/useWarehouses';
 import {
   useDeleteReorderPoint,
@@ -24,8 +23,7 @@ const inputClass =
 
 export function ReorderPointListView() {
   const { t } = useTranslation();
-  const { products } = useInventoryStore();
-  useInventoryList();
+  const { data: products = [] } = useInventoryProducts();
   const { data: warehouses } = useWarehouses();
   const { data: reorderPoints = [], isLoading, refetch, isFetching } = useReorderPoints();
   const { data: lowStock = [] } = useLowStock();

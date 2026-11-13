@@ -23,20 +23,23 @@ const inputClass =
 export function InventoryListView() {
   const { t } = useTranslation();
   const {
-    products,
     filter,
     setFilter,
     sortColumn,
     sortDirection,
     setSort,
-    loading,
     page,
     pageSize,
-    total,
     setPage,
     setPageSize,
   } = useInventoryStore();
-  const { refetch: refetchInventory, isFetching: isFetchingInventory } = useInventoryList();
+  const {
+    items: products,
+    total,
+    isLoading: loading,
+    isFetching: isFetchingInventory,
+    refetch: refetchInventory,
+  } = useInventoryList();
   const createProduct = useCreateProduct();
   const uploadProductImages = useUploadProductImages();
   const { data: categories } = useCategories();
