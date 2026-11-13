@@ -196,6 +196,23 @@ body {
   }
 }
 
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.skeleton {
+  background-color: var(--bg-surface-hover, #1E2330);
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
 .page-title {
   font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   font-size: 1.125rem;
