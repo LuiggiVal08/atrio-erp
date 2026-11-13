@@ -10,7 +10,7 @@ import {
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
-import { applyServerErrors, clearServerErrors, FormInput, FormSelect } from '@/shared/form';
+import { applyServerErrors, resolveServerErrorMessage, clearServerErrors, FormInput, FormSelect } from '@/shared/form';
 import {
   priceListFormSchema,
   type PriceListFormValues,
@@ -37,8 +37,8 @@ export function PriceListListView() {
         form.reset();
         setShowForm(false);
       } catch (error) {
-        const { unmapped } = applyServerErrors(form, error);
-        setServerError(unmapped.join(' · '));
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
       }
     },
   });

@@ -24,6 +24,7 @@ export function FormInput({
   disabled,
   className,
   id,
+  ariaLabel,
   type = 'text',
   placeholder,
   autoComplete,
@@ -51,6 +52,7 @@ export function FormInput({
           {multiline ? (
             <textarea
               id={inputId}
+              aria-label={ariaLabel}
               value={field.state.value ?? ''}
               onChange={(event) => field.handleChange(event.target.value)}
               onBlur={field.handleBlur}
@@ -62,6 +64,7 @@ export function FormInput({
           ) : (
             <input
               id={inputId}
+              aria-label={ariaLabel}
               type={type}
               value={field.state.value ?? ''}
               onChange={(event) => {

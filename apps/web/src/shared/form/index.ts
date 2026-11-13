@@ -1,4 +1,8 @@
-export { applyServerErrors, clearServerErrors } from './apply-server-errors';
+export {
+  applyServerErrors,
+  clearServerErrors,
+  resolveServerErrorMessage,
+} from './apply-server-errors';
 export type { ApplyServerErrorsResult } from './apply-server-errors';
 export { FormAddressInput } from './form-address-input';
 export { FormCombobox } from './form-combobox';

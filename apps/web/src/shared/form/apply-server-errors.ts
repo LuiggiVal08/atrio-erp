@@ -104,3 +104,15 @@ export function applyServerErrors(form: AnyReactForm, error: unknown): ApplyServ
 
   return { applied, unmapped: unmappedMessages(payload.errors) };
 }
+
+/**
+ * Prefer field errors. Show the fallback only when the API sent nothing we
+ * could map or display, so a mapped field error does not duplicate the alert.
+ */
+export function resolveServerErrorMessage(
+  result: ApplyServerErrorsResult,
+  fallback: string,
+): string {
+  if (result.unmapped.length > 0) return result.unmapped.join(' · ');
+  return result.applied.length > 0 ? '' : fallback;
+}

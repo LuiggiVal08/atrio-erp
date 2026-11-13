@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { isAxiosError } from 'axios';
+import { useForm } from '@tanstack/react-form';
 import { Building2 } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useBranches, useCreateBranch, useUpdateBranch, type Branch } from '../hooks/useBranches';
@@ -8,6 +8,8 @@ import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
+import { applyServerErrors, resolveServerErrorMessage, clearServerErrors, FormInput } from '@/shared/form';
+import { branchFormSchema, type BranchFormValues } from '@/shared/validation/branch';
 
 export function BranchListView() {
   const { t } = useTranslation();
@@ -16,40 +18,34 @@ export function BranchListView() {
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [address, setAddress] = useState('');
-  const [phone, setPhone] = useState('');
   const [search, setSearch] = useState('');
+  const [serverError, setServerError] = useState('');
 
-  const serverMessage = isAxiosError(createBranch.error)
-    ? createBranch.error.response?.data?.message
-    : undefined;
-  const errorMessage = Array.isArray(serverMessage)
-    ? serverMessage.join(' ')
-    : typeof serverMessage === 'string'
-      ? serverMessage
-      : t('common.saveUnconfirmed');
+  const form = useForm({
+    defaultValues: { name: '', code: '', address: '', phone: '' } satisfies BranchFormValues,
+    validators: { onSubmit: branchFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await createBranch.mutateAsync({
+          name: value.name.trim(),
+          code: value.code.trim() || undefined,
+          address: value.address.trim() || undefined,
+          phone: value.phone.trim() || undefined,
+        });
+        form.reset();
+        setShowForm(false);
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
+      }
+    },
+  });
 
-  const handleCreate = () => {
-    if (!name.trim() || createBranch.isPending) return;
-    createBranch.mutate(
-      {
-        name: name.trim(),
-        code: code.trim() || undefined,
-        address: address.trim() || undefined,
-        phone: phone.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          setName('');
-          setCode('');
-          setAddress('');
-          setPhone('');
-          setShowForm(false);
-        },
-      },
-    );
+  const toggleForm = () => {
+    clearServerErrors(form);
+    setServerError('');
+    setShowForm((visible) => !visible);
   };
 
   const filteredBranches = useMemo(() => {
@@ -139,7 +135,7 @@ export function BranchListView() {
             className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none sm:w-56"
           />
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={toggleForm}
             className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
           >
             + {t('common.create')}
@@ -148,61 +144,64 @@ export function BranchListView() {
       }
     >
       {showForm && (
-        <div className="mb-4 shrink-0 rounded-xl border border-border bg-surface p-4">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="mb-4 shrink-0 rounded-xl border border-border bg-surface p-4"
+        >
           <div className="mb-3 text-sm font-semibold text-text-primary">
             {t('inventory.branchView.createTitle')}
           </div>
           <div className="grid gap-3 md:grid-cols-4">
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
+            <FormInput
+              form={form}
+              name="name"
               placeholder={t('inventory.branchView.namePlaceholder')}
-              aria-label={t('inventory.branchView.name')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.branchView.name')}
             />
-            <input
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
+            <FormInput
+              form={form}
+              name="code"
               placeholder={t('inventory.branchView.codePlaceholder')}
-              aria-label={t('inventory.branchView.code')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.branchView.code')}
             />
-            <input
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
+            <FormInput
+              form={form}
+              name="address"
               placeholder={t('inventory.branchView.addressPlaceholder')}
-              aria-label={t('inventory.branchView.address')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.branchView.address')}
             />
-            <input
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
+            <FormInput
+              form={form}
+              name="phone"
               placeholder={t('inventory.branchView.phonePlaceholder')}
-              aria-label={t('inventory.branchView.phone')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.branchView.phone')}
             />
           </div>
-          {createBranch.isError && (
+          {serverError && (
             <p role="alert" className="mt-3 text-sm text-error">
-              {errorMessage}
+              {serverError}
             </p>
           )}
           <div className="mt-3 flex justify-end gap-2">
             <button
+              type="button"
               onClick={() => setShowForm(false)}
               className="rounded-lg px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
             >
               {t('common.cancel')}
             </button>
             <button
-              onClick={handleCreate}
-              disabled={!name.trim() || createBranch.isPending}
+              type="submit"
+              disabled={createBranch.isPending}
               className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
             >
               {t('common.save')}
             </button>
           </div>
-        </div>
+        </form>
       )}
       <VirtualGrid
         data={pagination.pageItems}

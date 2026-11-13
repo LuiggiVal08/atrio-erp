@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react';
-import { isAxiosError } from 'axios';
+import { useDeferredValue, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm, useStore } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useVendors } from '@/shared/hooks/useVendors';
 import { useCategories } from '@/shared/hooks/useCategories';
@@ -10,10 +10,21 @@ import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
-import { DocumentInput } from '@/shared/ui/DocumentInput';
-import { PhoneInput } from '@/shared/ui/PhoneInput';
-import { AddressInput, type AddressValues } from '@/shared/ui/AddressInput';
-import { MultiSelect } from '@/shared/ui/MultiSelect';
+import {
+  applyServerErrors,
+  clearServerErrors,
+  FormAddressInput,
+  FormDocumentInput,
+  FormInput,
+  FormMultiSelect,
+  FormPhoneInput,
+  FormSelect,
+} from '@/shared/form';
+import {
+  VENDOR_EMAIL_ERROR_MESSAGE,
+  vendorFormSchema,
+  type VendorFormValues,
+} from '@/shared/validation/vendor';
 
 interface VendorRow {
   id: string;
@@ -23,18 +34,37 @@ interface VendorRow {
   phone: string;
 }
 
-const emptyAddress: AddressValues = {
-  country: 'VE',
-  state: '',
-  city: '',
-  addressLine: '',
-  reference: '',
+const defaultValues: VendorFormValues = {
+  legalName: '',
+  documentId: '',
+  identificationType: '',
+  ownerIdentificationType: '',
+  ownerIdentificationNumber: '',
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  secondLastName: '',
+  email: '',
+  phone: '',
+  address: {
+    country: 'VE',
+    state: '',
+    city: '',
+    addressLine: '',
+    reference: '',
+  },
+  commercialName: '',
+  website: '',
+  notes: '',
+  paymentTerms: '',
+  categoryIds: [],
+  deliveryDays: undefined,
 };
 
 const CONTACT_ROLES = ['Ventas', 'Administración', 'Logística', 'Otro'] as const;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const EMAIL_ERROR_MESSAGE = 'Ingresa un correo válido (ej. ventas@proveedor.com).';
+const EMAIL_ERROR_MESSAGE = VENDOR_EMAIL_ERROR_MESSAGE;
 
 interface ContactForm {
   key: string;
@@ -68,53 +98,101 @@ export function VendorListView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);
-  const { data: vendors, isLoading, refetch, isFetching } = useVendors(search || undefined);
+  const { data: vendors, isLoading, refetch, isFetching } = useVendors(deferredSearch || undefined);
   const { data: categories } = useCategories();
   const createVendor = useCreateVendor();
 
-  const [legalName, setLegalName] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [middleName, setMiddleName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [secondLastName, setSecondLastName] = useState('');
-  const [identificationType, setIdentificationType] = useState('');
-  const [documentId, setDocumentId] = useState('');
-  const [ownerIdentificationType, setOwnerIdentificationType] = useState('');
-  const [ownerIdentificationNumber, setOwnerIdentificationNumber] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState<AddressValues>(emptyAddress);
-  const [commercialName, setCommercialName] = useState('');
-  const [website, setWebsite] = useState('');
-  const [notes, setNotes] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('');
-  const [categoryIds, setCategoryIds] = useState<string[]>([]);
-  const [deliveryDays, setDeliveryDays] = useState('');
-
+  const [serverError, setServerError] = useState('');
   const [contacts, setContacts] = useState<ContactForm[]>([]);
   const [ownerIsPrimaryContact, setOwnerIsPrimaryContact] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  const ownerEmailInvalid = email.trim() !== '' && !EMAIL_PATTERN.test(email.trim());
+  const form = useForm({
+    defaultValues,
+    validators: { onSubmit: vendorFormSchema },
+    onSubmitInvalid: () => setSubmitAttempted(true),
+    onSubmit: async ({ value }) => {
+      setSubmitAttempted(true);
+      setServerError('');
+      if (contactEmailInvalid.size > 0) return;
+
+      try {
+        await createVendor.mutateAsync({
+          documentId: value.documentId.trim(),
+          identificationType: value.identificationType || undefined,
+          legalName: value.legalName.trim(),
+          firstName: value.firstName.trim() || undefined,
+          middleName: value.middleName.trim() || undefined,
+          lastName: value.lastName.trim() || undefined,
+          secondLastName: value.secondLastName.trim() || undefined,
+          taxId: value.documentId.trim(),
+          email: value.email.trim() || undefined,
+          phone: value.phone || undefined,
+          contactIdentificationType: value.ownerIdentificationType || undefined,
+          contactIdentificationNumber: value.ownerIdentificationNumber.trim() || undefined,
+          address: value.address.addressLine.trim()
+            ? {
+                country: value.address.country,
+                state: value.address.state,
+                city: value.address.city,
+                addressLine: value.address.addressLine.trim(),
+                reference: value.address.reference.trim() || undefined,
+              }
+            : undefined,
+          ownerIsPrimary: ownerIsEffectivePrimary || undefined,
+          commercialName: value.commercialName.trim() || undefined,
+          website: value.website.trim() || undefined,
+          metadataNotes: value.notes.trim() || undefined,
+          paymentTerms: value.paymentTerms || undefined,
+          deliveryDays: value.deliveryDays,
+          categoryIds: value.categoryIds.length ? value.categoryIds : undefined,
+          contacts: contacts
+            .filter((contact) => contact.fullName.trim())
+            .map((contact) => ({
+              fullName: contact.fullName.trim(),
+              position: contact.role || undefined,
+              email: contact.email.trim() || undefined,
+              phone: contact.phone || undefined,
+              isPrimary: ownerIsEffectivePrimary ? false : contact.isPrimary,
+            })),
+        });
+        form.reset();
+        setContacts([]);
+        setOwnerIsPrimaryContact(false);
+        setSubmitAttempted(false);
+        setShowForm(false);
+      } catch (error) {
+        const { applied, unmapped } = applyServerErrors(form, error);
+        const translated = unmapped
+          .join(' ')
+          .replace(/email must be an email/g, 'El correo no es válido');
+        setServerError(translated || (applied.length > 0 ? '' : t('common.saveUnconfirmed')));
+      }
+    },
+  });
+
+  const hasOwnerData = useStore(form.store, (state) =>
+    Boolean(
+      state.values.firstName.trim() ||
+        state.values.middleName.trim() ||
+        state.values.lastName.trim() ||
+        state.values.secondLastName.trim() ||
+        state.values.email.trim() ||
+        state.values.phone ||
+        state.values.ownerIdentificationNumber.trim(),
+    ),
+  );
   const contactEmailInvalid = new Map(
     contacts
       .filter(
-        (c) => c.fullName.trim() && c.email.trim() !== '' && !EMAIL_PATTERN.test(c.email.trim()),
+        (contact) =>
+          contact.fullName.trim() &&
+          contact.email.trim() !== '' &&
+          !EMAIL_PATTERN.test(contact.email.trim()),
       )
-      .map((c) => [c.key, EMAIL_ERROR_MESSAGE]),
-  );
-  const hasEmailErrors = ownerEmailInvalid || contactEmailInvalid.size > 0;
-  const ownerEmailError = submitAttempted && ownerEmailInvalid ? EMAIL_ERROR_MESSAGE : undefined;
-
-  const hasOwnerData = Boolean(
-    firstName.trim() ||
-    middleName.trim() ||
-    lastName.trim() ||
-    secondLastName.trim() ||
-    email.trim() ||
-    phone ||
-    ownerIdentificationNumber.trim(),
+      .map((contact) => [contact.key, EMAIL_ERROR_MESSAGE]),
   );
   const ownerIsEffectivePrimary = hasOwnerData && (ownerIsPrimaryContact || contacts.length === 0);
 
@@ -171,89 +249,6 @@ export function VendorListView() {
     { key: 'phone', label: 'Phone', width: 140 },
   ];
 
-  const serverMessage = isAxiosError(createVendor.error)
-    ? createVendor.error.response?.data?.message
-    : undefined;
-  const rawErrorMessage = Array.isArray(serverMessage)
-    ? serverMessage.join(' ')
-    : typeof serverMessage === 'string'
-      ? serverMessage
-      : t('common.saveUnconfirmed');
-  const errorMessage = rawErrorMessage.replace(/email must be an email/g, 'El correo no es válido');
-
-  const handleCreate = () => {
-    if (!legalName.trim() || !documentId.trim() || createVendor.isPending) return;
-    setSubmitAttempted(true);
-    if (hasEmailErrors) return;
-    createVendor.mutate(
-      {
-        documentId: documentId.trim(),
-        identificationType: identificationType || undefined,
-        legalName: legalName.trim(),
-        firstName: firstName.trim() || undefined,
-        middleName: middleName.trim() || undefined,
-        lastName: lastName.trim() || undefined,
-        secondLastName: secondLastName.trim() || undefined,
-        taxId: documentId.trim(),
-        email: email.trim() || undefined,
-        phone: phone || undefined,
-        contactIdentificationType: ownerIdentificationType || undefined,
-        contactIdentificationNumber: ownerIdentificationNumber.trim() || undefined,
-        address: address.addressLine.trim()
-          ? {
-              country: address.country,
-              state: address.state,
-              city: address.city,
-              addressLine: address.addressLine.trim(),
-              reference: address.reference?.trim() || undefined,
-            }
-          : undefined,
-        ownerIsPrimary: ownerIsEffectivePrimary || undefined,
-        commercialName: commercialName.trim() || undefined,
-        website: website.trim() || undefined,
-        metadataNotes: notes.trim() || undefined,
-        paymentTerms: paymentTerms || undefined,
-        deliveryDays: deliveryDays ? Number(deliveryDays) : undefined,
-        categoryIds: categoryIds.length ? categoryIds : undefined,
-        contacts: contacts
-          .filter((c) => c.fullName.trim())
-          .map((c) => ({
-            fullName: c.fullName.trim(),
-            position: c.role || undefined,
-            email: c.email.trim() || undefined,
-            phone: c.phone || undefined,
-            isPrimary: ownerIsEffectivePrimary ? false : c.isPrimary,
-          })),
-      },
-      {
-        onSuccess: () => {
-          setLegalName('');
-          setFirstName('');
-          setMiddleName('');
-          setLastName('');
-          setSecondLastName('');
-          setIdentificationType('');
-          setDocumentId('');
-          setOwnerIdentificationType('');
-          setOwnerIdentificationNumber('');
-          setEmail('');
-          setPhone('');
-          setAddress(emptyAddress);
-          setCommercialName('');
-          setWebsite('');
-          setNotes('');
-          setPaymentTerms('');
-          setCategoryIds([]);
-          setDeliveryDays('');
-          setContacts([]);
-          setOwnerIsPrimaryContact(false);
-          setSubmitAttempted(false);
-          setShowForm(false);
-        },
-      },
-    );
-  };
-
   const vendorFields = (
     <div className="space-y-8">
       <section aria-labelledby="vendor-company-heading">
@@ -264,33 +259,25 @@ export function VendorListView() {
           <p className={sectionHintClass}>Identidad fiscal y ubicación del proveedor.</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
+          <FormInput
+            form={form}
+            name="legalName"
             label="Razón Social"
-            htmlFor="vendor-legal-name"
             required
             className="sm:col-span-2"
-          >
-            <input
-              id="vendor-legal-name"
-              type="text"
-              value={legalName}
-              onChange={(e) => setLegalName(e.target.value)}
-              aria-required="true"
-              className={inputClass}
-            />
-          </Field>
-          <DocumentInput
-            value={documentId}
-            onChange={setDocumentId}
-            identificationType={identificationType}
-            onIdentificationTypeChange={setIdentificationType}
+          />
+          <FormDocumentInput
+            form={form}
+            name="documentId"
+            identificationTypeName="identificationType"
             label="RIF / NIT"
             allowedGroups={['RIF']}
             className="sm:col-span-2"
+            required
           />
-          <AddressInput
-            value={address}
-            onChange={setAddress}
+          <FormAddressInput
+            form={form}
+            name="address"
             label="Dirección fiscal"
             className="sm:col-span-2"
           />
@@ -307,70 +294,27 @@ export function VendorListView() {
           </p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Primer Nombre" htmlFor="vendor-owner-first-name">
-            <input
-              id="vendor-owner-first-name"
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Otros Nombres" htmlFor="vendor-owner-middle-name">
-            <input
-              id="vendor-owner-middle-name"
-              type="text"
-              value={middleName}
-              onChange={(e) => setMiddleName(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Primer Apellido" htmlFor="vendor-owner-last-name">
-            <input
-              id="vendor-owner-last-name"
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Segundo Apellido" htmlFor="vendor-owner-second-last-name">
-            <input
-              id="vendor-owner-second-last-name"
-              type="text"
-              value={secondLastName}
-              onChange={(e) => setSecondLastName(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <DocumentInput
-            value={ownerIdentificationNumber}
-            onChange={setOwnerIdentificationNumber}
-            identificationType={ownerIdentificationType}
-            onIdentificationTypeChange={setOwnerIdentificationType}
+          <FormInput form={form} name="firstName" label="Primer Nombre" />
+          <FormInput form={form} name="middleName" label="Otros Nombres" />
+          <FormInput form={form} name="lastName" label="Primer Apellido" />
+          <FormInput form={form} name="secondLastName" label="Segundo Apellido" />
+          <FormDocumentInput
+            form={form}
+            name="ownerIdentificationNumber"
+            identificationTypeName="ownerIdentificationType"
             label="Cédula / Pasaporte"
             allowedGroups={['CI', 'PAS', 'CE', 'TI']}
             className="sm:col-span-2"
           />
-          <Field
-            label="Email del dueño"
-            htmlFor="vendor-owner-email"
-            error={ownerEmailError}
-            hint="Opcional. Ej. ventas@proveedor.com"
-          >
-            <input
-              id="vendor-owner-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={Boolean(ownerEmailError)}
-              aria-describedby={ownerEmailError ? 'vendor-owner-email-error' : undefined}
-              className={inputClass}
-            />
-          </Field>
-          <PhoneInput
-            value={phone}
-            onChange={setPhone}
+          <div>
+            <FormInput form={form} name="email" label="Email del dueño" type="email" />
+            <p className="mt-1 text-[11px] text-text-secondary">
+              Opcional. Ej. ventas@proveedor.com
+            </p>
+          </div>
+          <FormPhoneInput
+            form={form}
+            name="phone"
             label="Teléfono del dueño"
             defaultCountry="VE"
           />
@@ -408,40 +352,32 @@ export function VendorListView() {
           <p className={sectionHintClass}>Condiciones de compra y datos de catálogo.</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Términos de Pago" htmlFor="vendor-payment-terms">
-            <select
-              id="vendor-payment-terms"
-              value={paymentTerms}
-              onChange={(e) => setPaymentTerms(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Seleccionar...</option>
-              <option value="contado">Contado</option>
-              <option value="credito-7">Crédito 7 días</option>
-              <option value="credito-15">Crédito 15 días</option>
-              <option value="credito-30">Crédito 30 días</option>
-            </select>
-          </Field>
-          <Field label="Días para entrega" htmlFor="vendor-delivery-days">
-            <input
-              id="vendor-delivery-days"
-              type="number"
-              min={0}
-              value={deliveryDays}
-              onChange={(e) => setDeliveryDays(e.target.value)}
-              className={inputClass}
-              placeholder="Ej. 5"
-            />
-          </Field>
+          <FormSelect
+            form={form}
+            name="paymentTerms"
+            label="Términos de Pago"
+            placeholder="Seleccionar..."
+            options={[
+              { value: 'contado', label: 'Contado' },
+              { value: 'credito-7', label: 'Crédito 7 días' },
+              { value: 'credito-15', label: 'Crédito 15 días' },
+              { value: 'credito-30', label: 'Crédito 30 días' },
+            ]}
+          />
+          <FormInput
+            form={form}
+            name="deliveryDays"
+            label="Días para entrega"
+            type="number"
+            min={0}
+            placeholder="Ej. 5"
+          />
           <div className="sm:col-span-2">
-            <span className="mb-1 block text-xs font-medium text-text-secondary">
-              Categorías de producto
-            </span>
-            <MultiSelect
+            <FormMultiSelect
+              form={form}
+              name="categoryIds"
+              label="Categorías de producto"
               options={(categories ?? []).map((c: any) => ({ id: c.id, label: c.name }))}
-              value={categoryIds}
-              onChange={setCategoryIds}
-              ariaLabel="Categorías de producto"
               placeholder="Seleccionar categorías..."
               searchPlaceholder="Buscar categorías..."
               emptyMessage="No hay categorías"
@@ -450,34 +386,15 @@ export function VendorListView() {
               Un proveedor puede abastecer varias categorías.
             </p>
           </div>
-          <Field label="Nombre comercial" htmlFor="vendor-commercial-name">
-            <input
-              id="vendor-commercial-name"
-              type="text"
-              value={commercialName}
-              onChange={(e) => setCommercialName(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Sitio web" htmlFor="vendor-website">
-            <input
-              id="vendor-website"
-              type="url"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              className={inputClass}
-              placeholder="https://"
-            />
-          </Field>
-          <Field label="Notas" htmlFor="vendor-notes" className="sm:col-span-2">
-            <textarea
-              id="vendor-notes"
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
+          <FormInput form={form} name="commercialName" label="Nombre comercial" />
+          <FormInput
+            form={form}
+            name="website"
+            label="Sitio web"
+            type="url"
+            placeholder="https://"
+          />
+          <FormInput form={form} name="notes" label="Notas" multiline rows={2} className="sm:col-span-2" />
         </div>
       </section>
 
@@ -598,9 +515,9 @@ export function VendorListView() {
         )}
       </section>
 
-      {createVendor.isError && (
+      {serverError && (
         <p role="alert" className="text-sm text-error">
-          {errorMessage}
+          {serverError}
         </p>
       )}
     </div>
@@ -615,7 +532,7 @@ export function VendorListView() {
         {t('common.cancel')}
       </button>
       <button
-        onClick={handleCreate}
+        onClick={() => void form.handleSubmit()}
         disabled={createVendor.isPending}
         className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
       >
@@ -657,7 +574,11 @@ export function VendorListView() {
               </span>
             )}
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                clearServerErrors(form);
+                setServerError('');
+                setShowForm(true);
+              }}
               className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
             >
               + {t('common.create')}

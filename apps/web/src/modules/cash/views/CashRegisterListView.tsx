@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { isAxiosError } from 'axios';
+import { useForm } from '@tanstack/react-form';
 import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useCashRegisters, type CashRegister } from '@/modules/cash/hooks/useCashRegisters';
@@ -14,6 +15,13 @@ import { usePagination } from '@/shared/hooks/usePagination';
 import { Modal } from '@/core/components/Modal';
 import { useNavigate } from 'react-router-dom';
 import api from '@/shared/lib/api/client';
+import { applyServerErrors, resolveServerErrorMessage, clearServerErrors, FormInput } from '@/shared/form';
+import {
+  cashRegisterFormSchema,
+  type CashRegisterFormValues,
+} from '@/shared/validation/cash-register';
+
+const defaultValues: CashRegisterFormValues = { name: '', location: '' };
 
 export function CashRegisterListView() {
   const { t } = useTranslation();
@@ -32,20 +40,36 @@ export function CashRegisterListView() {
   const openSession = useOpenSession();
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
-  const [location, setLocation] = useState('');
+  const [serverError, setServerError] = useState('');
   const [openingRegisterId, setOpeningRegisterId] = useState('');
   const [openingBalance, setOpeningBalance] = useState('0');
   const [openingDenominations, setOpeningDenominations] = useState<
     Record<string, Record<string, number>>
   >({});
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    await createRegister.mutateAsync({ name: name.trim(), location: location.trim() });
-    setName('');
-    setLocation('');
-    setShowForm(false);
+  const form = useForm({
+    defaultValues,
+    validators: { onSubmit: cashRegisterFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await createRegister.mutateAsync({
+          name: value.name.trim(),
+          location: value.location.trim(),
+        });
+        form.reset();
+        setShowForm(false);
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
+      }
+    },
+  });
+
+  const toggleForm = () => {
+    clearServerErrors(form);
+    setServerError('');
+    setShowForm((visible) => !visible);
   };
 
   const handleOpenSession = async () => {
@@ -234,7 +258,7 @@ export function CashRegisterListView() {
         }
         actions={
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={toggleForm}
             className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
           >
             + {t('common.create')}
@@ -242,29 +266,41 @@ export function CashRegisterListView() {
         }
       >
         {showForm && (
-          <div className="flex shrink-0 items-center gap-3 rounded-lg border border-border bg-surface p-3">
-            <input
-              type="text"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Nombre de la caja"
-              className="flex-1 rounded border border-border bg-bg px-3 py-2 text-sm text-text-primary"
-            />
-            <input
-              type="text"
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-              placeholder="Ubicación"
-              className="w-44 rounded border border-border bg-bg px-3 py-2 text-sm text-text-primary"
-            />
-            <button
-              onClick={handleCreate}
-              disabled={createRegister.isPending}
-              className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-            >
-              {t('common.save')}
-            </button>
-          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit();
+            }}
+            className="shrink-0 rounded-lg border border-border bg-surface p-3"
+          >
+            <div className="flex items-center gap-3">
+              <FormInput
+                form={form}
+                name="name"
+                placeholder="Nombre de la caja"
+                required
+                className="flex-1"
+              />
+              <FormInput
+                form={form}
+                name="location"
+                placeholder="Ubicación"
+                className="w-44"
+              />
+              <button
+                type="submit"
+                disabled={createRegister.isPending}
+                className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {t('common.save')}
+              </button>
+            </div>
+            {serverError && (
+              <p role="alert" className="mt-2 text-xs text-red-500">
+                {serverError}
+              </p>
+            )}
+          </form>
         )}
         <VirtualGrid
           data={pagination.pageItems}

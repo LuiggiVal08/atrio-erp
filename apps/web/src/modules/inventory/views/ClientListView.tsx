@@ -10,7 +10,7 @@ import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
 import {
-  applyServerErrors,
+  applyServerErrors, resolveServerErrorMessage,
   clearServerErrors,
   FormAddressInput,
   FormDocumentInput,
@@ -78,8 +78,8 @@ export function ClientListView() {
         form.reset();
         setShowForm(false);
       } catch (error) {
-        const { unmapped } = applyServerErrors(form, error);
-        setServerError(unmapped.join(' · '));
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
       }
     },
   });

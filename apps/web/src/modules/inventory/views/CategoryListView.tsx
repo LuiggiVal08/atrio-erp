@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import { useCategories } from '@/shared/hooks/useCategories';
@@ -9,6 +10,8 @@ import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
+import { applyServerErrors, resolveServerErrorMessage, clearServerErrors, FormInput, FormSelect } from '@/shared/form';
+import { categoryFormSchema, type CategoryFormValues } from '@/shared/validation/category';
 
 interface CategoryRow {
   id: string;
@@ -22,9 +25,6 @@ interface EditingState {
   parentId: string;
 }
 
-const inputClass =
-  'w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none';
-
 export function CategoryListView() {
   const { t } = useTranslation();
   const { data: categories = [], isLoading, refetch, isFetching } = useCategories();
@@ -33,37 +33,41 @@ export function CategoryListView() {
   const deleteCategory = useDeleteCategory();
 
   const [showForm, setShowForm] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newParentId, setNewParentId] = useState('');
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const form = useForm({
+    defaultValues: { name: '', parentId: '' } satisfies CategoryFormValues,
+    validators: { onSubmit: categoryFormSchema },
+    onSubmit: async ({ value }) => {
+      setError(null);
+      try {
+        await createCategory.mutateAsync({
+          name: value.name.trim(),
+          parentId: value.parentId || undefined,
+        });
+        form.reset();
+        setShowForm(false);
+      } catch (err) {
+        const result = applyServerErrors(form, err);
+        setError(resolveServerErrorMessage(result, t('inventory.categoryView.createError')));
+      }
+    },
+  });
 
   const categoryMap = new Map<string, CategoryRow>(
     categories.map((c): [string, CategoryRow] => [c.id, c]),
   );
 
-  const closeForm = () => {
-    setShowForm(false);
-    setNewName('');
-    setNewParentId('');
-  };
-
-  const handleCreate = () => {
-    if (!newName.trim()) return;
-    createCategory.mutate(
-      { name: newName.trim(), parentId: newParentId || undefined },
-      {
-        onSuccess: () => {
-          closeForm();
-          setError(null);
-        },
-        onError: (err: any) => {
-          const message =
-            err?.response?.data?.message || err?.message || t('inventory.categoryView.createError');
-          setError(Array.isArray(message) ? message.join(' ') : message);
-        },
-      },
-    );
+  const toggleForm = () => {
+    if (showForm) {
+      form.reset();
+      setShowForm(false);
+    } else {
+      clearServerErrors(form);
+      setError(null);
+      setShowForm(true);
+    }
   };
 
   const handleStartEdit = (row: CategoryRow) => {
@@ -224,7 +228,7 @@ export function CategoryListView() {
       }
       actions={
         <button
-          onClick={() => (showForm ? closeForm() : setShowForm(true))}
+          onClick={toggleForm}
           className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
         >
           + {t('common.create')}
@@ -248,60 +252,47 @@ export function CategoryListView() {
       )}
 
       {showForm && (
-        <div className="mb-4 grid shrink-0 grid-cols-1 items-end gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-          <div>
-            <label
-              htmlFor="category-name"
-              className="mb-1 block text-xs font-medium text-text-secondary"
-            >
-              {t('inventory.categoryView.name')}
-            </label>
-            <input
-              id="category-name"
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder={t('inventory.categoryView.namePlaceholder')}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="category-parent"
-              className="mb-1 block text-xs font-medium text-text-secondary"
-            >
-              {t('inventory.categoryView.parent')}
-            </label>
-            <select
-              id="category-parent"
-              value={newParentId}
-              onChange={(e) => setNewParentId(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">{t('inventory.categoryView.noParent')}</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="mb-4 grid shrink-0 grid-cols-1 items-end gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+        >
+          <FormInput
+            form={form}
+            name="name"
+            label={t('inventory.categoryView.name')}
+            placeholder={t('inventory.categoryView.namePlaceholder')}
+            required
+          />
+          <FormSelect
+            form={form}
+            name="parentId"
+            label={t('inventory.categoryView.parent')}
+            placeholder={t('inventory.categoryView.noParent')}
+            options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
+          />
           <div className="flex gap-2">
             <button
-              onClick={closeForm}
+              type="button"
+              onClick={() => {
+                form.reset();
+                setShowForm(false);
+              }}
               className="rounded-lg px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
             >
               {t('common.cancel')}
             </button>
             <button
-              onClick={handleCreate}
-              disabled={createCategory.isPending || !newName.trim()}
+              type="submit"
+              disabled={createCategory.isPending}
               className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
             >
               {t('common.save')}
             </button>
           </div>
-        </div>
+        </form>
       )}
 
       <VirtualGrid

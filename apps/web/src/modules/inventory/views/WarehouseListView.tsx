@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { Warehouse as WarehouseIcon } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useWarehouses, type Warehouse } from '@/modules/inventory/hooks/useWarehouses';
@@ -9,6 +10,8 @@ import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
+import { applyServerErrors, resolveServerErrorMessage, clearServerErrors, FormInput, FormSelect } from '@/shared/form';
+import { warehouseFormSchema, type WarehouseFormValues } from '@/shared/validation/warehouse';
 
 export function WarehouseListView() {
   const { t } = useTranslation();
@@ -17,34 +20,45 @@ export function WarehouseListView() {
   const createWarehouse = useCreateWarehouse();
   const updateWarehouse = useUpdateWarehouse();
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [branchId, setBranchId] = useState('');
   const [search, setSearch] = useState('');
-  const [aisle, setAisle] = useState('');
-  const [shelf, setShelf] = useState('');
-  const [level, setLevel] = useState('');
-  const [bin, setBin] = useState('');
+  const [serverError, setServerError] = useState('');
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    await createWarehouse.mutateAsync({
-      name: name.trim(),
-      code: code.trim() || undefined,
-      branchId: branchId || undefined,
-      aisle: aisle || undefined,
-      shelf: shelf || undefined,
-      level: level || undefined,
-      bin: bin || undefined,
-    });
-    setName('');
-    setCode('');
-    setBranchId('');
-    setAisle('');
-    setShelf('');
-    setLevel('');
-    setBin('');
-    setShowForm(false);
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      code: '',
+      branchId: '',
+      aisle: '',
+      shelf: '',
+      level: '',
+      bin: '',
+    } satisfies WarehouseFormValues,
+    validators: { onSubmit: warehouseFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await createWarehouse.mutateAsync({
+          name: value.name.trim(),
+          code: value.code.trim() || undefined,
+          branchId: value.branchId || undefined,
+          aisle: value.aisle || undefined,
+          shelf: value.shelf || undefined,
+          level: value.level || undefined,
+          bin: value.bin || undefined,
+        });
+        form.reset();
+        setShowForm(false);
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
+      }
+    },
+  });
+
+  const toggleForm = () => {
+    clearServerErrors(form);
+    setServerError('');
+    setShowForm((visible) => !visible);
   };
 
   const filteredWarehouses = useMemo(() => {
@@ -148,7 +162,7 @@ export function WarehouseListView() {
             className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none sm:w-56"
           />
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={toggleForm}
             className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
           >
             + {t('common.create')}
@@ -157,75 +171,70 @@ export function WarehouseListView() {
       }
     >
       {showForm && (
-        <div className="mb-4 shrink-0 rounded-xl border border-border bg-surface p-4">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="mb-4 shrink-0 rounded-xl border border-border bg-surface p-4"
+        >
           <div className="mb-3 text-sm font-semibold text-text-primary">
             {t('inventory.warehouseView.createTitle')}
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
+            <FormInput
+              form={form}
+              name="name"
               placeholder={t('inventory.warehouseView.namePlaceholder')}
-              aria-label={t('inventory.warehouseView.name')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.warehouseView.name')}
             />
-            <input
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
+            <FormInput
+              form={form}
+              name="code"
               placeholder={t('inventory.warehouseView.codePlaceholder')}
-              aria-label={t('inventory.warehouseView.code')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.warehouseView.code')}
             />
-            <select
-              value={branchId}
-              onChange={(event) => setBranchId(event.target.value)}
-              aria-label={t('inventory.warehouseView.branch')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-            >
-              <option value="">{t('inventory.warehouseView.noBranch')}</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-            <input
-              value={aisle}
-              onChange={(e) => setAisle(e.target.value)}
+            <FormSelect
+              form={form}
+              name="branchId"
+              ariaLabel={t('inventory.warehouseView.branch')}
+              placeholder={t('inventory.warehouseView.noBranch')}
+              options={branches.map((branch) => ({ value: branch.id, label: branch.name }))}
+            />
+            <FormInput
+              form={form}
+              name="aisle"
               placeholder={t('inventory.warehouseView.aisle')}
-              aria-label={t('inventory.warehouseView.aisle')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.warehouseView.aisle')}
             />
-            <input
-              value={shelf}
-              onChange={(e) => setShelf(e.target.value)}
+            <FormInput
+              form={form}
+              name="shelf"
               placeholder={t('inventory.warehouseView.shelf')}
-              aria-label={t('inventory.warehouseView.shelf')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.warehouseView.shelf')}
             />
-            <input
-              value={level}
-              onChange={(e) => setLevel(e.target.value)}
+            <FormInput
+              form={form}
+              name="level"
               placeholder={t('inventory.warehouseView.level')}
-              aria-label={t('inventory.warehouseView.level')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.warehouseView.level')}
             />
-            <input
-              value={bin}
-              onChange={(e) => setBin(e.target.value)}
+            <FormInput
+              form={form}
+              name="bin"
               placeholder={t('inventory.warehouseView.bin')}
-              aria-label={t('inventory.warehouseView.bin')}
-              className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+              ariaLabel={t('inventory.warehouseView.bin')}
             />
             <div className="flex gap-2">
               <button
-                onClick={handleCreate}
-                disabled={!name.trim() || createWarehouse.isPending}
+                type="submit"
+                disabled={createWarehouse.isPending}
                 className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
               >
                 {t('common.save')}
               </button>
               <button
+                type="button"
                 onClick={() => setShowForm(false)}
                 className="rounded-lg px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
               >
@@ -233,7 +242,12 @@ export function WarehouseListView() {
               </button>
             </div>
           </div>
-        </div>
+          {serverError && (
+            <p role="alert" className="mt-3 text-sm text-error">
+              {serverError}
+            </p>
+          )}
+        </form>
       )}
       <VirtualGrid
         data={pagination.pageItems}

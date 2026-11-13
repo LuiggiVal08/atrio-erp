@@ -40,6 +40,14 @@ Use `git add -p` to separate unrelated changes into distinct commits.
 - **Entry animations run only on first load** and respect `prefers-reduced-motion` (see `useCountUp`, `AnimatedNumber`, `AnimatedBar`).
 - **Below-the-fold dashboard sections** mount lazily via `DeferredMount` (IntersectionObserver).
 
+### Form Architecture (Web)
+- All new form views use `@tanstack/react-form` + Zod (Standard Schema), pinned to exact versions. See `specs/architecture/decisions/ADR-0011-web-forms-tanstack.md`.
+- Zod schemas live in `apps/web/src/shared/validation/` and mirror (do not share) the API `class-validator` DTOs. The API remains the source of truth.
+- Bind UI kit components once in `apps/web/src/shared/form/`; never use `<form.Field>` render-props directly in feature views.
+- On server data arrival use `form.reset(initialValues)`, not `useEffect(() => setX(...))`.
+- Map API validation errors by field via `applyServerErrors(form, error)`; the API returns `errors: [{ field, message }]`.
+- POS, search/filter inputs and `LoginView` are out of scope.
+
 ### Docker Strategy
 - `apps/api/Dockerfile`: multi-stage (build + runtime), Node 24 Alpine, Prisma via direct connection for migrations
 - **Note:** `npm ci` in Docker build frequently times out (network issue). Workaround: removed `node_modules/` from `.dockerignore` and use `COPY node_modules ./node_modules/` instead of `RUN npm ci`. Context is ~480MB but builds reliably.

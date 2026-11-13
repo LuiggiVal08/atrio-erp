@@ -1,6 +1,6 @@
 import type { ReactFormExtendedApi } from '@tanstack/react-form';
 
-export type AnyReactForm = ReactFormExtendedApi<
+type FormApi = ReactFormExtendedApi<
   any,
   any,
   any,
@@ -15,6 +15,13 @@ export type AnyReactForm = ReactFormExtendedApi<
   any
 >;
 
+/**
+ * The wrappers only need the field/subscription surface. Picking these
+ * members keeps render-prop inference while avoiding concrete form generics
+ * (for example array fields) leaking into every wrapper signature.
+ */
+export type AnyReactForm = Pick<FormApi, 'Field' | 'Subscribe' | 'setFieldMeta' | 'reset'>;
+
 export interface FormControlBaseProps {
   form: AnyReactForm;
   name: string;
@@ -24,4 +31,5 @@ export interface FormControlBaseProps {
   disabled?: boolean;
   className?: string;
   id?: string;
+  ariaLabel?: string;
 }

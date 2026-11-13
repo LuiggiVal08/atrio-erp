@@ -1,44 +1,65 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
+import { useForm, useStore } from '@tanstack/react-form';
 import { HandCoins } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { applyServerErrors, resolveServerErrorMessage, FormInput, FormSelect } from '@/shared/form';
+import {
+  payrollLoanFormSchema,
+  type PayrollLoanFormValues,
+} from '@/shared/validation/payroll-loan';
 import {
   useCreateEmployeeLoan,
   useEmployeeLoans,
   usePayrollEmployees,
 } from '../hooks/usePayrolls';
 
-const fieldClass = 'w-full rounded-lg border border-border bg-canvas px-3 py-2 text-xs text-text-primary focus:border-accent focus:outline-none';
+const defaultValues: PayrollLoanFormValues = {
+  relationshipId: '',
+  principal: undefined as unknown as number,
+  installmentCount: 1,
+  currency: 'VED',
+  reason: '',
+};
 
 export function PayrollLoansView() {
   const { t } = useTranslation();
   const employeesQuery = usePayrollEmployees();
   const loansQuery = useEmployeeLoans();
   const createLoan = useCreateEmployeeLoan();
-  const [relationshipId, setRelationshipId] = useState('');
-  const [principal, setPrincipal] = useState('');
-  const [installmentCount, setInstallmentCount] = useState('1');
-  const [currency, setCurrency] = useState('VED');
-  const [reason, setReason] = useState('');
+  const [serverError, setServerError] = useState('');
   const employees = employeesQuery.data ?? [];
   const loans = loansQuery.data ?? [];
   const employeeNames = new Map(employees.map((employee) => [employee.relationshipId, employee.employeeName]));
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    createLoan.mutate({
-      relationshipId,
-      principal: Number(principal),
-      installmentCount: Number(installmentCount),
-      currency: currency.trim().toUpperCase(),
-      reason: reason.trim(),
-    }, {
-      onSuccess: () => {
-        setPrincipal('');
-        setInstallmentCount('1');
-        setReason('');
-      },
-    });
-  };
+  const form = useForm({
+    defaultValues,
+    validators: { onSubmit: payrollLoanFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await createLoan.mutateAsync({
+          relationshipId: value.relationshipId,
+          principal: value.principal,
+          installmentCount: value.installmentCount,
+          currency: value.currency.trim().toUpperCase(),
+          reason: value.reason.trim(),
+        });
+        form.reset();
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
+      }
+    },
+  });
+
+  const relationshipId = useStore(form.store, (state) => state.values.relationshipId);
+
+  useEffect(() => {
+    const selected = (employeesQuery.data ?? []).find(
+      (employee) => employee.relationshipId === relationshipId,
+    );
+    if (selected) form.setFieldValue('currency', selected.currency);
+  }, [relationshipId, employeesQuery.data, form]);
 
   if (employeesQuery.isLoading || loansQuery.isLoading) {
     return <div className="p-6 text-sm text-text-secondary">{t('common.loading')}</div>;
@@ -59,41 +80,52 @@ export function PayrollLoansView() {
           <p className="mt-1 max-w-3xl text-xs leading-5 text-text-secondary">{t('payroll.loansDescription')}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="grid gap-3 border-b border-border pb-6 sm:grid-cols-2 lg:grid-cols-5">
-          <label className="space-y-1 lg:col-span-2">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.employee')}</span>
-            <select
-              required
-              value={relationshipId}
-              onChange={(event) => {
-                const selected = employees.find((employee) => employee.relationshipId === event.target.value);
-                setRelationshipId(event.target.value);
-                if (selected) setCurrency(selected.currency);
-              }}
-              className={fieldClass}
-            >
-              <option value="">{t('payroll.selectEmployee')}</option>
-              {employees.map((employee) => (
-                <option key={employee.relationshipId} value={employee.relationshipId}>{employee.employeeName}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.amount')}</span>
-            <input required type="number" min="0.01" step="0.01" value={principal} onChange={(event) => setPrincipal(event.target.value)} className={fieldClass} />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.installments')}</span>
-            <input required type="number" min="1" max="1000" step="1" value={installmentCount} onChange={(event) => setInstallmentCount(event.target.value)} className={fieldClass} />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.currency')}</span>
-            <input required minLength={3} maxLength={3} value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} className={fieldClass} />
-          </label>
-          <label className="space-y-1 sm:col-span-2 lg:col-span-4">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.reason')}</span>
-            <input required maxLength={240} value={reason} onChange={(event) => setReason(event.target.value)} className={fieldClass} />
-          </label>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="grid gap-3 border-b border-border pb-6 sm:grid-cols-2 lg:grid-cols-5"
+        >
+          <FormSelect
+            form={form}
+            name="relationshipId"
+            label={t('payroll.employee')}
+            placeholder={t('payroll.selectEmployee')}
+            className="lg:col-span-2"
+            options={employees.map((employee) => ({
+              value: employee.relationshipId,
+              label: employee.employeeName,
+            }))}
+            required
+          />
+          <FormInput
+            form={form}
+            name="principal"
+            type="number"
+            min={0.01}
+            step={0.01}
+            label={t('payroll.amount')}
+            required
+          />
+          <FormInput
+            form={form}
+            name="installmentCount"
+            type="number"
+            min={1}
+            max={1000}
+            step={1}
+            label={t('payroll.installments')}
+            required
+          />
+          <FormInput form={form} name="currency" label={t('payroll.currency')} required />
+          <FormInput
+            form={form}
+            name="reason"
+            label={t('payroll.reason')}
+            className="sm:col-span-2 lg:col-span-4"
+            required
+          />
           <button
             type="submit"
             disabled={!employees.length || createLoan.isPending}
@@ -101,9 +133,12 @@ export function PayrollLoansView() {
           >
             {createLoan.isPending ? t('common.loading') : t('payroll.registerLoan')}
           </button>
+          {serverError && (
+            <p role="alert" className="text-xs text-error sm:col-span-2 lg:col-span-5">
+              {serverError}
+            </p>
+          )}
         </form>
-
-        {createLoan.isError && <p role="alert" className="text-xs text-error">{t('payroll.saveError')}</p>}
 
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[700px] text-left text-xs">

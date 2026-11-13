@@ -23,6 +23,7 @@ export function FormSelect({
   disabled,
   className,
   id,
+  ariaLabel,
   options,
   placeholder,
 }: FormSelectProps) {
@@ -42,6 +43,7 @@ export function FormSelect({
         >
           <select
             id={selectId}
+            aria-label={ariaLabel}
             value={field.state.value ?? ''}
             onChange={(event) => field.handleChange(event.target.value)}
             onBlur={field.handleBlur}

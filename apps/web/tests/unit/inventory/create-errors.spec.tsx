@@ -79,7 +79,7 @@ afterEach(() => {
 
 describe.each(forms)('$name creation error recovery', (form) => {
   it.each([
-    { error: Object.assign(new AxiosError('Request failed with status code 400'), { response: { status: 400, data: { message: ['email must be an email'] } } }), message: 'email must be an email' },
+    { error: Object.assign(new AxiosError('Request failed with status code 400'), { response: { status: 400, data: { message: ['email must be an email'] } } }), message: form.name === 'vendor' ? 'El correo no es válido' : 'email must be an email' },
     { error: new AxiosError('timeout of 15000ms exceeded', 'ECONNABORTED'), message: 'No se pudo confirmar el guardado' },
   ])('shows $message and retains input after failure', async ({ error, message }) => {
     vi.mocked(api.post).mockRejectedValueOnce(error);

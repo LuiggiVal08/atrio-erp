@@ -1,14 +1,19 @@
 import { useState } from 'react';
+import { useForm, useStore } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, Plus, RotateCw } from 'lucide-react';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
+import { applyServerErrors, resolveServerErrorMessage, clearServerErrors, FormInput, FormSelect } from '@/shared/form';
+import {
+  payrollPeriodFormSchema,
+  type PayrollPeriodFormValues,
+} from '@/shared/validation/payroll-period';
 import {
   usePayrolls,
   useCreatePeriod,
   usePayrollEmployees,
-  type PayrollPeriod,
 } from '../hooks/usePayrolls';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -19,6 +24,12 @@ const STATUS_COLORS: Record<string, string> = {
   CLOSED: 'bg-gray-500/10 text-gray-400',
 };
 
+const defaultValues: PayrollPeriodFormValues = {
+  startDate: '',
+  endDate: '',
+  frequency: 'MONTHLY',
+};
+
 export function PayrollListView({ mode = 'process' }: { mode?: 'process' | 'history' }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -26,10 +37,37 @@ export function PayrollListView({ mode = 'process' }: { mode?: 'process' | 'hist
   const employeesQuery = usePayrollEmployees();
   const employees = employeesQuery.data ?? [];
   const createPeriod = useCreatePeriod();
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [frequency, setFrequency] = useState<PayrollPeriod['frequency']>('MONTHLY');
   const [showCreate, setShowCreate] = useState(false);
+  const [serverError, setServerError] = useState('');
+
+  const form = useForm({
+    defaultValues,
+    validators: { onSubmit: payrollPeriodFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await createPeriod.mutateAsync({
+          startDate: value.startDate,
+          endDate: value.endDate,
+          frequency: value.frequency,
+        });
+        form.reset();
+        setShowCreate(false);
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
+      }
+    },
+  });
+
+  const startDate = useStore(form.store, (state) => state.values.startDate);
+  const endDate = useStore(form.store, (state) => state.values.endDate);
+
+  const toggleCreate = () => {
+    clearServerErrors(form);
+    setServerError('');
+    setShowCreate((visible) => !visible);
+  };
 
   const visiblePeriods = periods.filter((period) =>
     mode === 'history'
@@ -87,7 +125,7 @@ export function PayrollListView({ mode = 'process' }: { mode?: 'process' | 'hist
           </button>
           {mode === 'process' && (
             <button
-              onClick={() => setShowCreate(!showCreate)}
+              onClick={toggleCreate}
               className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-accent/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <Plus size={14} className="inline mr-1" />
@@ -117,85 +155,52 @@ export function PayrollListView({ mode = 'process' }: { mode?: 'process' | 'hist
       )}
 
       {mode === 'process' && showCreate && (
-        <div className="border-b border-border bg-surface/50 px-6 py-4">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="border-b border-border bg-surface/50 px-6 py-4"
+        >
           <div className="grid max-w-4xl grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
-            <div className="space-y-1 flex-1">
-              <label
-                htmlFor="payroll-start-date"
-                className="text-xs font-medium text-text-secondary"
-              >
-                {t('payroll.startDate')}
-              </label>
-              <input
-                id="payroll-start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1 flex-1">
-              <label htmlFor="payroll-end-date" className="text-xs font-medium text-text-secondary">
-                {t('payroll.endDate')}
-              </label>
-              <input
-                id="payroll-end-date"
-                type="date"
-                min={startDate || undefined}
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor="payroll-frequency"
-                className="text-xs font-medium text-text-secondary"
-              >
-                {t('payroll.frequency')}
-              </label>
-              <select
-                id="payroll-frequency"
-                value={frequency}
-                onChange={(event) => setFrequency(event.target.value as PayrollPeriod['frequency'])}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
-              >
-                {(['WEEKLY', 'BIWEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'CUSTOM'] as const).map(
-                  (value) => (
-                    <option key={value} value={value}>
-                      {t(`payroll.frequencies.${value}`)}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
+            <FormInput
+              form={form}
+              name="startDate"
+              type="date"
+              label={t('payroll.startDate')}
+            />
+            <FormInput
+              form={form}
+              name="endDate"
+              type="date"
+              label={t('payroll.endDate')}
+              min={startDate || undefined}
+            />
+            <FormSelect
+              form={form}
+              name="frequency"
+              label={t('payroll.frequency')}
+              options={(['WEEKLY', 'BIWEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'CUSTOM'] as const).map(
+                (value) => ({
+                  value,
+                  label: t(`payroll.frequencies.${value}`),
+                }),
+              )}
+            />
             <button
+              type="submit"
               disabled={!startDate || !endDate || createPeriod.isPending}
-              onClick={() => {
-                if (!startDate || !endDate || endDate < startDate) return;
-                createPeriod.mutate(
-                  { startDate, endDate, frequency },
-                  {
-                    onSuccess: () => {
-                      setStartDate('');
-                      setEndDate('');
-                      setFrequency('MONTHLY');
-                      setShowCreate(false);
-                    },
-                  },
-                );
-              }}
-              className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+              className="rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
             >
               {t('common.save')}
             </button>
           </div>
-          {createPeriod.isError && (
+          {serverError && (
             <p role="alert" className="mt-3 text-xs text-error">
-              {t('payroll.createPeriodError')}
+              {serverError}
             </p>
           )}
-        </div>
+        </form>
       )}
 
       <div className="flex-1 overflow-auto p-6">

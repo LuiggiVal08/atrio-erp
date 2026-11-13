@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useForm, useStore } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import {
   useCurrencyRates,
@@ -10,6 +11,16 @@ import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { RotateCw } from 'lucide-react';
 import type { CurrencyRate } from '../hooks/useCurrencyRates';
+import {
+  applyServerErrors,
+  FormInput,
+  FormSelect,
+  resolveServerErrorMessage,
+} from '@/shared/form';
+import {
+  currencyRateFormSchema,
+  type CurrencyRateFormValues,
+} from '@/shared/validation/currency-rate';
 
 export function CurrencyRateListView() {
   const { t } = useTranslation();
@@ -17,30 +28,45 @@ export function CurrencyRateListView() {
   const createRate = useCreateCurrencyRate();
   const syncRate = useSyncCurrencyRate();
 
-  const [fromCurrency, setFromCurrency] = useState('USD');
-  const [toCurrency, setToCurrency] = useState('VES');
-  const [rate, setRate] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [providerChain, setProviderChain] = useState('automatic');
+  const [serverError, setServerError] = useState('');
 
-  const handleAdd = () => {
-    const parsedRate = Number(rate);
-    if (
-      !rate ||
-      !date ||
-      !Number.isFinite(parsedRate) ||
-      parsedRate <= 0 ||
-      fromCurrency === toCurrency
-    )
-      return;
-    createRate.mutate({
-      fromCurrency,
-      toCurrency,
-      rate: parsedRate,
-      date,
-    });
-    setRate('');
+  const defaultValues: CurrencyRateFormValues = {
+    fromCurrency: 'USD',
+    toCurrency: 'VES',
+    rate: undefined,
+    date: new Date().toISOString().slice(0, 10),
   };
+
+  const form = useForm({
+    defaultValues,
+    validators: { onSubmit: currencyRateFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await createRate.mutateAsync({
+          fromCurrency: value.fromCurrency,
+          toCurrency: value.toCurrency,
+          rate: value.rate as number,
+          date: value.date,
+        });
+        form.setFieldValue('rate', undefined);
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(
+          resolveServerErrorMessage(
+            result,
+            'No se pudo registrar la tasa. Verifica los datos y vuelve a intentar.',
+          ),
+        );
+      }
+    },
+  });
+
+  const fromCurrency = useStore(form.store, (state) => state.values.fromCurrency);
+  const toCurrency = useStore(form.store, (state) => state.values.toCurrency);
+  const rate = useStore(form.store, (state) => state.values.rate);
+  const date = useStore(form.store, (state) => state.values.date);
 
   const handleSync = () => {
     if (fromCurrency === toCurrency) return;
@@ -57,8 +83,6 @@ export function CurrencyRateListView() {
               : ['frankfurter', 'open-er-api'],
     });
   };
-
-  const isValid = Boolean(rate && date && Number(rate) > 0 && fromCurrency !== toCurrency);
 
   const pagination = usePagination(rates);
 
@@ -97,68 +121,56 @@ export function CurrencyRateListView() {
           <h2 className="mb-4 text-sm font-bold text-text-primary">
             {t('localization.currencyRate.create')}
           </h2>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <label className="space-y-1 text-xs font-medium text-text-secondary">
-              <span>{t('localization.currencyRate.from')}</span>
-              <select
-                value={fromCurrency}
-                onChange={(e) => setFromCurrency(e.target.value)}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
-              >
-                <option value="USD">USD</option>
-                <option value="VES">VES</option>
-                <option value="EUR">EUR</option>
-                <option value="COP">COP</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-medium text-text-secondary">
-              <span>{t('localization.currencyRate.to')}</span>
-              <select
-                value={toCurrency}
-                onChange={(e) => setToCurrency(e.target.value)}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
-              >
-                <option value="VES">VES</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="COP">COP</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-medium text-text-secondary">
-              <span>{t('localization.currencyRate.rate')}</span>
-              <input
-                type="number"
-                min="0.000001"
-                step="any"
-                value={rate}
-                onChange={(e) => setRate(e.target.value)}
-                placeholder={t('localization.currencyRate.rate')}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-text-secondary">
-              <span>{t('localization.currencyRate.date')}</span>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
-              />
-            </label>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit();
+            }}
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"
+          >
+            <FormSelect
+              form={form}
+              name="fromCurrency"
+              label={t('localization.currencyRate.from')}
+              options={['USD', 'VES', 'EUR', 'COP'].map((value) => ({ value, label: value }))}
+            />
+            <FormSelect
+              form={form}
+              name="toCurrency"
+              label={t('localization.currencyRate.to')}
+              options={['VES', 'USD', 'EUR', 'COP'].map((value) => ({ value, label: value }))}
+            />
+            <FormInput
+              form={form}
+              name="rate"
+              type="number"
+              min="0.000001"
+              step="any"
+              label={t('localization.currencyRate.rate')}
+              placeholder={t('localization.currencyRate.rate')}
+            />
+            <FormInput
+              form={form}
+              name="date"
+              type="date"
+              label={t('localization.currencyRate.date')}
+            />
             <button
-              onClick={handleAdd}
-              disabled={createRate.isPending || !isValid}
+              type="submit"
+              disabled={createRate.isPending || !rate || !date || fromCurrency === toCurrency}
               className="mt-auto rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('common.create')}
             </button>
-          </div>
+          </form>
           {fromCurrency === toCurrency && (
-            <p className="mt-3 text-sm text-error">Selecciona dos monedas diferentes.</p>
+            <p role="alert" className="mt-3 text-sm text-error">
+              Selecciona dos monedas diferentes.
+            </p>
           )}
-          {createRate.isError && (
-            <p className="mt-3 text-sm text-error">
-              No se pudo registrar la tasa. Verifica los datos y vuelve a intentar.
+          {serverError && (
+            <p role="alert" className="mt-3 text-sm text-error">
+              {serverError}
             </p>
           )}
         </div>
