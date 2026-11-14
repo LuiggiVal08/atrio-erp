@@ -8,7 +8,7 @@ import { Skeleton } from './Skeleton';
 export interface GridColumn<T> {
   key: keyof T | string;
   label: string;
-  width?: number;
+  width?: number | string;
   minWidth?: number;
   sortable?: boolean;
   align?: 'left' | 'right' | 'center';
@@ -22,8 +22,8 @@ interface VirtualGridProps<T> {
   overscan?: number;
   maxHeight?: number | '100%';
   onRowClick?: (row: T) => void;
-  onSort?: (column: keyof T, direction: 'asc' | 'desc') => void;
-  sortColumn?: keyof T;
+  onSort?: (column: keyof T | string, direction: 'asc' | 'desc') => void;
+  sortColumn?: keyof T | string;
   sortDirection?: 'asc' | 'desc';
   loading?: boolean;
   emptyMessage?: string;
@@ -156,7 +156,7 @@ export function VirtualGrid<T extends Record<string, any>>({
                 onClick={() =>
                   col.sortable &&
                   onSort?.(
-                    col.key as keyof T,
+                    col.key,
                     sortColumn === col.key && sortDirection === 'asc' ? 'desc' : 'asc',
                   )
                 }
