@@ -6,8 +6,12 @@ import { useCreateProduct } from '../hooks/useCreateProduct';
 import { useCategories } from '@/shared/hooks/useCategories';
 import { useCreateCategory } from '../hooks/useCreateCategory';
 import { useTaxes, type Tax } from '../hooks/useTaxes';
+import { useBrands, useCreateBrand } from '../hooks/useBrands';
+import { Combobox } from '@/core/components/Combobox';
 import { Drawer } from '@heroui/react';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
+import { ListPage } from '@/core/components/ListPage';
+import { ListPagination } from '@/core/components/ListPagination';
 import { InventorySummaryCards } from '../components/InventorySummaryCards';
 import { ProductImagePicker } from '../components/ProductImagePicker';
 import { useUploadProductImages } from '../hooks/useProductImage';
@@ -20,13 +24,31 @@ const inputClass =
 
 export function InventoryListView() {
   const { t } = useTranslation();
-  const { products, filter, setFilter, sortColumn, sortDirection, setSort, loading } = useInventoryStore();
-  useInventoryList();
+  const {
+    filter,
+    setFilter,
+    sortColumn,
+    sortDirection,
+    setSort,
+    page,
+    pageSize,
+    setPage,
+    setPageSize,
+  } = useInventoryStore();
+  const {
+    items: products,
+    total,
+    isLoading: loading,
+    isFetching: isFetchingInventory,
+    refetch: refetchInventory,
+  } = useInventoryList();
   const createProduct = useCreateProduct();
   const uploadProductImages = useUploadProductImages();
   const { data: categories } = useCategories();
   const createCategory = useCreateCategory();
   const { data: taxes } = useTaxes();
+  const { data: brands } = useBrands();
+  const createBrand = useCreateBrand();
 
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
@@ -38,6 +60,9 @@ export function InventoryListView() {
   const [desc, setDesc] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [catName, setCatName] = useState('');
+  const [brandId, setBrandId] = useState('');
+  const [brandName, setBrandName] = useState('');
+  const [showBrandForm, setShowBrandForm] = useState(false);
   const [unitPrice, setUnitPrice] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [taxId, setTaxId] = useState('');
@@ -57,8 +82,20 @@ export function InventoryListView() {
     { key: 'name', label: t('inventory.product.name'), sortable: true },
     { key: 'category', label: t('inventory.categories'), width: 140, sortable: true },
     { key: 'stock', label: t('inventory.stock'), width: 100, align: 'right', sortable: true },
-    { key: 'averageCost', label: t('inventory.product.cost'), width: 120, align: 'right', sortable: true },
-    { key: 'unitPrice', label: t('inventory.product.price'), width: 120, align: 'right', sortable: true },
+    {
+      key: 'averageCost',
+      label: t('inventory.product.cost'),
+      width: 120,
+      align: 'right',
+      sortable: true,
+    },
+    {
+      key: 'unitPrice',
+      label: t('inventory.product.price'),
+      width: 120,
+      align: 'right',
+      sortable: true,
+    },
     {
       key: 'isActive',
       label: t('inventory.product.isActive'),
@@ -70,53 +107,83 @@ export function InventoryListView() {
             row.isActive ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-secondary'
           }`}
         >
-          {row.isActive ? t('inventory.product.statusActive') : t('inventory.product.statusInactive')}
+          {row.isActive
+            ? t('inventory.product.statusActive')
+            : t('inventory.product.statusInactive')}
         </span>
       ),
     },
   ];
 
-  const serverMessage = isAxiosError(createProduct.error) ? createProduct.error.response?.data?.message : undefined;
-  const errorMessage = Array.isArray(serverMessage) ? serverMessage.join(' ') : typeof serverMessage === 'string' ? serverMessage : t('common.saveUnconfirmed');
+  const serverMessage = isAxiosError(createProduct.error)
+    ? createProduct.error.response?.data?.message
+    : undefined;
+  const errorMessage = Array.isArray(serverMessage)
+    ? serverMessage.join(' ')
+    : typeof serverMessage === 'string'
+      ? serverMessage
+      : t('common.saveUnconfirmed');
 
   const handleCreate = () => {
     if (!sku.trim() || !pname.trim() || !unitPrice || !costPrice || createProduct.isPending) return;
-    createProduct.mutate({
-      sku: sku.trim(),
-      barcode: barcode.trim() || undefined,
-      name: pname.trim(),
-      description: desc.trim() || undefined,
-      categoryId: categoryId || undefined,
-      unitPrice: Number(unitPrice),
-      costPrice: Number(costPrice),
-      taxId: taxId || undefined,
-      isService,
-      baseUnit,
-      purchaseUnit: purchaseUnit || undefined,
-      conversionFactor: Number(conversionFactor) || 1,
-      minStock: Number(minStock) || 0,
-      maxStock: maxStock ? Number(maxStock) : undefined,
-      reorderPoint: Number(reorderPoint) || 0,
-      supplierSku: supplierSku || undefined,
-    }, {
-      onSuccess: async (createdProduct) => {
-        if (productImages.length && createdProduct?.id) {
-          try {
-            await uploadProductImages.mutateAsync({ id: createdProduct.id, files: productImages });
-          } catch {
-            setImageUploadError(true);
-            return;
-          }
-        }
-        setSku(''); setBarcode(''); setPname(''); setDesc(''); setCategoryId('');
-        setUnitPrice(''); setCostPrice(''); setTaxId(''); setIsService(false);
-        setBaseUnit('unidad'); setPurchaseUnit(''); setConversionFactor('1');
-        setMinStock('0'); setMaxStock(''); setReorderPoint('0'); setSupplierSku('');
-        setProductImages([]);
-        setImageUploadError(false);
-        setShowForm(false);
+    createProduct.mutate(
+      {
+        sku: sku.trim(),
+        barcode: barcode.trim() || undefined,
+        name: pname.trim(),
+        description: desc.trim() || undefined,
+        categoryId: categoryId || undefined,
+        brandId: brandId || undefined,
+        unitPrice: Number(unitPrice),
+        costPrice: Number(costPrice),
+        taxId: taxId || undefined,
+        isService,
+        baseUnit,
+        purchaseUnit: purchaseUnit || undefined,
+        conversionFactor: Number(conversionFactor) || 1,
+        minStock: Number(minStock) || 0,
+        maxStock: maxStock ? Number(maxStock) : undefined,
+        reorderPoint: Number(reorderPoint) || 0,
+        supplierSku: supplierSku || undefined,
       },
-    });
+      {
+        onSuccess: async (createdProduct) => {
+          if (productImages.length && createdProduct?.id) {
+            try {
+              await uploadProductImages.mutateAsync({
+                id: createdProduct.id,
+                files: productImages,
+              });
+            } catch {
+              setImageUploadError(true);
+              return;
+            }
+          }
+          setSku('');
+          setBarcode('');
+          setPname('');
+          setDesc('');
+          setCategoryId('');
+          setUnitPrice('');
+          setCostPrice('');
+          setTaxId('');
+          setIsService(false);
+          setBaseUnit('unidad');
+          setPurchaseUnit('');
+          setConversionFactor('1');
+          setMinStock('0');
+          setMaxStock('');
+          setReorderPoint('0');
+          setSupplierSku('');
+          setBrandId('');
+          setBrandName('');
+          setShowBrandForm(false);
+          setProductImages([]);
+          setImageUploadError(false);
+          setShowForm(false);
+        },
+      },
+    );
   };
 
   const handleCreateCategory = async () => {
@@ -126,9 +193,12 @@ export function InventoryListView() {
     setShowCatForm(false);
   };
 
-  const generateBarcodeFromSku = () => {
-    const normalizedSku = sku.trim();
-    if (normalizedSku) setBarcode(normalizedSku);
+  const handleCreateBrand = async () => {
+    if (!brandName.trim()) return;
+    const created = await createBrand.mutateAsync({ name: brandName.trim() });
+    setBrandId(created.id);
+    setBrandName('');
+    setShowBrandForm(false);
   };
 
   const productFields = (
@@ -139,48 +209,59 @@ export function InventoryListView() {
         </legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={t('inventory.product.sku')} htmlFor="product-sku">
-            <input id="product-sku" type="text" value={sku} onChange={(e) => setSku(e.target.value)} className={inputClass} />
+            <input
+              id="product-sku"
+              type="text"
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+              className={inputClass}
+            />
           </Field>
-          <Field label={t('inventory.product.barcode')} htmlFor="product-barcode" hint={t('inventory.product.barcodeHint')}>
-            <div className="flex gap-2">
-              <input
-                id="product-barcode"
-                type="text"
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
-                placeholder={t('inventory.product.barcodePlaceholder')}
-                className={`min-w-0 flex-1 ${inputClass}`}
-              />
-              <button
-                type="button"
-                onClick={generateBarcodeFromSku}
-                disabled={!sku.trim()}
-                className="shrink-0 rounded-lg border border-border px-2 text-xs text-text-secondary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {t('inventory.product.generateFromSku')}
-              </button>
-            </div>
+          <Field
+            label={t('inventory.product.barcode')}
+            htmlFor="product-barcode"
+            hint={t('inventory.product.barcodeHint')}
+          >
+            <input
+              id="product-barcode"
+              type="text"
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              placeholder={t('inventory.product.barcodePlaceholder')}
+              className={inputClass}
+            />
           </Field>
           <Field label={t('inventory.product.name')} htmlFor="product-name">
-            <input id="product-name" type="text" value={pname} onChange={(e) => setPname(e.target.value)} className={inputClass} />
+            <input
+              id="product-name"
+              type="text"
+              value={pname}
+              onChange={(e) => setPname(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <Field label={t('inventory.product.supplierRef')} htmlFor="product-supplier-ref">
-            <input id="product-supplier-ref" type="text" value={supplierSku} onChange={(e) => setSupplierSku(e.target.value)} className={inputClass} />
+            <input
+              id="product-supplier-ref"
+              type="text"
+              value={supplierSku}
+              onChange={(e) => setSupplierSku(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <div className="sm:col-span-2">
             <Field label={t('inventory.categories')} htmlFor="product-category">
               <div className="flex gap-2">
-                <select
-                  id="product-category"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className={`flex-1 ${inputClass}`}
-                >
-                  <option value="">-- {t('common.select')} --</option>
-                  {(categories ?? []).map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <Combobox
+                    id="product-category"
+                    value={categoryId}
+                    onChange={setCategoryId}
+                    options={(categories ?? []).map((c: any) => ({ id: c.id, name: c.name }))}
+                    placeholder={t('common.select')}
+                    aria-label={t('inventory.categories')}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowCatForm(!showCatForm)}
@@ -213,8 +294,60 @@ export function InventoryListView() {
             )}
           </div>
           <div className="sm:col-span-2">
+            <Field label={t('inventory.product.brand')} htmlFor="product-brand">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Combobox
+                    id="product-brand"
+                    value={brandId}
+                    onChange={setBrandId}
+                    options={(brands ?? []).map((b) => ({ id: b.id, name: b.name }))}
+                    placeholder={t('common.select')}
+                    aria-label={t('inventory.product.brand')}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBrandForm(!showBrandForm)}
+                  aria-label={t('inventory.product.newBrand')}
+                  aria-expanded={showBrandForm}
+                  className="rounded-lg bg-accent px-3 text-sm text-white hover:bg-accent-hover"
+                >
+                  +
+                </button>
+              </div>
+            </Field>
+            {showBrandForm && (
+              <div className="mt-2 flex gap-2">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    aria-label={t('inventory.product.newBrand')}
+                    placeholder={t('inventory.product.newBrand')}
+                    className={inputClass}
+                  />
+                </div>
+                <button
+                  onClick={handleCreateBrand}
+                  disabled={createBrand.isPending}
+                  className="rounded-lg bg-accent px-3 text-sm text-white disabled:opacity-50"
+                >
+                  {t('common.save')}
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="sm:col-span-2">
             <Field label={t('inventory.product.description')} htmlFor="product-description">
-              <input id="product-description" type="text" value={desc} onChange={(e) => setDesc(e.target.value)} className={inputClass} />
+              <input
+                id="product-description"
+                type="text"
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                className={inputClass}
+              />
             </Field>
           </div>
         </div>
@@ -226,23 +359,53 @@ export function InventoryListView() {
         </legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={t('inventory.product.purchaseCost')} htmlFor="product-cost">
-            <input id="product-cost" type="number" min="0" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} className={inputClass} />
+            <input
+              id="product-cost"
+              type="number"
+              min="0"
+              step="0.01"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <Field label={t('inventory.product.salePrice')} htmlFor="product-price">
-            <input id="product-price" type="number" min="0" step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} className={inputClass} />
+            <input
+              id="product-price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={unitPrice}
+              onChange={(e) => setUnitPrice(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <Field label={t('inventory.tax')} htmlFor="product-tax">
-            <select id="product-tax" value={taxId} onChange={(e) => setTaxId(e.target.value)} className={inputClass}>
+            <select
+              id="product-tax"
+              value={taxId}
+              onChange={(e) => setTaxId(e.target.value)}
+              className={inputClass}
+            >
               <option value="">-- {t('common.select')} --</option>
               {(taxes ?? []).map((tx: Tax) => (
-                <option key={tx.id} value={tx.id}>{tx.name} ({(tx.rate * 100).toFixed(0)}%)</option>
+                <option key={tx.id} value={tx.id}>
+                  {tx.name} ({(tx.rate * 100).toFixed(0)}%)
+                </option>
               ))}
             </select>
           </Field>
           <div className="flex items-end">
             <label className="flex cursor-pointer items-center gap-2 pb-2">
-              <input type="checkbox" checked={isService} onChange={(e) => setIsService(e.target.checked)} className="rounded border-border" />
-              <span className="text-sm text-text-secondary">{t('inventory.product.isService')}</span>
+              <input
+                type="checkbox"
+                checked={isService}
+                onChange={(e) => setIsService(e.target.checked)}
+                className="rounded border-border"
+              />
+              <span className="text-sm text-text-secondary">
+                {t('inventory.product.isService')}
+              </span>
             </label>
           </div>
         </div>
@@ -254,7 +417,12 @@ export function InventoryListView() {
         </legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={t('inventory.product.baseUnit')} htmlFor="product-base-unit">
-            <select id="product-base-unit" value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className={inputClass}>
+            <select
+              id="product-base-unit"
+              value={baseUnit}
+              onChange={(e) => setBaseUnit(e.target.value)}
+              className={inputClass}
+            >
               <option value="unidad">Unidad</option>
               <option value="metro">Metro</option>
               <option value="gramo">Gramo</option>
@@ -273,16 +441,48 @@ export function InventoryListView() {
             />
           </Field>
           <Field label={t('inventory.product.conversionFactor')} htmlFor="product-conversion">
-            <input id="product-conversion" type="number" min="0.000001" step="0.000001" value={conversionFactor} onChange={(e) => setConversionFactor(e.target.value)} className={inputClass} />
+            <input
+              id="product-conversion"
+              type="number"
+              min="0.000001"
+              step="0.000001"
+              value={conversionFactor}
+              onChange={(e) => setConversionFactor(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <Field label={t('inventory.product.reorderPoint')} htmlFor="product-reorder">
-            <input id="product-reorder" type="number" min="0" step="0.01" value={reorderPoint} onChange={(e) => setReorderPoint(e.target.value)} className={inputClass} />
+            <input
+              id="product-reorder"
+              type="number"
+              min="0"
+              step="0.01"
+              value={reorderPoint}
+              onChange={(e) => setReorderPoint(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <Field label={t('inventory.product.minStock')} htmlFor="product-min-stock">
-            <input id="product-min-stock" type="number" min="0" step="0.01" value={minStock} onChange={(e) => setMinStock(e.target.value)} className={inputClass} />
+            <input
+              id="product-min-stock"
+              type="number"
+              min="0"
+              step="0.01"
+              value={minStock}
+              onChange={(e) => setMinStock(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <Field label={t('inventory.product.maxStock')} htmlFor="product-max-stock">
-            <input id="product-max-stock" type="number" min="0" step="0.01" value={maxStock} onChange={(e) => setMaxStock(e.target.value)} className={inputClass} />
+            <input
+              id="product-max-stock"
+              type="number"
+              min="0"
+              step="0.01"
+              value={maxStock}
+              onChange={(e) => setMaxStock(e.target.value)}
+              className={inputClass}
+            />
           </Field>
         </div>
       </fieldset>
@@ -291,23 +491,44 @@ export function InventoryListView() {
 
   const productActions = (
     <div className="flex justify-end gap-3">
-      <button onClick={() => setShowForm(false)}
-        className="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:text-text-primary">
+      <button
+        onClick={() => setShowForm(false)}
+        className="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:text-text-primary"
+      >
         {t('common.cancel')}
       </button>
-      <button onClick={handleCreate} disabled={createProduct.isPending}
-        className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50">
+      <button
+        onClick={handleCreate}
+        disabled={createProduct.isPending}
+        className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+      >
         {t('common.save')}
       </button>
     </div>
   );
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3">
-        <div>
-          <h1 className="text-lg font-bold text-text-primary">{t('inventory.products')}</h1>
-          <p className="mt-0.5 text-xs text-text-secondary">{t('inventory.productsSubtitle')}</p>
+    <>
+      <ListPage
+        title={t('inventory.products')}
+        subtitle={t('inventory.productsSubtitle')}
+        contentClassName="m-6 gap-4 overflow-y-auto"
+        contentPadding={false}
+        onRefresh={refetchInventory}
+        refreshing={isFetchingInventory}
+        pagination={
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={Math.max(1, Math.ceil(total / pageSize))}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        }
+      >
+        <div className="shrink-0">
+          <InventorySummaryCards />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -318,67 +539,79 @@ export function InventoryListView() {
             aria-label={t('common.search')}
             className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
           />
-          <span className="text-xs text-text-secondary">
-            {t('inventory.productsCount').replace('{count}', String(products.length))}
-          </span>
-          <button
-            onClick={() => setGroupByCategory(!groupByCategory)}
-            aria-pressed={groupByCategory}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              groupByCategory
-                ? 'bg-accent-alpha text-accent'
-                : 'border border-border text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {t('inventory.groupByCategory')}
-          </button>
-          <button onClick={() => navigate('/inventory/categories')}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors">
-            <Tags size={14} aria-hidden="true" />
-            {t('inventory.categories')}
-          </button>
-          <button onClick={() => setShowForm(true)}
-            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover">
-            + {t('inventory.product.create')}
-          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            <span className="text-xs text-text-secondary">
+              {t('inventory.productsCount').replace('{count}', String(total))}
+            </span>
+            <button
+              onClick={() => setGroupByCategory(!groupByCategory)}
+              aria-pressed={groupByCategory}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                groupByCategory
+                  ? 'bg-accent-alpha text-accent'
+                  : 'border border-border text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {t('inventory.groupByCategory')}
+            </button>
+            <button
+              onClick={() => navigate('/inventory/categories')}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors"
+            >
+              <Tags size={14} aria-hidden="true" />
+              {t('inventory.categories')}
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+            >
+              + {t('inventory.product.create')}
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-6">
-        <div className="shrink-0">
-          <InventorySummaryCards />
+        <div className="flex shrink-0 flex-col">
+          {groupByCategory &&
+            (() => {
+              const categories = new Map<string, InventoryProduct[]>();
+              for (const p of products) {
+                const cat = p.category || t('inventory.summary.uncategorized');
+                if (!categories.has(cat)) categories.set(cat, []);
+                categories.get(cat)!.push(p);
+              }
+              return (
+                <div className="space-y-1">
+                  {Array.from(categories.entries()).map(([cat, items]) => (
+                    <CategorySection key={cat} name={cat} count={items.length}>
+                      <div className="px-2 pb-3 pt-1">
+                        <VirtualGrid
+                          data={items}
+                          columns={columns}
+                          loading={loading}
+                          onRowClick={(row) => navigate(`/inventory/${row.id}`)}
+                          emptyMessage=""
+                          scrollable={false}
+                        />
+                      </div>
+                    </CategorySection>
+                  ))}
+                </div>
+              );
+            })()}
+          {!groupByCategory && (
+            <VirtualGrid
+              data={products}
+              columns={columns}
+              loading={loading}
+              sortColumn={sortColumn as keyof InventoryProduct | undefined}
+              sortDirection={sortDirection}
+              onSort={(col) => setSort(col as keyof InventoryProduct)}
+              onRowClick={(row) => navigate(`/inventory/${row.id}`)}
+              emptyMessage={filter ? t('common.noResults') : t('inventory.summary.emptyProducts')}
+              scrollable={false}
+            />
+          )}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-surface p-4">
-        {groupByCategory && (() => {
-          const categories = new Map<string, InventoryProduct[]>();
-          for (const p of products) {
-            const cat = p.category || t('inventory.summary.uncategorized');
-            if (!categories.has(cat)) categories.set(cat, []);
-            categories.get(cat)!.push(p);
-          }
-          return (
-            <div className="min-h-0 flex-1 space-y-1 overflow-auto">
-              {Array.from(categories.entries()).map(([cat, items]) => (
-                <CategorySection key={cat} name={cat} count={items.length}>
-                  <div className="px-2 pb-3 pt-1">
-                    <VirtualGrid data={items} columns={columns} loading={loading} emptyMessage="" />
-                  </div>
-                </CategorySection>
-              ))}
-            </div>
-          );
-        })()}
-        {!groupByCategory && (
-          <VirtualGrid
-            data={products}
-            columns={columns}
-            loading={loading}
-            sortColumn={sortColumn as keyof InventoryProduct | undefined}
-            sortDirection={sortDirection}
-            onSort={(col) => setSort(col as keyof InventoryProduct)}
-            emptyMessage={filter ? t('common.noResults') : t('inventory.summary.emptyProducts')}
-          />
-        )}
-      </div>
+      </ListPage>
 
       <Drawer.Root isOpen={showForm} onOpenChange={setShowForm}>
         <Drawer.Backdrop isDismissable>
@@ -388,16 +621,25 @@ export function InventoryListView() {
                 <Drawer.Heading className="font-brand text-base font-extrabold text-text-primary">
                   {t('inventory.product.create')}
                 </Drawer.Heading>
-                <Drawer.CloseTrigger aria-label={t('common.close')} className="rounded-md p-1.5 text-text-secondary hover:bg-surface-hover hover:text-text-primary">
+                <Drawer.CloseTrigger
+                  aria-label={t('common.close')}
+                  className="rounded-md p-1.5 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                >
                   ✕
                 </Drawer.CloseTrigger>
               </Drawer.Header>
               <Drawer.Body className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
                 <ProductImagePicker files={productImages} onChange={setProductImages} />
                 <div className="mt-4">{productFields}</div>
-                {createProduct.isError && <p role="alert" className="mt-4 text-sm text-error">{errorMessage}</p>}
+                {createProduct.isError && (
+                  <p role="alert" className="mt-4 text-sm text-error">
+                    {errorMessage}
+                  </p>
+                )}
                 {imageUploadError && (
-                  <p role="alert" className="mt-4 text-sm text-error">{t('inventory.product.imageUploadError')}</p>
+                  <p role="alert" className="mt-4 text-sm text-error">
+                    {t('inventory.product.imageUploadError')}
+                  </p>
                 )}
               </Drawer.Body>
               <Drawer.Footer className="shrink-0 border-t border-border px-6 py-4">
@@ -407,12 +649,16 @@ export function InventoryListView() {
           </Drawer.Content>
         </Drawer.Backdrop>
       </Drawer.Root>
-      </div>
-    </div>
+    </>
   );
 }
 
-function Field({ label, htmlFor, hint, children }: {
+function Field({
+  label,
+  htmlFor,
+  hint,
+  children,
+}: {
   label: string;
   htmlFor: string;
   hint?: string;
@@ -420,14 +666,24 @@ function Field({ label, htmlFor, hint, children }: {
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium text-text-secondary">{label}</label>
+      <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium text-text-secondary">
+        {label}
+      </label>
       {children}
       {hint && <p className="mt-1 text-[11px] text-text-muted">{hint}</p>}
     </div>
   );
 }
 
-function CategorySection({ name, count, children }: { name: string; count: number; children: React.ReactNode }) {
+function CategorySection({
+  name,
+  count,
+  children,
+}: {
+  name: string;
+  count: number;
+  children: React.ReactNode;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   return (
@@ -437,7 +693,11 @@ function CategorySection({ name, count, children }: { name: string; count: numbe
         aria-expanded={open}
         className="flex w-full items-center gap-2 bg-surface-hover px-3 py-2 text-left text-sm font-medium text-text-primary hover:bg-border"
       >
-        <ChevronRight size={14} aria-hidden="true" className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+        <ChevronRight
+          size={14}
+          aria-hidden="true"
+          className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
+        />
         {name}
         <span className="ml-auto text-xs text-text-secondary">
           {t('inventory.productsCount').replace('{count}', String(count))}

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { listQueryOptions } from '@/core/lib/query-defaults';
 
 export interface CashRegisterDetail {
   register: { id: string; name: string; location: string; currency: string; balance: number; isActive: boolean };
@@ -50,5 +51,6 @@ export function useCashRegisterDetail(registerId: string | null) {
     },
     enabled: !!registerId,
     refetchInterval: 10_000,
+    ...listQueryOptions(),
   });
 }

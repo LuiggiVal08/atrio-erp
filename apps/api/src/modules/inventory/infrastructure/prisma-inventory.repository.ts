@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { InventoryRepository } from '../domain/inventory.repository.interface';
 import { ProductCategory } from '../domain/product-category.entity';
@@ -9,6 +10,15 @@ import { Stock } from '../domain/stock.entity';
 import { StockMovement } from '../domain/stock-movement.entity';
 import { StockTransfer } from '../domain/stock-transfer.entity';
 import { ReorderPoint } from '../domain/reorder-point.entity';
+import { buildInternalEan13 } from '../domain/internal-barcode';
+
+const productInclude = {
+  brand: { select: { name: true } },
+  category: { select: { name: true } },
+  tax: { select: { name: true } },
+} satisfies Prisma.ProductInclude;
+
+type ProductRecord = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
 
 @Injectable()
 export class PrismaInventoryRepository implements InventoryRepository {
@@ -51,19 +61,30 @@ export class PrismaInventoryRepository implements InventoryRepository {
     minStock?: number; maxStock?: number; reorderPoint?: number;
     primarySupplierId?: string; supplierSku?: string;
   }): Promise<Product> {
-    const record = await this.prisma.product.create({
-      data: {
-        tenantId: data.tenantId, sku: data.sku, barcode: data.barcode ?? null, name: data.name,
-        description: data.description ?? null, categoryId: data.categoryId ?? null,
-        unitPrice: data.unitPrice, costPrice: data.costPrice,
-        taxId: data.taxId ?? null, isService: data.isService,
-        brandId: data.brandId ?? null, baseUnit: data.baseUnit ?? 'unidad',
-        purchaseUnit: data.purchaseUnit ?? null, conversionFactor: data.conversionFactor ?? 1,
-        minStock: data.minStock ?? 0, maxStock: data.maxStock ?? null,
-        reorderPoint: data.reorderPoint ?? 0,
-        primarySupplierId: data.primarySupplierId ?? null, supplierSku: data.supplierSku ?? null,
-      },
-    });
+    const barcode = data.barcode?.trim();
+    let record: Prisma.ProductGetPayload<{}>;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        record = await this.prisma.product.create({
+          data: {
+            tenantId: data.tenantId, sku: data.sku, barcode: barcode || await this.nextInternalBarcode(), name: data.name,
+            description: data.description ?? null, categoryId: data.categoryId ?? null,
+            unitPrice: data.unitPrice, costPrice: data.costPrice,
+            taxId: data.taxId ?? null, isService: data.isService,
+            brandId: data.brandId ?? null, baseUnit: data.baseUnit ?? 'unidad',
+            purchaseUnit: data.purchaseUnit ?? null, conversionFactor: data.conversionFactor ?? 1,
+            minStock: data.minStock ?? 0, maxStock: data.maxStock ?? null,
+            reorderPoint: data.reorderPoint ?? 0,
+            primarySupplierId: data.primarySupplierId ?? null, supplierSku: data.supplierSku ?? null,
+          },
+        });
+        break;
+      } catch (error) {
+        const barcodeConflict = error instanceof Prisma.PrismaClientKnownRequestError
+          && error.code === 'P2002' && Array.isArray(error.meta?.target) && error.meta.target.includes('barcode');
+        if (barcode || !barcodeConflict || attempt >= 9) throw error;
+      }
+    }
     if (record.costPrice > 0) {
       await this.prisma.productCostHistory.create({
         data: { tenantId: data.tenantId, productId: record.id, unitCost: record.costPrice, supplierId: data.primarySupplierId ?? null, referenceId: record.sku },
@@ -126,29 +147,78 @@ export class PrismaInventoryRepository implements InventoryRepository {
   }
 
   async findProductById(id: string): Promise<Product | null> {
-    const record = await this.prisma.product.findFirst({ where: { id, deletedAt: null } });
+    const record = await this.prisma.product.findFirst({
+      where: { id, deletedAt: null },
+      include: productInclude,
+    });
     if (!record) return null;
-    return new Product(record.id, record.tenantId, record.sku, record.name, record.description, record.categoryId, record.unitPrice, record.costPrice, record.taxId, record.isService, record.isActive, record.createdAt, record.updatedAt, record.deletedAt, record.barcode);
+    return this.toProduct(record);
   }
 
-  async updateProduct(id: string, data: Partial<Omit<Product, 'id' | 'tenantId' | 'createdAt'>>): Promise<Product> {
-    const record = await this.prisma.product.update({ where: { id }, data });
+  async updateProduct(id: string, data: Partial<Omit<Product, 'id' | 'tenantId' | 'createdAt'>> & Record<string, any>): Promise<Product> {
+    const record = await this.prisma.product.update({
+      where: { id },
+      data: data as Prisma.ProductUncheckedUpdateInput,
+      include: productInclude,
+    });
     if ((data as any).costPrice !== undefined && Number((data as any).costPrice) >= 0) {
       await this.prisma.productCostHistory.create({
         data: { tenantId: record.tenantId, productId: record.id, unitCost: record.costPrice, supplierId: record.primarySupplierId ?? null },
       });
     }
-    return new Product(record.id, record.tenantId, record.sku, record.name, record.description, record.categoryId, record.unitPrice, record.costPrice, record.taxId, record.isService, record.isActive, record.createdAt, record.updatedAt, record.deletedAt, record.barcode);
+    return this.toProduct(record);
   }
 
-  async generateProductBarcode(id: string): Promise<Product> {
-    const current = await this.prisma.product.findFirst({ where: { id, deletedAt: null } });
-    if (!current) throw new NotFoundException('Product not found');
-    const record = await this.prisma.product.update({
-      where: { id },
-      data: { barcode: current.barcode ?? current.sku },
+  async generateProductBarcode(tenantId: string, id: string): Promise<Product> {
+    const where = { id, tenantId, deletedAt: null };
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const current = await this.prisma.product.findFirst({ where, include: productInclude });
+      if (!current) throw new NotFoundException('Product not found');
+      if (current.barcode?.trim()) return this.toProduct(current);
+      try {
+        const { count } = await this.prisma.product.updateMany({
+          where: { ...where, barcode: current.barcode },
+          data: { barcode: await this.nextInternalBarcode() },
+        });
+        if (count === 0) continue;
+        const record = await this.prisma.product.findFirst({ where, include: productInclude });
+        if (!record) throw new NotFoundException('Product not found');
+        if (record.barcode?.trim()) return this.toProduct(record);
+      } catch (error) {
+        const barcodeConflict = error instanceof Prisma.PrismaClientKnownRequestError
+          && error.code === 'P2002' && Array.isArray(error.meta?.target) && error.meta.target.includes('barcode');
+        if (!barcodeConflict || attempt >= 9) throw error;
+      }
+    }
+    throw new ConflictException('Product changed while generating barcode; try again');
+  }
+
+  private async nextInternalBarcode(): Promise<string> {
+    try {
+      const [row] = await this.prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('internal_barcode_seq')`;
+      return buildInternalEan13(Number(row.nextval));
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2010' && error.meta?.code === '2200H') {
+        throw new ConflictException('Internal barcode sequence exhausted');
+      }
+      throw error;
+    }
+  }
+
+  private toProduct(record: ProductRecord): Product {
+    return Object.assign(new Product(record.id, record.tenantId, record.sku, record.name, record.description, record.categoryId, record.unitPrice, record.costPrice, record.taxId, record.isService, record.isActive, record.createdAt, record.updatedAt, record.deletedAt, record.barcode), {
+      brandId: record.brandId,
+      brand: record.brand?.name ?? '',
+      category: record.category?.name ?? '',
+      taxName: record.tax?.name ?? '',
+      baseUnit: record.baseUnit,
+      purchaseUnit: record.purchaseUnit,
+      conversionFactor: record.conversionFactor,
+      minStock: record.minStock,
+      maxStock: record.maxStock,
+      reorderPoint: record.reorderPoint,
+      supplierSku: record.supplierSku,
     });
-    return new Product(record.id, record.tenantId, record.sku, record.name, record.description, record.categoryId, record.unitPrice, record.costPrice, record.taxId, record.isService, record.isActive, record.createdAt, record.updatedAt, record.deletedAt, record.barcode);
   }
 
   async softDeleteProduct(id: string): Promise<void> {

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { listQueryOptions, txQueryOptions } from '@/core/lib/query-defaults';
 
 interface DashboardSummary {
   todaySales: number;
@@ -51,6 +52,8 @@ export function useDashboardSummary() {
       const res = await api.get('/reports/dashboard/summary');
       return res.data;
     },
+    ...txQueryOptions(),
+    ...listQueryOptions(),
   });
 }
 
@@ -63,6 +66,8 @@ export function useSalesTrend(dateFrom: string, dateTo: string) {
       });
       return res.data;
     },
+    ...txQueryOptions(),
+    ...listQueryOptions(),
   });
 }
 
@@ -75,6 +80,8 @@ export function useTopProducts(limit = 10) {
       });
       return res.data;
     },
+    ...txQueryOptions(),
+    ...listQueryOptions(),
   });
 }
 
@@ -85,6 +92,8 @@ export function useLowStock() {
       const res = await api.get('/reports/dashboard/low-stock');
       return res.data;
     },
+    ...txQueryOptions(),
+    ...listQueryOptions(),
   });
 }
 

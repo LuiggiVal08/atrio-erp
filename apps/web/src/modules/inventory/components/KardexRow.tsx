@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { InventoryProduct } from '../store/inventory-store';
 import { DocumentStateBadge } from '@/core/components/DocumentStateBadge';
 import type { DocumentAction } from '@/core/components/DocumentStateBadge';
@@ -8,7 +9,7 @@ interface KardexRowProps {
   onCancel?: (id: string) => void;
 }
 
-export function KardexRow({ product, onApprove, onCancel }: KardexRowProps) {
+export const KardexRow = memo(function KardexRow({ product, onApprove, onCancel }: KardexRowProps) {
   const handleAction = (action: DocumentAction) => {
     if (action.type === 'approve') onApprove?.(product.id);
     if (action.type === 'cancel') onCancel?.(product.id);
@@ -39,4 +40,4 @@ export function KardexRow({ product, onApprove, onCancel }: KardexRowProps) {
       </div>
     </div>
   );
-}
+});

@@ -1,13 +1,16 @@
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, Trash2, Shield } from 'lucide-react';
+import { Pencil, Trash2, Shield, RotateCw } from 'lucide-react';
+import { ListPagination } from '@/core/components/ListPagination';
+import { usePagination } from '@/shared/hooks/usePagination';
 import { useRoles, useDeleteRole } from '../hooks/useRoles';
 
 export function RoleListView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: roles = [], isLoading } = useRoles();
+  const { data: roles = [], isLoading, refetch, isFetching } = useRoles();
   const deleteRole = useDeleteRole();
+  const pagination = usePagination(roles);
 
   if (isLoading) {
     return (
@@ -21,12 +24,24 @@ export function RoleListView() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="text-lg font-bold text-text-primary">{t('rbac.roles')}</h1>
-        <button
-          onClick={() => navigate('/rbac/new')}
-          className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-accent/90"
-        >
-          {t('rbac.role.create')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            aria-label={t('common.refresh')}
+            title={t('common.refresh')}
+            className="rounded-lg border border-border p-1.5 text-text-secondary transition-colors hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RotateCw size={14} aria-hidden="true" className={isFetching ? 'animate-spin' : ''} />
+          </button>
+          <button
+            onClick={() => navigate('/rbac/new')}
+            className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-white hover:bg-accent/90"
+          >
+            {t('rbac.role.create')}
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-auto p-6">
         <div className="rounded-xl border border-border bg-surface">
@@ -40,15 +55,18 @@ export function RoleListView() {
               </tr>
             </thead>
             <tbody>
-              {roles.length === 0 ? (
+              {pagination.total === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-8 text-center text-text-secondary">
                     {t('rbac.role.noRoles')}
                   </td>
                 </tr>
               ) : (
-                roles.map((role) => (
-                  <tr key={role.id} className="border-b border-border last:border-b-0 hover:bg-bg/50">
+                pagination.pageItems.map((role) => (
+                  <tr
+                    key={role.id}
+                    className="border-b border-border last:border-b-0 hover:bg-bg/50"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Shield size={16} className="text-accent" />
@@ -60,9 +78,7 @@ export function RoleListView() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-text-secondary">
-                      {role.description || '-'}
-                    </td>
+                    <td className="px-4 py-3 text-text-secondary">{role.description || '-'}</td>
                     <td className="px-4 py-3">
                       <span className="text-xs text-text-secondary">
                         {role.permissions?.length ?? 0}
@@ -98,6 +114,16 @@ export function RoleListView() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-3">
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </div>
       </div>
     </div>

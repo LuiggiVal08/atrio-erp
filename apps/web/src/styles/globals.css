@@ -51,20 +51,33 @@ body {
   outline-offset: 1px;
 }
 
+.print-sheet {
+  display: none;
+}
+
 @media print {
   body * {
     visibility: hidden;
   }
 
-  .print-label,
-  .print-label * {
+  .print-sheet,
+  .print-sheet * {
     visibility: visible;
   }
 
-  .print-label {
+  .print-sheet {
+    display: block;
     position: absolute;
     left: 0;
     top: 0;
+    width: 100%;
+  }
+
+  .print-sheet .print-label {
+    position: static;
+    margin: 0 0 8px;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 
@@ -193,6 +206,23 @@ body {
   .module-loading-enter,
   .module-loading-spinner {
     animation: none;
+  }
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.skeleton {
+  background-color: var(--bg-surface-hover, #1E2330);
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    opacity: 0.7;
   }
 }
 

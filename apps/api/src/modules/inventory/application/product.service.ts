@@ -47,10 +47,13 @@ export class ProductService {
     }
   }
 
-  async generateBarcode(id: string) {
-    const existing = await this.repo.findProductById(id);
-    if (!existing) throw new NotFoundException('Product not found');
-    return this.repo.generateProductBarcode(id);
+  async generateBarcode(tenantId: string, id: string) {
+    try {
+      return await this.repo.generateProductBarcode(tenantId, id);
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new ConflictException('Barcode already exists');
+      throw error;
+    }
   }
 
   async softDelete(id: string) {

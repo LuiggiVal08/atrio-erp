@@ -15,13 +15,13 @@ export function ProductBarcodeLabel({ name, price, sku, barcode }: ProductBarcod
 
   useEffect(() => {
     if (barcodeRef.current) {
-      JsBarcode(barcodeRef.current, barcode, {
-        format: 'CODE128',
-        displayValue: true,
-        margin: 0,
-        height: 48,
-        width: 1.5,
-      });
+      const options = { displayValue: true, margin: 0, marginLeft: 17, marginRight: 11, height: 48, width: 1.5 };
+      try {
+        JsBarcode(barcodeRef.current, barcode, { ...options, format: /^\d{13}$/.test(barcode) ? 'EAN13' : 'CODE128' });
+      } catch {
+        // 13-digit codes typed manually may have an invalid EAN-13 check digit
+        JsBarcode(barcodeRef.current, barcode, { ...options, format: 'CODE128' });
+      }
     }
     if (qrRef.current) {
       void QRCode.toCanvas(qrRef.current, barcode, { width: 88, margin: 1 });

@@ -4,6 +4,7 @@ services:
       context: ./apps/api
       dockerfile: Dockerfile.dev
     container_name: atrio-api-dev
+    command: ['sh', '/app/docker-entrypoint.dev.sh']
     ports:
       - '3000:3000'
     environment:
@@ -32,7 +33,9 @@ services:
     ports:
       - '5173:5173'
     environment:
-      - VITE_API_URL=http://localhost:3000
+      - VITE_API_URL=http://localhost:3000/api/v1
+      - VITE_API_PROXY=http://api:3000
+      - VITE_WS_PROXY=ws://api:3000
     volumes:
       - ./apps/web:/app
       - /app/node_modules

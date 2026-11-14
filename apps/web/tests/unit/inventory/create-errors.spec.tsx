@@ -24,9 +24,12 @@ vi.mock('@/shared/lib/api/client', () => ({
   },
 }));
 vi.mock('@/core/components/VirtualGrid', () => ({ VirtualGrid: () => null }));
-vi.mock('@/modules/inventory/hooks/useInventoryList', () => ({ useInventoryList: () => {} }));
+vi.mock('@/modules/inventory/hooks/useInventoryList', () => ({
+  useInventoryList: () => ({ refetch: vi.fn(), isFetching: false, isLoading: false, items: [], total: 0 }),
+  useInventoryProducts: () => ({ data: [] }),
+}));
 vi.mock('@/modules/inventory/store/inventory-store', () => ({
-  useInventoryStore: () => ({ products: [], filter: '', setFilter: vi.fn(), setSort: vi.fn(), loading: false }),
+  useInventoryStore: () => ({ filter: '', setFilter: vi.fn(), setSort: vi.fn(), sortColumn: null, sortDirection: 'asc', page: 1, pageSize: 25, setPage: vi.fn(), setPageSize: vi.fn() }),
 }));
 vi.mock('@/shared/ui/DocumentInput', () => ({
   DocumentInput: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
@@ -76,7 +79,7 @@ afterEach(() => {
 
 describe.each(forms)('$name creation error recovery', (form) => {
   it.each([
-    { error: Object.assign(new AxiosError('Request failed with status code 400'), { response: { status: 400, data: { message: ['email must be an email'] } } }), message: 'email must be an email' },
+    { error: Object.assign(new AxiosError('Request failed with status code 400'), { response: { status: 400, data: { message: ['email must be an email'] } } }), message: form.name === 'vendor' ? 'El correo no es válido' : 'email must be an email' },
     { error: new AxiosError('timeout of 15000ms exceeded', 'ECONNABORTED'), message: 'No se pudo confirmar el guardado' },
   ])('shows $message and retains input after failure', async ({ error, message }) => {
     vi.mocked(api.post).mockRejectedValueOnce(error);

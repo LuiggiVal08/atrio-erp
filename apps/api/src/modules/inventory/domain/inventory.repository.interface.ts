@@ -30,8 +30,8 @@ export interface InventoryRepository {
     page?: number; pageSize?: number; sortBy?: string; sortDir?: 'asc' | 'desc';
   }): Promise<{ items: Product[]; total: number }>;
   findProductById(id: string): Promise<Product | null>;
-  updateProduct(id: string, data: Partial<Omit<Product, 'id' | 'tenantId' | 'createdAt'>>): Promise<Product>;
-  generateProductBarcode(id: string): Promise<Product>;
+  updateProduct(id: string, data: Partial<Omit<Product, 'id' | 'tenantId' | 'createdAt'>> & Record<string, any>): Promise<Product>;
+  generateProductBarcode(tenantId: string, id: string): Promise<Product>;
   softDeleteProduct(id: string): Promise<void>;
 
   // Warehouses

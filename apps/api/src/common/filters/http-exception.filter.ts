@@ -11,7 +11,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const { status, message } = this.resolveStatusAndMessage(exception);
+    const { status, message, errors } = this.resolveStatusAndMessage(exception);
 
     this.logger.error(
       `[${request.method}] ${request.url} -> ${status}: ${exception instanceof Error ? exception.message : exception}`
@@ -20,17 +20,26 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       message: Array.isArray(message) ? message : [message],
+      ...(errors ? { errors } : {}),
       timestamp: new Date().toISOString(),
       path: request.url,
     });
   }
 
-  private resolveStatusAndMessage(exception: unknown): { status: number; message: string | string[] } {
+  private resolveStatusAndMessage(exception: unknown): {
+    status: number;
+    message: string | string[];
+    errors?: unknown[];
+  } {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const res = exception.getResponse();
       const message = typeof res === 'string' ? res : (res as any).message ?? 'Http Error';
-      return { status, message };
+      const errors =
+        typeof res === 'object' && res !== null && Array.isArray((res as any).errors)
+          ? ((res as any).errors as unknown[])
+          : undefined;
+      return { status, message, errors };
     }
 
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {

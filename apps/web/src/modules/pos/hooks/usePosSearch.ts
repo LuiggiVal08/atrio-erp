@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
 
 export interface ProductHit {
@@ -27,6 +27,7 @@ export function useProductSearch(query: string) {
     },
     enabled: query.length >= 1,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -46,5 +47,6 @@ export function useCustomerSearch(query: string) {
     },
     enabled: query.length >= 2,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 }

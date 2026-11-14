@@ -1,45 +1,59 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import { useForm, useStore } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { applyServerErrors, resolveServerErrorMessage, FormInput, FormSelect } from '@/shared/form';
+import {
+  payrollConceptFormSchema,
+  type PayrollConceptFormValues,
+} from '@/shared/validation/payroll-concept';
 import {
   useCreatePayrollConcept,
   usePayrollConcepts,
   useUpdatePayrollConcept,
 } from '../hooks/usePayrolls';
 
-const fieldClass = 'w-full rounded-lg border border-border bg-canvas px-3 py-2 text-xs text-text-primary focus:border-accent focus:outline-none';
+const defaultValues: PayrollConceptFormValues = {
+  code: '',
+  name: '',
+  type: 'EARNING',
+  calculationMode: 'FIXED',
+  amount: undefined as unknown as number,
+  currency: 'VED',
+  recurring: false,
+};
 
 export function PayrollConceptsView() {
   const { t } = useTranslation();
   const conceptsQuery = usePayrollConcepts();
   const createConcept = useCreatePayrollConcept();
   const updateConcept = useUpdatePayrollConcept();
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [type, setType] = useState<'EARNING' | 'DEDUCTION'>('EARNING');
-  const [calculationMode, setCalculationMode] = useState<'FIXED' | 'BASE_PERCENTAGE'>('FIXED');
-  const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('VED');
-  const [recurring, setRecurring] = useState(false);
+  const [serverError, setServerError] = useState('');
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    createConcept.mutate({
-      code: code.trim().toUpperCase(),
-      name: name.trim(),
-      type,
-      calculationMode,
-      amount: Number(amount),
-      currency: currency.trim().toUpperCase(),
-      recurring,
-    }, {
-      onSuccess: () => {
-        setCode('');
-        setName('');
-        setAmount('');
-        setRecurring(false);
-      },
-    });
-  };
+  const form = useForm({
+    defaultValues,
+    validators: { onSubmit: payrollConceptFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await createConcept.mutateAsync({
+          code: value.code.trim().toUpperCase(),
+          name: value.name.trim(),
+          type: value.type,
+          calculationMode: value.calculationMode,
+          amount: value.amount,
+          currency: value.currency.trim().toUpperCase(),
+          recurring: value.recurring,
+        });
+        form.reset();
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
+      }
+    },
+  });
+
+  const calculationMode = useStore(form.store, (state) => state.values.calculationMode);
+  const recurring = useStore(form.store, (state) => state.values.recurring);
 
   if (conceptsQuery.isLoading) {
     return <div className="p-6 text-sm text-text-secondary">{t('common.loading')}</div>;
@@ -50,7 +64,7 @@ export function PayrollConceptsView() {
   }
 
   const concepts = conceptsQuery.data ?? [];
-  const mutationFailed = createConcept.isError || updateConcept.isError;
+  const mutationFailed = updateConcept.isError;
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -60,41 +74,54 @@ export function PayrollConceptsView() {
           <p className="mt-1 max-w-3xl text-xs leading-5 text-text-secondary">{t('payroll.conceptsDescription')}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="grid gap-3 border-b border-border pb-6 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.code')}</span>
-            <input required minLength={2} maxLength={30} value={code} onChange={(event) => setCode(event.target.value)} className={fieldClass} />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.conceptName')}</span>
-            <input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.conceptType')}</span>
-            <select value={type} onChange={(event) => setType(event.target.value as typeof type)} className={fieldClass}>
-              <option value="EARNING">{t('payroll.earning')}</option>
-              <option value="DEDUCTION">{t('payroll.deduction')}</option>
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.calculationMode')}</span>
-            <select value={calculationMode} onChange={(event) => setCalculationMode(event.target.value as typeof calculationMode)} className={fieldClass}>
-              <option value="FIXED">{t('payroll.fixedAmount')}</option>
-              <option value="BASE_PERCENTAGE">{t('payroll.basePercentage')}</option>
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">
-              {calculationMode === 'BASE_PERCENTAGE' ? t('payroll.percentage') : t('payroll.amount')}
-            </span>
-            <input required type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} className={fieldClass} />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-text-secondary">{t('payroll.currency')}</span>
-            <input required minLength={3} maxLength={3} value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} className={fieldClass} />
-          </label>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="grid gap-3 border-b border-border pb-6 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <FormInput form={form} name="code" label={t('payroll.code')} required />
+          <FormInput form={form} name="name" label={t('payroll.conceptName')} required />
+          <FormSelect
+            form={form}
+            name="type"
+            label={t('payroll.conceptType')}
+            options={[
+              { value: 'EARNING', label: t('payroll.earning') },
+              { value: 'DEDUCTION', label: t('payroll.deduction') },
+            ]}
+          />
+          <FormSelect
+            form={form}
+            name="calculationMode"
+            label={t('payroll.calculationMode')}
+            options={[
+              { value: 'FIXED', label: t('payroll.fixedAmount') },
+              { value: 'BASE_PERCENTAGE', label: t('payroll.basePercentage') },
+            ]}
+          />
+          <FormInput
+            form={form}
+            name="amount"
+            type="number"
+            min={0}
+            step={0.01}
+            label={
+              calculationMode === 'BASE_PERCENTAGE'
+                ? t('payroll.percentage')
+                : t('payroll.amount')
+            }
+            required
+          />
+          <FormInput form={form} name="currency" label={t('payroll.currency')} required />
           <label className="flex items-center gap-2 self-end pb-2 text-xs text-text-secondary">
-            <input type="checkbox" checked={recurring} onChange={(event) => setRecurring(event.target.checked)} className="accent-accent" />
+            <input
+              type="checkbox"
+              checked={recurring}
+              onChange={(event) => form.setFieldValue('recurring', event.target.checked)}
+              className="accent-accent"
+            />
             {t('payroll.recurring')}
           </label>
           <button
@@ -104,6 +131,11 @@ export function PayrollConceptsView() {
           >
             {createConcept.isPending ? t('common.loading') : t('payroll.createConcept')}
           </button>
+          {serverError && (
+            <p role="alert" className="text-xs text-error sm:col-span-2 lg:col-span-4">
+              {serverError}
+            </p>
+          )}
         </form>
 
         {mutationFailed && (

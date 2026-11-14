@@ -8,14 +8,22 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useTopProducts } from '../hooks/useDashboard';
+import { Skeleton } from '@/core/components/Skeleton';
 
 export function TopProductsChart() {
   const { data, isLoading } = useTopProducts(8);
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      <div
+        role="status"
+        aria-busy="true"
+        className="flex h-64 flex-col justify-center gap-3 rounded-xl border border-border bg-surface p-4"
+      >
+        <span className="sr-only">Cargando productos más vendidos</span>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} variant="rect" height={12} width={`${90 - i * 8}%`} />
+        ))}
       </div>
     );
   }
@@ -77,6 +85,8 @@ export function TopProductsChart() {
             fill="var(--accent-main)"
             radius={[0, 4, 4, 0]}
             maxBarSize={20}
+            isAnimationActive
+            animationDuration={600}
           />
         </BarChart>
       </ResponsiveContainer>

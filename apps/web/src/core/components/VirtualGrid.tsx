@@ -3,11 +3,12 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Inbox } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { EmptyState } from './EmptyState';
+import { Skeleton } from './Skeleton';
 
 export interface GridColumn<T> {
   key: keyof T | string;
   label: string;
-  width?: number;
+  width?: number | string;
   minWidth?: number;
   sortable?: boolean;
   align?: 'left' | 'right' | 'center';
@@ -21,14 +22,15 @@ interface VirtualGridProps<T> {
   overscan?: number;
   maxHeight?: number | '100%';
   onRowClick?: (row: T) => void;
-  onSort?: (column: keyof T, direction: 'asc' | 'desc') => void;
-  sortColumn?: keyof T;
+  onSort?: (column: keyof T | string, direction: 'asc' | 'desc') => void;
+  sortColumn?: keyof T | string;
   sortDirection?: 'asc' | 'desc';
   loading?: boolean;
   emptyMessage?: string;
   emptyActionLabel?: string;
   emptyAction?: () => void;
   virtualized?: boolean;
+  scrollable?: boolean;
 }
 
 export function VirtualGrid<T extends Record<string, any>>({
@@ -46,27 +48,33 @@ export function VirtualGrid<T extends Record<string, any>>({
   emptyActionLabel,
   emptyAction,
   virtualized = true,
+  scrollable = true,
 }: VirtualGridProps<T>) {
   const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const shouldVirtualize = scrollable && virtualized && data.length > 50;
 
   const rowVirtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => rowHeight,
     overscan,
-    enabled: virtualized && data.length > 100,
+    enabled: shouldVirtualize,
   });
 
-  const style = useMemo(
-    () => (maxHeight === '100%' ? { flex: 1 } : { maxHeight }),
-    [maxHeight],
-  );
+  const style = useMemo(() => {
+    if (!scrollable) return {};
+    return maxHeight === '100%' ? { flex: 1, minHeight: 0 } : { maxHeight };
+  }, [maxHeight, scrollable]);
+
+  const scrollStyle = { ...style, overflow: scrollable ? ('auto' as const) : ('visible' as const) };
 
   const renderSortIcon = useCallback(
     (col: GridColumn<T>) => {
       if (!col.sortable) return null;
-      if (sortColumn !== col.key) return <ChevronsUpDown size={12} className="text-text-secondary" />;
+      if (sortColumn !== col.key)
+        return <ChevronsUpDown size={12} className="text-text-secondary" />;
       return sortDirection === 'asc' ? (
         <ChevronUp size={12} className="text-accent" />
       ) : (
@@ -78,18 +86,55 @@ export function VirtualGrid<T extends Record<string, any>>({
 
   if (loading) {
     return (
-      <div ref={parentRef} style={{ ...style, overflow: 'auto' }} className="flex items-center justify-center">
-        <div className="flex items-center gap-2 text-xs text-text-secondary">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          {t('common.loading')}
-        </div>
+      <div ref={parentRef} style={scrollStyle} className="relative" role="status" aria-busy="true">
+        <span className="sr-only">{t('common.loading')}</span>
+        <table className="w-full border-collapse" aria-hidden="true">
+          <thead className="sticky top-0 z-10 bg-surface">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={String(col.key)}
+                  className={`border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-secondary ${
+                    col.align === 'right'
+                      ? 'text-right'
+                      : col.align === 'center'
+                        ? 'text-center'
+                        : 'text-left'
+                  }`}
+                  style={{ width: col.width, minWidth: col.minWidth }}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 8 }).map((_, rowIndex) => (
+              <tr key={rowIndex} className="border-b border-border" style={{ height: rowHeight }}>
+                {columns.map((col, colIndex) => (
+                  <td
+                    key={String(col.key)}
+                    className="px-3"
+                    style={{ width: col.width, minWidth: col.minWidth }}
+                  >
+                    <Skeleton
+                      variant="text"
+                      height={12}
+                      width={`${50 + ((rowIndex * 17 + colIndex * 29) % 45)}%`}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
 
   if (!data || data.length === 0) {
     return (
-      <div ref={parentRef} style={{ ...style, overflow: 'auto' }} className="flex items-center justify-center">
+      <div ref={parentRef} style={scrollStyle} className="flex items-center justify-center">
         <EmptyState
           message={emptyMessage || t('common.noResults')}
           icon={<Inbox size={32} className="text-text-secondary" />}
@@ -101,14 +146,20 @@ export function VirtualGrid<T extends Record<string, any>>({
   }
 
   return (
-    <div ref={parentRef} style={{ ...style, overflow: 'auto' }} className="relative">
+    <div ref={parentRef} style={scrollStyle} className="relative">
       <table className="w-full border-collapse">
         <thead className="sticky top-0 z-10 bg-surface">
           <tr>
             {columns.map((col) => (
               <th
                 key={String(col.key)}
-                onClick={() => col.sortable && onSort?.(col.key as keyof T, sortColumn === col.key && sortDirection === 'asc' ? 'desc' : 'asc')}
+                onClick={() =>
+                  col.sortable &&
+                  onSort?.(
+                    col.key,
+                    sortColumn === col.key && sortDirection === 'asc' ? 'desc' : 'asc',
+                  )
+                }
                 className={`border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-secondary ${
                   col.sortable ? 'cursor-pointer hover:text-text-primary' : ''
                 } ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
@@ -123,7 +174,7 @@ export function VirtualGrid<T extends Record<string, any>>({
           </tr>
         </thead>
         <tbody>
-          {virtualized && data.length > 100 ? (
+          {shouldVirtualize ? (
             <tr style={{ height: rowVirtualizer.getTotalSize() }}>
               <td colSpan={columns.length} style={{ padding: 0 }}>
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -152,11 +203,20 @@ export function VirtualGrid<T extends Record<string, any>>({
                         <div
                           key={String(col.key)}
                           className={`flex items-center px-3 text-[13px] text-text-primary ${
-                            col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : ''
+                            col.align === 'right'
+                              ? 'justify-end'
+                              : col.align === 'center'
+                                ? 'justify-center'
+                                : ''
                           }`}
-                          style={{ width: col.width || `${100 / columns.length}%`, minWidth: col.minWidth }}
+                          style={{
+                            width: col.width || `${100 / columns.length}%`,
+                            minWidth: col.minWidth,
+                          }}
                         >
-                          {col.render ? col.render(row[col.key as keyof T], row) : String(row[col.key as keyof T] ?? '')}
+                          {col.render
+                            ? col.render(row[col.key as keyof T], row)
+                            : String(row[col.key as keyof T] ?? '')}
                         </div>
                       ))}
                     </div>
@@ -180,11 +240,17 @@ export function VirtualGrid<T extends Record<string, any>>({
                   <td
                     key={String(col.key)}
                     className={`px-3 py-2 text-[13px] text-text-primary ${
-                      col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : ''
+                      col.align === 'right'
+                        ? 'text-right'
+                        : col.align === 'center'
+                          ? 'text-center'
+                          : ''
                     }`}
                     style={{ width: col.width, minWidth: col.minWidth }}
                   >
-                    {col.render ? col.render(row[col.key as keyof T], row) : String(row[col.key as keyof T] ?? '')}
+                    {col.render
+                      ? col.render(row[col.key as keyof T], row)
+                      : String(row[col.key as keyof T] ?? '')}
                   </td>
                 ))}
               </tr>

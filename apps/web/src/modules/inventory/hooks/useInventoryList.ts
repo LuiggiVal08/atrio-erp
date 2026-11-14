@@ -1,6 +1,8 @@
+import { useDeferredValue } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
 import { useInventoryStore, type InventoryProduct } from '../store/inventory-store';
+import { listQueryOptions } from '@/core/lib/query-defaults';
 import type { DocumentStatus } from '@/core/components/DocumentStateBadge';
 
 function mapProduct(item: any): InventoryProduct {
@@ -17,29 +19,44 @@ function mapProduct(item: any): InventoryProduct {
   };
 }
 
-export function useInventoryList() {
-  const { page, pageSize, filter, sortColumn, sortDirection, setProducts, setLoading } = useInventoryStore();
+function mapItems(data: any): { items: InventoryProduct[]; total: number } {
+  const items = (data.items ?? data.data ?? data ?? []).map(mapProduct);
+  const total = data.total ?? data.totalItems ?? items.length;
+  return { items, total };
+}
 
-  return useQuery({
-    queryKey: ['inventory', page, pageSize, filter, sortColumn, sortDirection],
+export function useInventoryList() {
+  const { page, pageSize, filter, sortColumn, sortDirection } = useInventoryStore();
+  const deferredFilter = useDeferredValue(filter);
+
+  const query = useQuery({
+    queryKey: ['inventory', page, pageSize, deferredFilter, sortColumn, sortDirection],
     queryFn: async () => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({
-          page: String(page),
-          pageSize: String(pageSize),
-          ...(filter && { search: filter }),
-          ...(sortColumn && { sortBy: String(sortColumn), sortDir: sortDirection }),
-        });
-        const res = await api.get(`/inventory/products?${params}`);
-        const data = res.data;
-        const items = (data.items ?? data.data ?? data ?? []).map(mapProduct);
-        const total = data.total ?? data.totalItems ?? items.length;
-        setProducts(items, total);
-        return data;
-      } finally {
-        setLoading(false);
-      }
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+        ...(deferredFilter && { search: deferredFilter }),
+        ...(sortColumn && { sortBy: String(sortColumn), sortDir: sortDirection }),
+      });
+      const res = await api.get(`/inventory/products?${params}`);
+      return mapItems(res.data);
+    },
+    ...listQueryOptions(),
+  });
+
+  return {
+    ...query,
+    items: query.data?.items ?? [],
+    total: query.data?.total ?? 0,
+  };
+}
+
+export function useInventoryProducts() {
+  return useQuery<InventoryProduct[]>({
+    queryKey: ['inventory', 'products', 'all'],
+    queryFn: async () => {
+      const res = await api.get('/inventory/products?pageSize=1000');
+      return mapItems(res.data).items;
     },
   });
 }

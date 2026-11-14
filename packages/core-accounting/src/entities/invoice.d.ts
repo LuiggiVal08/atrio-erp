@@ -22,4 +22,3 @@ export interface Invoice {
     createdAt: Date;
     updatedAt: Date;
 }
-//# sourceMappingURL=invoice.d.ts.map

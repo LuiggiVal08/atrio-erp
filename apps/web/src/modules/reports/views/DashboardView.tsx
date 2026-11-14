@@ -15,6 +15,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useAuthStore } from '@/core/auth/store';
+import { CardSkeleton } from '@/core/components/CardSkeleton';
+import { DeferredMount } from '@/core/components/DeferredMount';
 import { useDashboardSummary } from '../hooks/useDashboard';
 import { KpiCard } from '../components/KpiCard';
 import { DateRangeFilter } from '../components/DateRangeFilter';
@@ -125,7 +127,7 @@ export function DashboardView() {
         return summaryLoading ? (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl bg-surface" />
+              <CardSkeleton key={i} lines={2} className="h-28" />
             ))}
           </div>
         ) : (
@@ -172,30 +174,38 @@ export function DashboardView() {
 
       case 'calendar':
         return (
-          <div className="max-w-md rounded-2xl border border-white/10 bg-surface p-4">
-            <WeekCalendarWidget />
-          </div>
+          <DeferredMount placeholder={<div className="h-72" />}>
+            <div className="max-w-md rounded-2xl border border-white/10 bg-surface p-4">
+              <WeekCalendarWidget />
+            </div>
+          </DeferredMount>
         );
 
       case 'trend':
         return (
-          <div className="rounded-2xl border border-white/10 bg-surface p-4">
-            <SalesTrendChart />
-          </div>
+          <DeferredMount placeholder={<div className="h-64" />}>
+            <div className="rounded-2xl border border-white/10 bg-surface p-4">
+              <SalesTrendChart />
+            </div>
+          </DeferredMount>
         );
 
       case 'products':
         return (
-          <div className="rounded-2xl border border-white/10 bg-surface p-4">
-            <TopProductsChart />
-          </div>
+          <DeferredMount placeholder={<div className="h-64" />}>
+            <div className="rounded-2xl border border-white/10 bg-surface p-4">
+              <TopProductsChart />
+            </div>
+          </DeferredMount>
         );
 
       case 'stock':
         return (
-          <div className="rounded-2xl border border-white/10 bg-surface p-4">
-            <LowStockTable />
-          </div>
+          <DeferredMount placeholder={<div className="h-64" />}>
+            <div className="rounded-2xl border border-white/10 bg-surface p-4">
+              <LowStockTable />
+            </div>
+          </DeferredMount>
         );
     }
   }

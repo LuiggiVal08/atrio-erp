@@ -1,12 +1,13 @@
 import { useLowStock } from '../hooks/useDashboard';
+import { TableSkeleton } from '@/core/components/TableSkeleton';
 
 export function LowStockTable() {
   const { data, isLoading } = useLowStock();
 
   if (isLoading) {
     return (
-      <div className="flex h-32 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      <div className="overflow-x-auto">
+        <TableSkeleton rows={4} columns={4} />
       </div>
     );
   }

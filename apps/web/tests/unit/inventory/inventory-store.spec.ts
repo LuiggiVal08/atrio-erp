@@ -1,48 +1,25 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useInventoryStore } from '@/modules/inventory/store/inventory-store';
-import type { InventoryProduct } from '@/modules/inventory/store/inventory-store';
-
-const mockProduct = (overrides?: Partial<InventoryProduct>): InventoryProduct => ({
-  id: '1',
-  sku: 'SKU-001',
-  name: 'Test Product',
-  category: 'General',
-  stock: 10,
-  unitPrice: 100,
-  averageCost: 80,
-  status: 'draft',
-  ...overrides,
-});
 
 describe('inventory store', () => {
   beforeEach(() => {
-    const { setProducts, setFilter, setPage, setLoading } = useInventoryStore.getState();
-    setProducts([], 0);
+    const { setFilter, setPage, setPageSize } = useInventoryStore.getState();
     setFilter('');
     setPage(1);
-    setLoading(false);
-  });
-
-  it('adds products via setProducts', () => {
-    const products = [mockProduct()];
-    useInventoryStore.getState().setProducts(products, 1);
-    const state = useInventoryStore.getState();
-    expect(state.products).toHaveLength(1);
-    expect(state.total).toBe(1);
-    expect(state.loading).toBe(false);
-  });
-
-  it('updates product status via updateStatus', () => {
-    const products = [mockProduct({ id: '1', status: 'draft' })];
-    useInventoryStore.getState().setProducts(products, 1);
-    useInventoryStore.getState().updateStatus('1', 'approved');
-    expect(useInventoryStore.getState().products[0].status).toBe('approved');
+    setPageSize(50);
   });
 
   it('filters via setFilter and resets page to 1', () => {
     useInventoryStore.getState().setPage(3);
     useInventoryStore.getState().setFilter('test');
     expect(useInventoryStore.getState().filter).toBe('test');
+    expect(useInventoryStore.getState().page).toBe(1);
+  });
+
+  it('resets page to 1 when page size changes', () => {
+    useInventoryStore.getState().setPage(4);
+    useInventoryStore.getState().setPageSize(25);
+    expect(useInventoryStore.getState().pageSize).toBe(25);
     expect(useInventoryStore.getState().page).toBe(1);
   });
 
@@ -61,5 +38,11 @@ describe('inventory store', () => {
     useInventoryStore.getState().setSort('stock');
     expect(useInventoryStore.getState().sortColumn).toBe('stock');
     expect(useInventoryStore.getState().sortDirection).toBe('asc');
+  });
+
+  it('resets page to 1 when sorting changes', () => {
+    useInventoryStore.getState().setPage(5);
+    useInventoryStore.getState().setSort('name');
+    expect(useInventoryStore.getState().page).toBe(1);
   });
 });

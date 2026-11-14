@@ -17,10 +17,7 @@ vi.mock('@/shared/lib/api/client', () => ({
     post: vi.fn(),
   },
 }));
-vi.mock('@/modules/inventory/hooks/useInventoryList', () => ({ useInventoryList: () => {} }));
-vi.mock('@/modules/inventory/store/inventory-store', () => ({
-  useInventoryStore: () => ({ products: [] }),
-}));
+vi.mock('@/modules/inventory/hooks/useInventoryList', () => ({ useInventoryProducts: () => ({ data: [] }) }));
 
 function dateIn(days: number) {
   const d = new Date();

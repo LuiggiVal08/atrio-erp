@@ -20,10 +20,10 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["src/*"],
-      "@atrio/core-accounting": ["../../packages/core-accounting/src"],
-      "@atrio/l10n_ve": ["../../packages/l10n_ve/src"],
-      "@atrio/l10n_co": ["../../packages/l10n_co/src"]
+      "@atrio/core-accounting": ["../../packages/core-accounting/dist"],
+      "@atrio/l10n_ve": ["../../packages/l10n_ve/dist"],
+      "@atrio/l10n_co": ["../../packages/l10n_co/dist"]
     }
   },
-  "include": ["src/**/*", "prisma/**/*", "tests/**/*", "../../packages/**/*"]
+  "include": ["src/**/*", "prisma/**/*", "tests/**/*"]
 }
