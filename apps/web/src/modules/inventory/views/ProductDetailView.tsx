@@ -34,7 +34,10 @@ interface FormData {
 }
 
 const inputClass =
-  'mt-0.5 w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none';
+  'mt-1 w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none';
+
+const readClass = 'mt-1 font-medium text-text-primary';
+const dataReadClass = 'mt-1 font-mono font-medium tabular-nums text-text-primary';
 
 const MIN_COPIES = 1;
 const MAX_COPIES = 100;
@@ -47,6 +50,23 @@ function clampCopies(value: number) {
 function toNumberOrNull(value: string) {
   const trimmed = value.trim();
   return trimmed === '' ? null : Number(trimmed);
+}
+
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <span className="text-xs text-text-secondary">{label}</span>
+      {children}
+    </div>
+  );
 }
 
 function BrandChip({ name, logoUrl }: { name?: string | null; logoUrl?: string | null }) {
@@ -201,14 +221,16 @@ export function ProductDetailView() {
 
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
-      <div className="flex items-center justify-between border-b border-border px-6 py-3">
-        <div className="flex items-center gap-3">
-          <Link to="/inventory/products" className="text-sm text-accent hover:underline">
+      <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link to="/inventory/products" className="shrink-0 text-sm text-accent hover:underline">
             &larr; {t('inventory.products')}
           </Link>
-          <h1 className="text-lg font-bold text-text-primary">{product.name}</h1>
+          <h1 className="truncate text-lg font-bold text-text-primary" title={product.name}>
+            {product.name}
+          </h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           {editing ? (
             <>
               <button
@@ -248,141 +270,9 @@ export function ProductDetailView() {
               />
             </div>
           )}
-          <div className="rounded-lg border border-border bg-surface p-6">
-            <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm sm:grid-cols-2">
-              <div>
-                <span className="text-xs text-text-secondary">{t('inventory.product.sku')}</span>
-                {editing ? (
-                  <input
-                    type="text"
-                    value={form.sku}
-                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                    aria-label={t('inventory.product.sku')}
-                    className={inputClass}
-                  />
-                ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">{product.sku}</p>
-                )}
-              </div>
-              <div>
-                <span className="text-xs text-text-secondary">
-                  {t('inventory.product.barcode')}
-                </span>
-                {editing ? (
-                  <input
-                    type="text"
-                    value={form.barcode}
-                    onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-                    placeholder={t('inventory.product.barcodePlaceholder')}
-                    aria-label={t('inventory.product.barcode')}
-                    className={inputClass}
-                  />
-                ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">{product.barcode || '—'}</p>
-                )}
-              </div>
-              <div>
-                <span className="text-xs text-text-secondary">{t('inventory.product.name')}</span>
-                {editing ? (
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    aria-label={t('inventory.product.name')}
-                    className={inputClass}
-                  />
-                ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">{product.name}</p>
-                )}
-              </div>
-              <div>
-                <span className="text-xs text-text-secondary">
-                  {t('inventory.product.supplierRef')}
-                </span>
-                {editing ? (
-                  <input
-                    type="text"
-                    value={form.supplierSku}
-                    onChange={(e) => setForm({ ...form, supplierSku: e.target.value })}
-                    aria-label={t('inventory.product.supplierRef')}
-                    className={inputClass}
-                  />
-                ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">
-                    {readValue(product.supplierSku)}
-                  </p>
-                )}
-              </div>
-
-              <div className="col-span-2">
-                <span className="text-xs text-text-secondary">{t('common.notes')}</span>
-                <div className="mt-0.5 flex items-center gap-3">
-                  <BrandChip name={brandName} logoUrl={brandLogoUrl} />
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      aria-label={t('common.notes')}
-                      className={inputClass}
-                    />
-                  ) : (
-                    <p className="font-medium text-text-primary">{product.description || '—'}</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <span className="text-xs text-text-secondary">{t('inventory.product.brand')}</span>
-                {editing ? (
-                  <div className="mt-0.5">
-                    <Combobox
-                      value={form.brandId}
-                      onChange={(brandId) => setForm({ ...form, brandId })}
-                      options={brandOptions}
-                      aria-label={t('inventory.product.brand')}
-                    />
-                  </div>
-                ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">{readValue(brandName)}</p>
-                )}
-              </div>
-              <div>
-                <span className="text-xs text-text-secondary">{t('inventory.categories')}</span>
-                {editing ? (
-                  <div className="mt-0.5">
-                    <Combobox
-                      value={form.categoryId}
-                      onChange={(categoryId) => setForm({ ...form, categoryId })}
-                      options={categoryOptions}
-                      aria-label={t('inventory.categories')}
-                    />
-                  </div>
-                ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">{readValue(categoryLabel)}</p>
-                )}
-              </div>
-
-              <div>
-                <span className="text-xs text-text-secondary">{t('inventory.product.cost')}</span>
-                {editing ? (
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.costPrice}
-                    onChange={(e) => setForm({ ...form, costPrice: e.target.value })}
-                    aria-label={t('inventory.product.cost')}
-                    className={inputClass}
-                  />
-                ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">
-                    {readNumber(product.costPrice, 2)}
-                  </p>
-                )}
-              </div>
-              <div>
-                <span className="text-xs text-text-secondary">{t('inventory.product.price')}</span>
+          <div className="h-fit rounded-lg border border-border bg-surface p-6">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+              <Field label={t('inventory.product.price')}>
                 {editing ? (
                   <input
                     type="number"
@@ -394,13 +284,27 @@ export function ProductDetailView() {
                     className={inputClass}
                   />
                 ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">
+                  <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-text-primary">
                     {readNumber(product.unitPrice, 2)}
                   </p>
                 )}
-              </div>
-              <div>
-                <span className="text-xs text-text-secondary">{t('inventory.tax')}</span>
+              </Field>
+              <Field label={t('inventory.product.cost')}>
+                {editing ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.costPrice}
+                    onChange={(e) => setForm({ ...form, costPrice: e.target.value })}
+                    aria-label={t('inventory.product.cost')}
+                    className={inputClass}
+                  />
+                ) : (
+                  <p className={dataReadClass}>{readNumber(product.costPrice, 2)}</p>
+                )}
+              </Field>
+              <Field label={t('inventory.tax')}>
                 {editing ? (
                   <select
                     value={form.taxId}
@@ -416,61 +320,155 @@ export function ProductDetailView() {
                     ))}
                   </select>
                 ) : (
-                  <p className="mt-0.5 font-medium text-text-primary">
+                  <p className={readClass}>
                     {product.taxName ??
                       (taxes ?? []).find((tx: any) => tx.id === product.taxId)?.name ??
                       '—'}
                   </p>
                 )}
-              </div>
-              <div className="flex items-end gap-6">
-                <div>
-                  <span className="text-xs text-text-secondary">
-                    {t('inventory.product.isService')}
-                  </span>
-                  {editing ? (
-                    <label className="mt-0.5 flex cursor-pointer items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={form.isService}
-                        onChange={(e) => setForm({ ...form, isService: e.target.checked })}
-                        aria-label={t('inventory.product.isService')}
-                        className="rounded border-border"
+              </Field>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-4 border-t border-border pt-5 text-sm sm:grid-cols-2">
+              <Field label={t('inventory.product.sku')}>
+                {editing ? (
+                  <input
+                    type="text"
+                    value={form.sku}
+                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                    aria-label={t('inventory.product.sku')}
+                    className={inputClass}
+                  />
+                ) : (
+                  <p className={dataReadClass}>{product.sku}</p>
+                )}
+              </Field>
+              <Field label={t('inventory.product.barcode')}>
+                {editing ? (
+                  <input
+                    type="text"
+                    value={form.barcode}
+                    onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                    placeholder={t('inventory.product.barcodePlaceholder')}
+                    aria-label={t('inventory.product.barcode')}
+                    className={inputClass}
+                  />
+                ) : (
+                  <p className={dataReadClass}>{product.barcode || '—'}</p>
+                )}
+              </Field>
+              <Field label={t('inventory.product.name')}>
+                {editing ? (
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    aria-label={t('inventory.product.name')}
+                    className={inputClass}
+                  />
+                ) : (
+                  <p className={`${readClass} break-words`}>{product.name}</p>
+                )}
+              </Field>
+              <Field label={t('inventory.product.supplierRef')}>
+                {editing ? (
+                  <input
+                    type="text"
+                    value={form.supplierSku}
+                    onChange={(e) => setForm({ ...form, supplierSku: e.target.value })}
+                    aria-label={t('inventory.product.supplierRef')}
+                    className={inputClass}
+                  />
+                ) : (
+                  <p className={dataReadClass}>{readValue(product.supplierSku)}</p>
+                )}
+              </Field>
+              <Field label={t('common.notes')} className="sm:col-span-2">
+                {editing ? (
+                  <input
+                    type="text"
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    aria-label={t('common.notes')}
+                    className={inputClass}
+                  />
+                ) : (
+                  <p className={`${readClass} break-words`}>{product.description || '—'}</p>
+                )}
+              </Field>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-4 border-t border-border pt-5 text-sm sm:grid-cols-2">
+              <Field label={t('inventory.product.brand')}>
+                {editing ? (
+                  <div className="mt-1 flex items-center gap-2">
+                    <BrandChip name={brandName} logoUrl={brandLogoUrl} />
+                    <div className="min-w-0 flex-1">
+                      <Combobox
+                        value={form.brandId}
+                        onChange={(brandId) => setForm({ ...form, brandId })}
+                        options={brandOptions}
+                        aria-label={t('inventory.product.brand')}
                       />
-                      <span className="text-sm text-text-secondary">
-                        {form.isService ? t('common.yes') : t('common.no')}
-                      </span>
-                    </label>
-                  ) : (
-                    <p className="mt-0.5 font-medium text-text-primary">
-                      {product.isService ? t('common.yes') : t('common.no')}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <span className="text-xs text-text-secondary">
-                    {t('inventory.product.isActive')}
-                  </span>
-                  {editing ? (
-                    <label className="mt-0.5 flex cursor-pointer items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={form.isActive}
-                        onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                        aria-label={t('inventory.product.isActive')}
-                        className="rounded border-border"
-                      />
-                      <span className="text-sm text-text-secondary">
-                        {form.isActive ? t('common.yes') : t('common.no')}
-                      </span>
-                    </label>
-                  ) : (
-                    <p className="mt-0.5 font-medium text-text-primary">
-                      {product.isActive ? t('common.yes') : t('common.no')}
-                    </p>
-                  )}
-                </div>
-              </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-1 flex items-center gap-2">
+                    <BrandChip name={brandName} logoUrl={brandLogoUrl} />
+                    <p className="font-medium text-text-primary">{readValue(brandName)}</p>
+                  </div>
+                )}
+              </Field>
+              <Field label={t('inventory.categories')}>
+                {editing ? (
+                  <div className="mt-1">
+                    <Combobox
+                      value={form.categoryId}
+                      onChange={(categoryId) => setForm({ ...form, categoryId })}
+                      options={categoryOptions}
+                      aria-label={t('inventory.categories')}
+                    />
+                  </div>
+                ) : (
+                  <p className={readClass}>{readValue(categoryLabel)}</p>
+                )}
+              </Field>
+              <Field label={t('inventory.product.isService')}>
+                {editing ? (
+                  <label className="mt-2 flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={form.isService}
+                      onChange={(e) => setForm({ ...form, isService: e.target.checked })}
+                      aria-label={t('inventory.product.isService')}
+                      className="rounded border-border"
+                    />
+                    <span className="text-sm text-text-secondary">
+                      {form.isService ? t('common.yes') : t('common.no')}
+                    </span>
+                  </label>
+                ) : (
+                  <p className={readClass}>{product.isService ? t('common.yes') : t('common.no')}</p>
+                )}
+              </Field>
+              <Field label={t('inventory.product.isActive')}>
+                {editing ? (
+                  <label className="mt-2 flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={form.isActive}
+                      onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                      aria-label={t('inventory.product.isActive')}
+                      className="rounded border-border"
+                    />
+                    <span className="text-sm text-text-secondary">
+                      {form.isActive ? t('common.yes') : t('common.no')}
+                    </span>
+                  </label>
+                ) : (
+                  <p className={readClass}>{product.isActive ? t('common.yes') : t('common.no')}</p>
+                )}
+              </Field>
             </div>
           </div>
         </div>
@@ -479,9 +477,8 @@ export function ProductDetailView() {
           <h2 className="mb-4 text-sm font-bold text-text-primary">
             {t('inventory.product.groupUnits')}
           </h2>
-          <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm sm:grid-cols-2">
-            <div>
-              <span className="text-xs text-text-secondary">{t('inventory.product.baseUnit')}</span>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+            <Field label={t('inventory.product.baseUnit')}>
               {editing ? (
                 <input
                   type="text"
@@ -491,15 +488,10 @@ export function ProductDetailView() {
                   className={inputClass}
                 />
               ) : (
-                <p className="mt-0.5 font-medium text-text-primary">
-                  {readValue(product.baseUnit)}
-                </p>
+                <p className={readClass}>{readValue(product.baseUnit)}</p>
               )}
-            </div>
-            <div>
-              <span className="text-xs text-text-secondary">
-                {t('inventory.product.purchaseUnit')}
-              </span>
+            </Field>
+            <Field label={t('inventory.product.purchaseUnit')}>
               {editing ? (
                 <input
                   type="text"
@@ -510,15 +502,10 @@ export function ProductDetailView() {
                   className={inputClass}
                 />
               ) : (
-                <p className="mt-0.5 font-medium text-text-primary">
-                  {readValue(product.purchaseUnit)}
-                </p>
+                <p className={readClass}>{readValue(product.purchaseUnit)}</p>
               )}
-            </div>
-            <div>
-              <span className="text-xs text-text-secondary">
-                {t('inventory.product.conversionFactor')}
-              </span>
+            </Field>
+            <Field label={t('inventory.product.conversionFactor')}>
               {editing ? (
                 <input
                   type="number"
@@ -530,15 +517,11 @@ export function ProductDetailView() {
                   className={inputClass}
                 />
               ) : (
-                <p className="mt-0.5 font-medium text-text-primary">
-                  {readNumber(product.conversionFactor)}
-                </p>
+                <p className={dataReadClass}>{readNumber(product.conversionFactor)}</p>
               )}
-            </div>
-            <div>
-              <span className="text-xs text-text-secondary">
-                {t('inventory.product.reorderPoint')}
-              </span>
+            </Field>
+            <div aria-hidden className="hidden border-t border-border sm:col-span-3 sm:block" />
+            <Field label={t('inventory.product.reorderPoint')}>
               {editing ? (
                 <input
                   type="number"
@@ -550,13 +533,10 @@ export function ProductDetailView() {
                   className={inputClass}
                 />
               ) : (
-                <p className="mt-0.5 font-medium text-text-primary">
-                  {readNumber(product.reorderPoint)}
-                </p>
+                <p className={dataReadClass}>{readNumber(product.reorderPoint)}</p>
               )}
-            </div>
-            <div>
-              <span className="text-xs text-text-secondary">{t('inventory.product.minStock')}</span>
+            </Field>
+            <Field label={t('inventory.product.minStock')}>
               {editing ? (
                 <input
                   type="number"
@@ -568,13 +548,10 @@ export function ProductDetailView() {
                   className={inputClass}
                 />
               ) : (
-                <p className="mt-0.5 font-medium text-text-primary">
-                  {readNumber(product.minStock)}
-                </p>
+                <p className={dataReadClass}>{readNumber(product.minStock)}</p>
               )}
-            </div>
-            <div>
-              <span className="text-xs text-text-secondary">{t('inventory.product.maxStock')}</span>
+            </Field>
+            <Field label={t('inventory.product.maxStock')}>
               {editing ? (
                 <input
                   type="number"
@@ -586,20 +563,20 @@ export function ProductDetailView() {
                   className={inputClass}
                 />
               ) : (
-                <p className="mt-0.5 font-medium text-text-primary">
-                  {readNumber(product.maxStock)}
-                </p>
+                <p className={dataReadClass}>{readNumber(product.maxStock)}</p>
               )}
-            </div>
+            </Field>
           </div>
         </div>
 
         <div className="rounded-lg border border-border bg-surface p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-bold text-text-primary">{t('inventory.product.label')}</h2>
             {product.barcode && (
-              <div className="flex items-center gap-3">
-                {copies > 1 && <span className="text-xs text-text-secondary">×{copies}</span>}
+              <div className="flex flex-wrap items-center gap-3">
+                {copies > 1 && (
+                  <span className="font-mono text-xs text-text-secondary">×{copies}</span>
+                )}
                 <div
                   role="group"
                   aria-label={t('inventory.product.copies')}
@@ -629,7 +606,7 @@ export function ProductDetailView() {
                         setCopies((value) => clampCopies(value - 1));
                       }
                     }}
-                    className="h-8 w-14 rounded-lg border border-border bg-canvas text-center text-sm text-text-primary focus:border-accent focus:outline-none"
+                    className="h-8 w-14 rounded-lg border border-border bg-canvas text-center font-mono text-sm tabular-nums text-text-primary focus:border-accent focus:outline-none"
                   />
                   <button
                     type="button"
@@ -652,12 +629,14 @@ export function ProductDetailView() {
             )}
           </div>
           {product.barcode ? (
-            <ProductBarcodeLabel
-              name={product.name}
-              price={Number(product.unitPrice ?? 0)}
-              sku={product.sku}
-              barcode={product.barcode}
-            />
+            <div className="max-w-full overflow-x-auto">
+              <ProductBarcodeLabel
+                name={product.name}
+                price={Number(product.unitPrice ?? 0)}
+                sku={product.sku}
+                barcode={product.barcode}
+              />
+            </div>
           ) : (
             <p className="text-sm text-text-secondary">{t('inventory.product.labelHint')}</p>
           )}
