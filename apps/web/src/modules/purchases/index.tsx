@@ -16,6 +16,7 @@ export function PurchasingModule() {
         <Route path="returns" element={<PurchaseReturnListView />} />
         <Route path="price-lists" element={<PriceListListView />} />
         <Route path="metrics" element={<PurchasingMetricsView />} />
+        <Route path="orders/:id" element={<PurchaseOrderDetailView />} />
         <Route path=":id" element={<PurchaseOrderDetailView />} />
       </Route>
       <Route path="*" element={<Navigate to="/purchasing" replace />} />

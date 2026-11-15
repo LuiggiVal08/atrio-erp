@@ -1,6 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
 
+export interface PurchaseOrderLine {
+  lineId: string;
+  description: string;
+  productId: string;
+  warehouseId: string;
+  quantity: number;
+  receivedQuantity: number | null;
+  unitPrice: number;
+}
+
 export interface PurchaseOrder {
   id: string;
   documentId: string;
@@ -14,6 +24,13 @@ export interface PurchaseOrder {
   expectedDate?: string;
   receivedAt?: string;
   createdAt: string;
+  lines?: PurchaseOrderLine[];
+}
+
+export interface ReceivePurchaseOrderInput {
+  id: string;
+  operationId: string;
+  lines: Array<{ lineId: string; productId: string; warehouseId: string; quantity: number }>;
 }
 
 export interface CreatePurchaseOrderInput {
@@ -121,12 +138,17 @@ export function useReceivePurchaseOrder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, lines }: { id: string; lines: Array<{ lineId: string; quantity: number }> }) => {
-      const res = await api.patch(`/purchasing/orders/${id}/receive`, { lines });
+    mutationFn: async ({ id, operationId, lines }: ReceivePurchaseOrderInput) => {
+      const res = await api.patch(`/purchasing/orders/${id}/receive`, { operationId, lines });
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-history'] });
+      queryClient.invalidateQueries({ queryKey: ['reorder-points'] });
     },
   });
 }
