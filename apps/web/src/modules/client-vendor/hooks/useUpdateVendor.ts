@@ -5,11 +5,11 @@ export interface UpdateVendorContactInput {
   id?: string;
   fullName: string;
   position?: string;
-  email?: string;
-  phone?: string;
-  mobile?: string;
-  identificationType?: string;
-  identificationNumber?: string;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  identificationType?: string | null;
+  identificationNumber?: string | null;
   isPrimary?: boolean;
 }
 
@@ -18,12 +18,15 @@ export interface UpdateVendorInput {
   documentId?: string;
   identificationType?: string;
   taxId?: string;
+  email?: string | null;
+  phone?: string | null;
   commercialName?: string;
   website?: string;
   metadataNotes?: string;
   paymentTerms?: string;
   deliveryDays?: number;
   categoryIds?: string[];
+  address?: { country: string; state: string; city: string; addressLine: string; reference?: string } | null;
   contacts?: UpdateVendorContactInput[];
 }
 

@@ -619,7 +619,26 @@
       "position": "Role / Position",
       "primary": "Primary",
       "vendor": "Vendor",
-      "customer": "Customer"
+      "customer": "Customer",
+      "legalName": "Legal name",
+      "legalNameRequired": "Legal name is required",
+      "saveSuccess": "Changes saved",
+      "saveError": "Could not save changes",
+      "address": "Address",
+      "addressLine": "Address",
+      "addressReference": "Reference",
+      "addressCity": "City",
+      "addressState": "State",
+      "addressCountry": "Country",
+      "noAddress": "No address registered",
+      "addressIncomplete": "Complete city, state and country to save the address",
+      "addContact": "Add contact",
+      "removeContact": "Remove",
+      "contactsHint": "Supplier contacts",
+      "noCategories": "No categories",
+      "categoriesPlaceholder": "Select categories",
+      "mobile": "Mobile",
+      "identificationNumber": "Identification"
     }
   },
   "hr": {

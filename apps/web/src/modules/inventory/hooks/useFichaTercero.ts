@@ -9,6 +9,19 @@ export interface ThirdPartyContact {
   position: string | null;
   email: string | null;
   phone: string | null;
+  mobile?: string | null;
+  identificationType?: string | null;
+  identificationNumber?: string | null;
+  isPrimary: boolean;
+}
+
+export interface ThirdPartyAddress {
+  id: string;
+  line1: string;
+  line2?: string | null;
+  city: string;
+  state: string;
+  country: string;
   isPrimary: boolean;
 }
 
@@ -29,6 +42,7 @@ export interface ThirdPartyDetail {
   isActive?: boolean;
   categories?: { id: string; name: string }[];
   contacts?: ThirdPartyContact[];
+  address?: ThirdPartyAddress | null;
   createdAt?: string;
 }
 

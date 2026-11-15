@@ -34,7 +34,18 @@ export class Vendor {
     public readonly categoryIds: string[] = [],
     public readonly categories: { id: string; name: string }[] = [],
     public readonly contacts: VendorContact[] = [],
+    public readonly address: VendorAddress | null = null,
   ) {}
+}
+
+export interface VendorAddress {
+  id: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  state: string;
+  country: string;
+  isPrimary: boolean;
 }
 
 export interface VendorContact {

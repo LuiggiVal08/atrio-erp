@@ -31,7 +31,7 @@ export interface VendorAddressInput {
   reference?: string;
 }
 
-export type UpdateVendorData = Partial<Omit<Vendor, 'id' | 'tenantId' | 'createdAt' | 'contacts'>> & {
+export type UpdateVendorData = Partial<Omit<Vendor, 'id' | 'tenantId' | 'createdAt' | 'contacts' | 'address'>> & {
   tenantId?: string;
   updatedById?: string;
   contacts?: UpdateVendorContactData[];

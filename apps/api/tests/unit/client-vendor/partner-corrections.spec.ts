@@ -67,6 +67,16 @@ describe('Partner corrections', () => {
     }));
   });
 
+  it('exposes the fiscal address and extended contact fields from the partner', () => {
+    const mapper = new PartnerToVendorMapper();
+    const vendor = mapper.toVendor({
+      ...partner,
+      addresses: [{ id: 'a1', type: 'FISCAL', line1: 'Av. Principal', line2: 'Torre 2', city: 'Caracas', state: 'Miranda', country: 'VE', postalCode: null, isPrimary: true, deletedAt: null }],
+    } as any);
+    expect(vendor.address).toMatchObject({ line1: 'Av. Principal', line2: 'Torre 2', city: 'Caracas', state: 'Miranda', country: 'VE' });
+    expect(vendor.contacts[0]).toMatchObject({ mobile: '456', identificationNumber: 'V123' });
+  });
+
   it('returns server pagination and total rather than a first-100 subset', async () => {
     const { repo } = setup();
     const service = new PartnerService({} as any, repo);

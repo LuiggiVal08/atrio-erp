@@ -65,6 +65,19 @@ export class PartnerToVendorMapper {
         identificationNumber: c.identificationNumber ?? null,
         isPrimary: c.isPrimary,
       })),
+      (() => {
+        const address = p.addresses?.find((a) => !a.deletedAt && a.type === 'FISCAL')
+          ?? p.addresses?.find((a) => !a.deletedAt);
+        return address ? {
+          id: address.id,
+          line1: address.line1,
+          line2: address.line2 ?? null,
+          city: address.city,
+          state: address.state,
+          country: address.country,
+          isPrimary: address.isPrimary,
+        } : null;
+      })(),
     );
   }
 

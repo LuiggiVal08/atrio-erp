@@ -25,6 +25,11 @@ interface VendorFormState {
   paymentTerms: string;
   deliveryDays: string;
   metadataNotes: string;
+  addressLine: string;
+  addressCity: string;
+  addressState: string;
+  addressCountry: string;
+  addressReference: string;
 }
 
 interface ContactDraft {
@@ -34,6 +39,8 @@ interface ContactDraft {
   position: string;
   email: string;
   phone: string;
+  mobile: string;
+  identificationNumber: string;
   isPrimary: boolean;
 }
 
@@ -49,6 +56,11 @@ const emptyForm: VendorFormState = {
   paymentTerms: '',
   deliveryDays: '',
   metadataNotes: '',
+  addressLine: '',
+  addressCity: '',
+  addressState: '',
+  addressCountry: 'VE',
+  addressReference: '',
 };
 
 const labelClass = 'text-xs text-text-secondary';
@@ -106,6 +118,11 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
       paymentTerms: ficha.paymentTerms ?? '',
       deliveryDays: ficha.deliveryDays != null ? String(ficha.deliveryDays) : '',
       metadataNotes: ficha.metadataNotes ?? '',
+      addressLine: ficha.address?.line1 ?? '',
+      addressCity: ficha.address?.city ?? '',
+      addressState: ficha.address?.state ?? '',
+      addressCountry: ficha.address?.country ?? 'VE',
+      addressReference: ficha.address?.line2 ?? '',
     });
     setCategoryIds(fichaCategories.map((category) => category.id));
     setContactDrafts(
@@ -116,6 +133,8 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
         position: contact.position ?? '',
         email: contact.email ?? '',
         phone: contact.phone ?? '',
+        mobile: contact.mobile ?? '',
+        identificationNumber: contact.identificationNumber ?? '',
         isPrimary: contact.isPrimary,
       })),
     );
@@ -133,6 +152,8 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
         position: 'Ventas',
         email: '',
         phone: '',
+        mobile: '',
+        identificationNumber: '',
         isPrimary: !prev.some((contact) => contact.isPrimary),
       },
     ]);
@@ -163,6 +184,11 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
       toastService.error(t('crm.ficha.legalNameRequired'));
       return;
     }
+    const addressLine = form.addressLine.trim();
+    if (addressLine && (!form.addressCity.trim() || !form.addressState.trim() || !form.addressCountry.trim())) {
+      toastService.error(t('crm.ficha.addressIncomplete'));
+      return;
+    }
     const validContacts = contactDrafts.filter((contact) => contact.fullName.trim());
     try {
       await updateVendor.mutateAsync({
@@ -171,18 +197,29 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
         documentId: form.documentId.trim() || undefined,
         identificationType: form.identificationType || undefined,
         taxId: form.taxId.trim() || form.documentId.trim() || undefined,
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
         commercialName: form.commercialName.trim() || undefined,
         website: form.website.trim() || undefined,
         metadataNotes: form.metadataNotes.trim() || undefined,
         paymentTerms: form.paymentTerms || undefined,
         deliveryDays: form.deliveryDays ? Number(form.deliveryDays) : undefined,
         categoryIds,
+        address: addressLine ? {
+          country: form.addressCountry.trim(),
+          state: form.addressState.trim(),
+          city: form.addressCity.trim(),
+          addressLine,
+          reference: form.addressReference.trim() || undefined,
+        } : null,
         contacts: validContacts.map((contact) => ({
           id: contact.id,
           fullName: contact.fullName.trim(),
           position: contact.position || undefined,
-          email: contact.email.trim() || undefined,
-          phone: contact.phone.trim() || undefined,
+          email: contact.email.trim() || null,
+          phone: contact.phone.trim() || null,
+          mobile: contact.mobile.trim() || null,
+          identificationNumber: contact.identificationNumber.trim() || null,
           isPrimary: contact.isPrimary,
         })),
       });
@@ -307,6 +344,29 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
           )}
         </section>
 
+        <section className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="mb-4 text-sm font-bold text-text-primary">{t('crm.ficha.address')}</h2>
+          {editing ? (
+            <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+              <FieldInput label={t('crm.ficha.addressLine')} value={form.addressLine} onChange={(value) => setForm({ ...form, addressLine: value })} />
+              <FieldInput label={t('crm.ficha.addressReference')} value={form.addressReference} onChange={(value) => setForm({ ...form, addressReference: value })} />
+              <FieldInput label={t('crm.ficha.addressCity')} value={form.addressCity} onChange={(value) => setForm({ ...form, addressCity: value })} />
+              <FieldInput label={t('crm.ficha.addressState')} value={form.addressState} onChange={(value) => setForm({ ...form, addressState: value })} />
+              <FieldInput label={t('crm.ficha.addressCountry')} value={form.addressCountry} onChange={(value) => setForm({ ...form, addressCountry: value })} />
+            </div>
+          ) : ficha.address ? (
+            <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+              <Field label={t('crm.ficha.addressLine')} value={ficha.address.line1} />
+              <Field label={t('crm.ficha.addressReference')} value={ficha.address.line2} />
+              <Field label={t('crm.ficha.addressCity')} value={ficha.address.city} />
+              <Field label={t('crm.ficha.addressState')} value={ficha.address.state} />
+              <Field label={t('crm.ficha.addressCountry')} value={ficha.address.country} />
+            </div>
+          ) : (
+            <p className="text-xs text-text-secondary">{t('crm.ficha.noAddress')}</p>
+          )}
+        </section>
+
         {isVendor && (
           <section className="rounded-lg border border-border bg-surface p-6">
             <h2 className="mb-3 text-sm font-bold text-text-primary">{t('crm.ficha.categories')}</h2>
@@ -405,6 +465,26 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
                           className={inputClass}
                         />
                       </div>
+                      <div>
+                        <label className={labelClass} htmlFor={`contact-mobile-${contact.key}`}>{t('crm.ficha.mobile')}</label>
+                        <input
+                          id={`contact-mobile-${contact.key}`}
+                          type="tel"
+                          value={contact.mobile}
+                          onChange={(event) => updateContact(contact.key, { mobile: event.target.value })}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass} htmlFor={`contact-id-${contact.key}`}>{t('crm.ficha.identificationNumber')}</label>
+                        <input
+                          id={`contact-id-${contact.key}`}
+                          type="text"
+                          value={contact.identificationNumber}
+                          onChange={(event) => updateContact(contact.key, { identificationNumber: event.target.value })}
+                          className={inputClass}
+                        />
+                      </div>
                       <div className="flex items-center justify-between sm:col-span-2">
                         <label className="flex items-center gap-2 text-xs text-text-secondary">
                           <input type="radio" name="primary-contact" checked={contact.isPrimary} onChange={() => setPrimaryContact(contact.key)} />
@@ -443,6 +523,8 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
                     </div>
                     <Field label={t('crm.ficha.email')} value={contact.email} />
                     <Field label={t('crm.ficha.phone')} value={contact.phone} />
+                    <Field label={t('crm.ficha.mobile')} value={contact.mobile} />
+                    <Field label={t('crm.ficha.identificationNumber')} value={contact.identificationNumber} />
                   </li>
                 ))}
               </ul>

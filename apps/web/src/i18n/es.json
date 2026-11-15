@@ -619,7 +619,26 @@
       "position": "Rol / Puesto",
       "primary": "Principal",
       "vendor": "Proveedor",
-      "customer": "Cliente"
+      "customer": "Cliente",
+      "legalName": "Razón social",
+      "legalNameRequired": "La razón social es obligatoria",
+      "saveSuccess": "Cambios guardados",
+      "saveError": "No se pudieron guardar los cambios",
+      "address": "Dirección",
+      "addressLine": "Dirección",
+      "addressReference": "Referencia",
+      "addressCity": "Ciudad",
+      "addressState": "Estado",
+      "addressCountry": "País",
+      "noAddress": "Sin dirección registrada",
+      "addressIncomplete": "Completa ciudad, estado y país para guardar la dirección",
+      "addContact": "Agregar contacto",
+      "removeContact": "Eliminar",
+      "contactsHint": "Contactos del proveedor",
+      "noCategories": "Sin categorías",
+      "categoriesPlaceholder": "Seleccionar categorías",
+      "mobile": "Móvil",
+      "identificationNumber": "Identificación"
     }
   },
   "hr": {
