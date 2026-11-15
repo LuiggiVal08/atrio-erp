@@ -17,6 +17,6 @@ export const POSITION_REPOSITORY = 'POSITION_REPOSITORY';
       inject: [POSITION_REPOSITORY],
     },
   ],
-  exports: [],
+  exports: [POSITION_REPOSITORY],
 })
 export class OrganizationModule {}

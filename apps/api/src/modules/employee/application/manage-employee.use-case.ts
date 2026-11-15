@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   EmployeePaymentDetailsData,
   EmployeeRepository,
@@ -5,7 +6,10 @@ import {
 } from '../domain/employee.repository.interface';
 
 export class ManageEmployeeUseCase {
-  constructor(private readonly employeeRepository: EmployeeRepository) {}
+  constructor(
+    private readonly employeeRepository: EmployeeRepository,
+    private readonly events?: EventEmitter2,
+  ) {}
 
   async create(dto: CreateEmployeeData) {
     return this.employeeRepository.create(dto);
@@ -39,10 +43,12 @@ export class ManageEmployeeUseCase {
   async softDelete(id: string) {
     const employee = await this.employeeRepository.findById(id);
     if (!employee || employee.deletedAt) throw new Error('Employee not found');
-    return this.employeeRepository.update(id, {
+    const updated = await this.employeeRepository.update(id, {
       deletedAt: new Date(),
       status: 'inactive',
     } as any);
+    await this.emitDeactivated(employee, true);
+    return updated;
   }
 
   async update(id: string, data: Partial<{
@@ -54,7 +60,20 @@ export class ManageEmployeeUseCase {
   }>) {
     const employee = await this.employeeRepository.findById(id);
     if (!employee || employee.deletedAt) throw new Error('Employee not found');
-    return this.employeeRepository.update(id, data as any);
+    const updated = await this.employeeRepository.update(id, data as any);
+    if (data.status === 'inactive' && employee.status !== 'inactive') {
+      await this.emitDeactivated(employee, false);
+    }
+    return updated;
+  }
+
+  private async emitDeactivated(employee: { id: string; tenantId: string }, deleted: boolean) {
+    await this.events?.emitAsync('employee.deactivated', {
+      employeeId: employee.id,
+      tenantId: employee.tenantId,
+      deleted,
+      effectiveDate: new Date().toISOString().slice(0, 10),
+    });
   }
 
   async createDepartment(data: { tenantId: string; name: string; description?: string }) {

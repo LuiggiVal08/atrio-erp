@@ -3,6 +3,7 @@ import { EmployeeRepository } from '../../src/modules/employee/domain/employee.r
 
 describe('ManageEmployeeUseCase', () => {
   let manageEmployeeUseCase: ManageEmployeeUseCase;
+  const mockEvents = { emitAsync: jest.fn().mockResolvedValue([]) };
 
   const mockEmployeeRepo: EmployeeRepository = {
     create: jest.fn(),
@@ -22,7 +23,7 @@ describe('ManageEmployeeUseCase', () => {
   };
 
   beforeEach(async () => {
-    manageEmployeeUseCase = new ManageEmployeeUseCase(mockEmployeeRepo);
+    manageEmployeeUseCase = new ManageEmployeeUseCase(mockEmployeeRepo, mockEvents as any);
     jest.clearAllMocks();
   });
 
@@ -98,15 +99,42 @@ describe('ManageEmployeeUseCase', () => {
       (mockEmployeeRepo.findById as jest.Mock).mockResolvedValue(null);
       await expect(manageEmployeeUseCase.update('missing', { firstName: 'X' })).rejects.toThrow('Employee not found');
     });
+
+    it('terminates employment when the identity is deactivated', async () => {
+      (mockEmployeeRepo.findById as jest.Mock).mockResolvedValue({ id: 'emp-1', tenantId: 't1', status: 'active', deletedAt: null });
+      (mockEmployeeRepo.update as jest.Mock).mockResolvedValue({ id: 'emp-1', status: 'inactive' });
+
+      await manageEmployeeUseCase.update('emp-1', { status: 'inactive' });
+
+      expect(mockEvents.emitAsync).toHaveBeenCalledWith('employee.deactivated', expect.objectContaining({
+        employeeId: 'emp-1',
+        tenantId: 't1',
+        deleted: false,
+      }));
+    });
+
+    it('does not terminate employment for unrelated updates', async () => {
+      (mockEmployeeRepo.findById as jest.Mock).mockResolvedValue({ id: 'emp-1', tenantId: 't1', status: 'active', deletedAt: null });
+      (mockEmployeeRepo.update as jest.Mock).mockResolvedValue({ id: 'emp-1', firstName: 'Ana' });
+
+      await manageEmployeeUseCase.update('emp-1', { firstName: 'Ana' });
+
+      expect(mockEvents.emitAsync).not.toHaveBeenCalled();
+    });
   });
 
   describe('softDelete', () => {
     it('should soft delete an employee', async () => {
-      (mockEmployeeRepo.findById as jest.Mock).mockResolvedValue({ id: 'emp-1', deletedAt: null });
+      (mockEmployeeRepo.findById as jest.Mock).mockResolvedValue({ id: 'emp-1', tenantId: 't1', status: 'active', deletedAt: null });
       (mockEmployeeRepo.update as jest.Mock).mockResolvedValue({ id: 'emp-1', deletedAt: new Date(), status: 'inactive' });
 
       const result = await manageEmployeeUseCase.softDelete('emp-1');
       expect(result.status).toBe('inactive');
+      expect(mockEvents.emitAsync).toHaveBeenCalledWith('employee.deactivated', expect.objectContaining({
+        employeeId: 'emp-1',
+        tenantId: 't1',
+        deleted: true,
+      }));
     });
   });
 

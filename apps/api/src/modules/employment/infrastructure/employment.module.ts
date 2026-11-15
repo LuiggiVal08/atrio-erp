@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { OrganizationModule } from '../../organization/infrastructure/organization.module';
+import { EmployeeLifecycleListener } from './employee-lifecycle.listener';
 import { EmployeeTenantGuard } from '../../employee/infrastructure/employee-tenant.guard';
 import { EmploymentController } from './employment.controller';
 import { ContractController } from './contract.controller';
@@ -15,9 +17,11 @@ export const CONTRACT_REPOSITORY = 'CONTRACT_REPOSITORY';
 export const COMPENSATION_REPOSITORY = 'COMPENSATION_REPOSITORY';
 
 @Module({
+  imports: [OrganizationModule],
   controllers: [EmploymentController, ContractController, CompensationController],
   providers: [
     EmployeeTenantGuard,
+    EmployeeLifecycleListener,
     { provide: EMPLOYMENT_REPOSITORY, useClass: PrismaEmploymentRepository },
     { provide: CONTRACT_REPOSITORY, useClass: PrismaContractRepository },
     { provide: COMPENSATION_REPOSITORY, useClass: PrismaCompensationRepository },
