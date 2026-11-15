@@ -1,0 +1,114 @@
+# Auditoría de inventario — seguimiento de correcciones
+
+Fecha: 2026-11-14. Alcance: todos los archivos de `apps/web/src/modules/inventory`, rutas activas, contratos API e integraciones relevantes con compras, ventas, organización, empleo y localización.
+
+Este documento responde una pregunta: **qué se encontró, qué se corregirá y qué está realmente verificado**. Se conserva el trabajo previo sin commit. No se ejecutan migraciones sobre bases de datos compartidas ni se crean commits sin autorización específica.
+
+## Estado y criterio de cierre
+
+- `[ ]` OPEN: pendiente. `IN PROGRESS`: implementación en curso, todavía no validada.
+- `[x]` VALIDATED/CLOSED: código revisado y pruebas pertinentes aprobadas; los cambios visuales requieren comprobación en navegador.
+- Una capacidad no implementada no se marca resuelta por documentarla ni por añadir un estado o botón.
+- Los bugs demostrados por código se distinguen de reproducciones en navegador y de brechas funcionales.
+- Los límites deliberados de ADR-0012 no son bugs: stock por bin exige decisión arquitectónica antes de cambiar su granularidad.
+
+## Línea base
+
+- [x] Leer módulo completo y contratos relevantes, sin modificar código durante la auditoría.
+- [x] Documentar todos los hallazgos antes de iniciar correcciones.
+- Web: TypeScript correcto; 83 pruebas unitarias de inventario aprobadas.
+- API: 731 pruebas unitarias aprobadas en 116 suites.
+- Playwright inventario: 6 aprobadas y 7 fallidas. Fallos: selectores antiguos, generación de barcode ausente y formulario de almacén vacío.
+- Reproducción adicional: HTTP 403 en low-stock muestra indicador verde «Sin alertas de reposición».
+- Las pruebas de navegador utilizan API simulada. No se validaron migraciones desplegadas ni operaciones contra una base real.
+
+## P0 — aislamiento e integridad
+
+- [ ] **INV-001 — Tenant en operaciones de inventario por ID.** OPEN. Productos, categorías, ajustes, consultas individuales, transferencias y puntos de reposición deben validar tenant efectivo y pertenencia de todas las relaciones. Evidencia: `inventory.controller.ts:314-385`, `prisma-inventory.repository.ts:150-162,464-477,581-699`. Aceptación: lecturas/escrituras ajenas rechazadas sin alterar saldo.
+- [ ] **INV-002 — Tenant en empleados y terceros.** OPEN. Las rutas de empleados aceptan tenant de URL y recursos por ID sin validación suficiente; detalles de Partner consultan solamente por ID. Aceptación: URL, recurso y contexto efectivo coinciden.
+- [ ] **INV-003 — Cambio de empresa y sesión.** OPEN. Auth cambia token/localStorage pero no el tenant persistido que Axios prioriza; logout no limpia caché. Evidencia: `core/auth/store.ts:57-89`, `shared/lib/api/client.ts:36-41`. Aceptación: sincronización del contexto y cancelación/limpieza de consultas al cambiar identidad.
+- [ ] **INV-004 — Ajustes atómicos.** OPEN. Saldo, lote y movimiento se guardan por separado; salidas concurrentes pueden producir negativos. Evidencia: `stock.service.ts:20-53`. Aceptación: transacción completa y descuento condicionado, rollback ante cualquier error.
+- [ ] **INV-005 — Idempotencia de movimientos e integración.** OPEN. Reintentar un evento puede repetir saldo ya modificado; compras/ventas requieren referencia estable de operación. Evidencia: `stock-event-handler.ts:148-159`. Aceptación: repetir una operación/evento no crea un segundo movimiento ni modifica nuevamente saldo.
+- [ ] **INV-006 — Disponibilidad y metadatos de lotes.** OPEN. Una salida puede consumir lote insuficiente o inexistente; campos omitidos borran serie/caducidad. Evidencia: `prisma-inventory.repository.ts:481-486`. Aceptación: lote suficiente, sin borrado implícito y coherencia con saldo global.
+- [ ] **INV-007 — Traslado de lotes y trazabilidad.** OPEN. Completar mueve saldo sin lotes; movimientos no guardan actor ni saldos antes/después. Evidencia: `prisma-inventory.repository.ts:601-636`. Aceptación: trazabilidad y cantidades por lote preservadas en origen/destino, transaccionalmente.
+- [x] **INV-008 — Contrato de cantidades y tipo.** VALIDATED. DTO admite cantidades fraccionarias positivas y finitas, enumera entrada/salida y valida caducidad ISO; schema web alineado. Regresiones de API (`inventory-integrity.spec.ts`) y registro/conteo fraccionario en navegador (`stock-operations.spec.ts`) aprobados.
+- [ ] **INV-009 — Recepción de compra desde UI.** OPEN. Botón Recibir envía líneas vacías y no suma stock. Evidencia: `PurchaseOrderDetailView.tsx:44`, `purchase-order.service.ts:204-214`. Aceptación: recepción captura producto/almacén/cantidad y actualiza inventario exactamente una vez.
+- [ ] **INV-010 — Recepción parcial incremental.** OPEN. Eventos publican cantidades acumuladas y remanentes de líneas omitidas. Evidencia: `purchase-order.service.ts:145-150,178-198`. Aceptación: recibir 3 y luego 2 genera entradas 3 y 2; línea omitida no se recibe; cantidades y estado se guardan atómicamente.
+- [ ] **INV-011 — Devoluciones y compensaciones.** OPEN. Proveedor descuenta al crear, antes de procesar; cliente emite al aprobar y completar; mercancía dañada solo se registra en log. Aceptación: un momento efectivo por devolución, idempotencia y destino físico explícito; cancelar documentos no revierte stock sin contrato de dominio aprobado.
+
+## P1 — operación física y reposición
+
+- [ ] **INV-012 — Inventario inicial.** OPEN — brecha. Ajuste nace solamente desde una fila existente. Aceptación: registrar primer saldo producto–almacén con motivo y movimiento, sin sembrado técnico.
+- [ ] **INV-013 — Conteo físico y conciliación.** OPEN — brecha. Aceptación: cantidad contada, diferencia calculada, motivo, control de concurrencia y movimiento auditable; no sustituir entradas/salidas manualmente.
+- [ ] **INV-014 — Despacho y recepción de traslado.** OPEN — brecha. Completar es movimiento inmediato, no mercancía en tránsito. Aceptación: flujo explícito, recepción parcial y faltantes; no inventar estados terminales sin ADR.
+- [ ] **INV-015 — Físico, comprometido y disponible.** OPEN — brecha. Stock solo almacena cantidad y traslados pendientes no reservan. Aceptación: política explícita de compromiso y protección frente a ventas concurrentes; integrar todos los consumidores, no solamente mostrar una columna.
+- [x] **INV-016 — Ubicación de producto.** VALIDATED dentro del límite de ADR-0012: stock por almacén, no por bin. El detalle comunica ese límite explícitamente y mantiene el árbol como estructura física; verificado en `warehouse-layout.spec.ts`. No se ha implementado ni se promete asignación de productos/lotes a bins.
+- [ ] **INV-017 — Reposición coherente y accionable.** OPEN. Salud utiliza límites globales, alertas límites por almacén y operadores distintos (`<`/`<=`); UI muestra contador sin lista accionable. Aceptación: precedencia local/global única, límites consistentes, faltantes identificados y cantidad sugerida.
+- [ ] **INV-018 — Invariantes de baja/reactivación.** OPEN. PATCH permite padre de ubicación inactivo con hijos activos; almacén default puede desactivarse sin reemplazo; no se valida sucursal activa al reasignar/reactivar. Evidencia: `storage-location.service.ts:74-121`, `warehouse.service.ts:25-49`. Aceptación: mismas reglas en todas las rutas, operaciones nuevas bloqueadas en inactivos, conservación del historial.
+- [ ] **INV-019 — Generador de ubicaciones.** OPEN. Límite cuenta bins, no todos los nodos; escrituras/códigos no atómicos. Evidencia: `storage-location.service.ts:132-168`. Aceptación: contar nodos totales, generación atómica o recuperación explícita, códigos sin conflicto concurrente.
+- [x] **INV-020 — Precisión y agregación de unidades.** VALIDATED. API suma cantidades con aritmética decimal sin redondeo monetario; UI conserva decimales y etiqueta sumas mixtas sin conversión, sin contadores intermedios engañosos. Regresión de suma 1842.375001 aprobada en `inventory-summary.service.spec.ts`; cantidades 0.123456 y 640.125 y advertencia de unidades verificadas en navegador.
+- [ ] **INV-021 — Caché de operaciones físicas.** OPEN. Traslado solo invalida transferencias; ajustes omiten alertas/resúmenes; reasignación conserva branchId anterior en saldos. Evidencia: `useTransfers.ts:49`, `useStockMovements.ts:78-83`. Aceptación: stock, movimientos, productos, alertas y resúmenes reflejan la operación inmediatamente.
+- [ ] **INV-022 — Caché de catálogo y refresco.** OPEN. Renombrar categoría no invalida nombres embebidos; refrescar productos no refresca KPI. Aceptación: lista, detalle y resúmenes actualizados conjuntamente.
+- [ ] **INV-023 — Estados de lectura físicos.** OPEN. Error low-stock muestra señal verde; fallo de resumen mantiene skeleton indefinidamente; listas/árbol no presentan fallos. Aceptación: carga, vacío confirmado, datos antiguos y error distinguibles con reintento.
+- [ ] **INV-024 — Estados de lectura de catálogo y auxiliares.** OPEN. Errores aparentan arrays vacíos/no encontrado en catálogo, terceros, empleados, impuestos y tasas. Aceptación: diferenciar 404, 403 y desconexión, sin borrar datos disponibles.
+- [x] **INV-025 — Edición del almacén.** VALIDATED. Precarga nombre/código/sucursal, cancelar descarta cambios y reabrir recupera los datos reales. Guardar conserva código/sucursal; comprobado con bindings TanStack reales y Playwright en escritorio y móvil (`warehouse-branch.spec.tsx`, `warehouse-layout.spec.ts`).
+- [x] **INV-026 — Historial completo consultable.** VALIDATED con API simulada. Filtros por producto, almacén, sucursal, búsqueda y fechas se aplican antes de paginar; total real, orden estable e identidades dadas de baja preservadas. DTO rechaza fechas/páginas/tipos inválidos. `prisma-inventory.repository.movements.spec.ts` cubre página 21 de 650 registros e identidades inactivas; Playwright verifica fechas/sucursal y reinicio de página al filtrar.
+- [ ] **INV-027 — Auditoría de estado anterior.** OPEN. Interceptor guarda body como `before` y deriva tipo de entidad del último segmento de URL. Aceptación: entidad/actor/recurso y estado anterior real; auditabilidad de las operaciones relevantes.
+
+## P1/P2 — catálogo y medios
+
+- [ ] **INV-028 — Límites de stock nulos.** OPEN. Vaciar mínimo/reposición envía null a campos no anulables. Evidencia: `ProductDetailView.tsx:227-229`, `schema.prisma:457-459`. Aceptación: cero o valor obligatorio, null solo donde está admitido; reglas mínimo/máximo coherentes.
+- [ ] **INV-029 — Validación de producto y conversión.** OPEN. Cero se convierte silenciosamente en uno; formularios no usan schemas de producto/marca. Aceptación: validación explícita alineada con DTO, sin sustituir valores inválidos.
+- [ ] **INV-030 — Barcode y generación interna.** OPEN. API permite texto incompatible con CODE128; fallback puede derribar ficha. Botón de generación interna para producto existente está ausente pese a endpoint/tests. Aceptación: alfabeto válido, error recuperable y generación/impresión de producto sin barcode.
+- [ ] **INV-031 — Imagen legacy.** OPEN. Proyección Product omite imageUrl que usa fallback del detalle. Aceptación: imagen existente visible y convivencia clara con galería, sin migración destructiva.
+- [ ] **INV-032 — Galería y carga parcial.** OPEN. Upload/delete carecen de feedback; varios archivos se persisten secuencialmente y un fallo/reintento puede duplicarlos; input admite formatos rechazados. Aceptación: formatos compatibles, feedback, reconciliación e idempotencia/atomicidad de la carga.
+- [ ] **INV-033 — Jerarquía de categorías.** OPEN. Quitar padre envía undefined; API permite ciclos y autorreferencias. Evidencia: `CategoryListView.tsx:85,128`, `product-category.service.ts:16-17`. Aceptación: null para desvincular, padre del mismo tenant y árbol acíclico.
+- [ ] **INV-034 — Unicidad de SKU por empresa.** OPEN. `sku @unique` es global. Aceptación: unicidad por tenant y política explícita de identidad/baja; migración no destructiva.
+- [ ] **INV-035 — Ordenamientos reales.** OPEN. Stock/categoría/activo anunciados como ordenables pero API ignora; agrupación tampoco aplica orden. Aceptación: órdenes soportados con desempate estable o controles retirados cuando no aplican.
+- [ ] **INV-036 — Historia de costo.** OPEN. Cada edición que envía costo inserta historia, incluso sin cambio; producto e historia no son atómicos. Aceptación: solo cambios reales, transacción y contexto temporal; no presentar costo actual como costo promedio contable.
+- [ ] **INV-037 — Contexto multi-almacén del producto.** OPEN — brecha. Catálogo agrega saldos y detalle no muestra desglose. Aceptación: existencia por almacén/unidad y acceso al historial, diferenciando salud global/local.
+- [ ] **INV-038 — Moneda y unidad de precios.** OPEN — brecha. Ficha/etiqueta no explicitan contexto monetario y por unidad. Aceptación: moneda base, unidad de venta/compra y factor explícitos.
+- [ ] **INV-039 — Proveedor principal.** OPEN — brecha. API lo permite, formularios no lo exponen. Aceptación: selección de proveedor válida dentro del tenant, junto con referencia de proveedor.
+- [ ] **INV-040 — Controles según permisos.** OPEN. Crear/editar/crear marca-categoría inline visibles para lectores; rechazo inline no se captura. Aceptación: permisos de cada acción y errores recuperables; esto no sustituye RBAC servidor.
+
+## P1/P2 — vistas auxiliares aún activas
+
+- [x] **INV-041 — Reutilizar organización al contratar.** VALIDATED. `EmployeeFormView` envía `departmentId`/`positionId` seleccionados y solo manda estructura nueva cuando el usuario la crea explícitamente; el hook ya no recrea departamento/cargo. `employee-fixes.spec.tsx` verifica una única llamada con IDs existentes sin propiedades `department`/`position`, y otra con estructura nueva explícita.
+- [x] **INV-042 — Alta laboral atómica y recuperable.** VALIDATED. `EmployeeSetupService` valida referencias, fechas, salario y contrato dentro de una transacción `Serializable` con reintento e idempotencia por huella; la UI emite un solo `POST /tenants/:tenantId/employees/setup`. `employee-audit.spec.ts` (17 pruebas) y `employee-fixes.spec.tsx` cubren reintento con mismo ID, validación previa y ausencia de peticiones parciales.
+- [x] **INV-043 — Compensación temporal.** VALIDATED. Editar el salario en una ficha existente crea un acuerdo versionado vía `POST /employment-relationships/:id/compensation/:agreementId/adjust` con fecha, moneda y motivo; el `PATCH` de identidad ya no envía `baseSalary`. `employee-fixes.spec.tsx` verifica el payload y que no se mute la identidad.
+- [x] **INV-044 — Fecha de ingreso, moneda y detalle laboral.** VALIDATED. `hireDate` se envía en el `PATCH` y el hook invalida `['employee', id]` y `['employees']`; la moneda del acuerdo vigente alimenta el ajuste de compensación. `employee-fixes.spec.tsx` cubre persistencia, invalidación y moneda `EUR` del acuerdo.
+- [ ] **INV-045 — Ciclo laboral y contrato fijo.** OPEN — progreso. El contrato `FIXED_TERM` ahora exige y envía fecha de fin, y el alta la valida en API. Sigue pendiente que la baja/reactivación de identidad termine o reabra empleo y asignación mediante los flujos existentes; no se crean estados terminales nuevos.
+- [ ] **INV-046 — PATCH de proveedor sin pérdida de datos.** OPEN. Guardar contactos omite móvil/identificación y adaptador los borra; email/teléfono general no se guardan; vaciar opcionales no elimina. Evidencia: `FichaTerceroView.tsx:111-120,168-187`, `partner-compatibility.adapter.ts:348-356`. Aceptación: cambios diferenciales, campos omitidos preservados y null explícito para borrar.
+- [ ] **INV-047 — Datos capturados de cliente.** OPEN. Dirección no se envía; adaptador no persiste nombres personales/contacto recibidos. Aceptación: identidad/contactos/direcciones capturados persisten y se muestran.
+- [ ] **INV-048 — Paginación de terceros.** OPEN. Servicio devuelve primera página de 100 sin total; web pagina subconjunto. Aceptación: navegación/búsqueda más allá de 100 y total real.
+- [ ] **INV-049 — Impuesto fijo y recuperación.** OPEN. Siempre divide por 100 y representa porcentaje; limpia formulario antes de confirmar éxito. Evidencia: `FiscalConfigView.tsx:16-26`. Aceptación: importe fijo intacto, unidad correcta y entrada retenida ante fallo.
+- [ ] **INV-050 — Código de departamento.** OPEN. UI exige/envía campo que DTO/modelo descartan. Aceptación: retirar control ficticio o persistir un contrato autorizado y consistente.
+- [ ] **INV-051 — Tasas y procedencia temporal.** OPEN — decisión/brecha. Misma fecha sobrescribe tasa sin proveedor/historial; «Personalizados» envía lo mismo que automático. Aceptación: comportamiento honesto de sincronización, procedencia/revisión explícita y no alterar valores históricos utilizados por documentos.
+
+## P2 — legado, accesibilidad y regresiones
+
+- [ ] **INV-052 — Código sin consumidores y duplicación.** OPEN. InventoryFormView simula estados locales; ProductImageUploader oculta Subir al llenar tres slots; CreditAlertBanner/ExchangeRateDisplay/useFiscalConfig/useSalaryHistory/stores auxiliares contienen contratos latentes o datos servidor duplicados. Aceptación: comprobar consumidores y eliminar código obsoleto o corregirlo si sigue activo, sin romper importaciones/tests.
+- [ ] **INV-053 — Claves de caché por tenant.** OPEN. Queries de referencia y transaccionales carecen de identidad de empresa. Aceptación: consultas segregadas por tenant/usuario y contexto reactivo consistente.
+- [ ] **INV-054 — Teclado, feedback y carga.** OPEN. Cabeceras de VirtualGrid ordenan solo al clic, controles y pestañas requieren navegación accesible, vistas antiguas usan loading textual. Aceptación: acciones accesibles por teclado, etiquetas y skeletons apropiados sin ocultar datos durante refetch.
+- [ ] **INV-055 — Pruebas E2E y regresiones.** OPEN. Selectores antiguos de Crear/Inactivo y generación interna ausente; formulario de almacén falla. Aceptación: tests actualizados sin debilitar assertions, caminos exitosos y errores/precisión/concurrencia/tenant cubiertos; navegador sin excepciones.
+
+## Secuencia de trabajo
+
+1. Aislamiento, contexto tenant, atomicidad y contratos de API.
+2. Recepción/devoluciones y trazabilidad de operaciones.
+3. Formularios, consultas/caché, catálogo e imágenes; regresiones de navegador.
+4. Vistas auxiliares y consistencia temporal de empleo/terceros/localización.
+5. Flujos operativos faltantes, respetando ADR y verificando todos los consumidores.
+6. Validación final: typecheck API/web, suites unitarias/contrato, pruebas de navegador y revisión de diff.
+
+## Registro de validación
+
+- 2026-11-14: auditoría estática completa, baseline de pruebas registrada y documento creado antes de implementar.
+- 2026-11-14: IN PROGRESS — integridad API, catálogo, almacenes, recepción, empleo y terceros en implementación paralela. Contexto de sesión y hooks físicos: 9 regresiones unitarias aprobadas (5 sesión, 4 stock/caché/paginación); sin cierres en esa primera tanda.
+- 2026-11-14: API dirigida: **47 suites / 449 pruebas aprobadas**, más `tsc --noEmit --incremental false`. Incluye inventario, terceros, alta laboral y compras; nuevas regresiones de rollback/cascada/generador, traslados con lotes y trazabilidad, historial paginado, barcode y precisión. Transacciones simuladas: **no prueban concurrencia real en PostgreSQL**.
+- 2026-11-14: Web dirigida: **20 archivos aprobados y 1 fallido; 135 pruebas aprobadas y 5 fallidas**. Fallos pendientes en `employee-fixes.spec.tsx`: etiquetas/selectores del alta, contrato fijo/salario, fecha de ingreso/caché y compensación versionada. No se retiran ni debilitan esas pruebas. Typecheck web aprobado.
+- 2026-11-14: Navegador Chromium: **21/21 aprobadas** — barcode 4, drawer de producto 4, stock 11, almacenes 2. Stock cubre primer saldo, reintento con mismo ID, conteo diferencial, conflicto 409, filtros servidor, error sin falso vacío, precisión, conteo sin cambios/salida insuficiente, datos conservados tras refetch fallido, móvil/teclado y cierre bloqueado durante guardado. Capturas de móvil revisadas; sin excepciones en el escenario móvil.
+- 2026-11-14: Cierres acotados: INV-008, INV-016, INV-020, INV-025 e INV-026. INV-004/005/007/012/013/018/019/021/023/054 siguen en curso: hay regresiones aprobadas, pero faltan migración local del esquema nuevo, eventos idempotentes, concurrencia real, validación integral de referencias y cobertura de todos los consumidores. No se han desplegado migraciones, creado commits ni hecho push.
+- 2026-11-14: Cierres de empleo: INV-041, INV-042, INV-043 e INV-044. `employee-fixes.spec.tsx` **6/6 aprobadas** tras asociar etiquetas a controles, validar contrato fijo/salario antes de emitir, reutilizar IDs de organización, enviar `hireDate`, invalidar lista+detalle y ajustar compensación versionada. Suite web completa: **50 archivos / 251 pruebas aprobadas**; typecheck web y API aprobados; `employee-audit.spec.ts` **17/17**. INV-045 queda parcial: fecha de fin de contrato fijo cubierta, baja de identidad aún no cierra empleo/asignación.
+
+Los checks se actualizarán con la prueba y el resultado específico; no con la intención de implementación.

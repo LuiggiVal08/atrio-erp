@@ -11,7 +11,7 @@ async function openProduct(page: Page, barcode: string | null) {
     localStorage.setItem('atrio-auth', JSON.stringify({
       state: {
         token: 'test-token',
-        user: { id: 'u-1', email: 'qa@atrio.test', name: 'QA', locale: 'es', enabledModules: [], permissions: [], tenantId: 't-1' },
+        user: { id: 'u-1', email: 'qa@atrio.test', name: 'QA', locale: 'es', enabledModules: [], permissions: ['inventory:product:update'], tenantId: 't-1' },
       },
       version: 0,
     }));

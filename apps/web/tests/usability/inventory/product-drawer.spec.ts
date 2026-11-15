@@ -5,7 +5,7 @@ async function openProductDrawer(page: Page) {
     localStorage.setItem('atrio-auth', JSON.stringify({
       state: {
         token: 'test-token',
-        user: { id: 'u-1', email: 'qa@atrio.test', name: 'QA', locale: 'es', enabledModules: [], permissions: [], tenantId: 't-1' },
+        user: { id: 'u-1', email: 'qa@atrio.test', name: 'QA', locale: 'es', enabledModules: [], permissions: ['inventory:product:create'], tenantId: 't-1' },
       },
       version: 0,
     }));
@@ -25,7 +25,7 @@ async function openProductDrawer(page: Page) {
     return route.fulfill({ json: [] });
   });
   await page.goto('/inventory/products');
-  await page.getByRole('button', { name: '+ Crear' }).click();
+  await page.getByRole('button', { name: 'Crear producto' }).click();
   const drawer = page.getByRole('dialog', { name: /Crear producto/ });
   await expect(drawer).toBeVisible();
   return drawer;
@@ -40,7 +40,7 @@ async function expectDockedRight(page: Page) {
 }
 
 test('opens on the right and closes with Escape, X and Cancel', async ({ page }) => {
-  const create = page.getByRole('button', { name: '+ Crear' });
+  const create = page.getByRole('button', { name: 'Crear producto' });
   const drawer = await openProductDrawer(page);
   await expect(drawer).toHaveAttribute('data-placement', 'right');
   await expectDockedRight(page);
@@ -101,7 +101,7 @@ test('retains inputs on failure and closes only after saving', async ({ page }) 
   await drawer.getByRole('button', { name: 'Guardar' }).click();
   await expect(drawer).toBeHidden();
   expect(submissions).toBe(2);
-  await page.getByRole('button', { name: '+ Crear' }).click();
+  await page.getByRole('button', { name: 'Crear producto' }).click();
   await expect(page.getByRole('dialog').getByLabel('SKU', { exact: true })).toHaveValue('');
 });
 
