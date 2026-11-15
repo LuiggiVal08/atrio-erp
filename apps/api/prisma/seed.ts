@@ -113,7 +113,16 @@ const PERMISSIONS = [
   { code: 'inventory:product:delete', name: 'Delete product', module: 'inventory', action: 'delete' },
   { code: 'inventory:warehouse:create', name: 'Create warehouse', module: 'inventory', action: 'create' },
   { code: 'inventory:warehouse:read', name: 'View warehouses', module: 'inventory', action: 'read' },
+  { code: 'inventory:warehouse:update', name: 'Edit warehouse', module: 'inventory', action: 'update' },
   { code: 'inventory:warehouse:delete', name: 'Delete warehouse', module: 'inventory', action: 'delete' },
+  { code: 'inventory:branch:create', name: 'Create branch', module: 'inventory', action: 'create' },
+  { code: 'inventory:branch:read', name: 'View branches', module: 'inventory', action: 'read' },
+  { code: 'inventory:branch:update', name: 'Edit branch', module: 'inventory', action: 'update' },
+  { code: 'inventory:branch:delete', name: 'Deactivate branch', module: 'inventory', action: 'delete' },
+  { code: 'inventory:location:create', name: 'Create storage location', module: 'inventory', action: 'create' },
+  { code: 'inventory:location:read', name: 'View storage locations', module: 'inventory', action: 'read' },
+  { code: 'inventory:location:update', name: 'Edit storage location', module: 'inventory', action: 'update' },
+  { code: 'inventory:location:delete', name: 'Delete storage location', module: 'inventory', action: 'delete' },
   { code: 'inventory:stock:read', name: 'View stock', module: 'inventory', action: 'read' },
   { code: 'inventory:stock:adjust', name: 'Adjust stock', module: 'inventory', action: 'update' },
   { code: 'inventory:transfer:cancel', name: 'Cancel transfer', module: 'inventory', action: 'update' },
@@ -144,6 +153,34 @@ const PERMISSIONS = [
   { code: 'documents:transition', name: 'Transition document state', module: 'documents', action: 'update' },
   { code: 'documents:delete', name: 'Delete document', module: 'documents', action: 'delete' },
 ];
+
+async function ensureStorageLocations(
+  client: PrismaClient,
+  tenantId: string,
+  warehouseId: string,
+  codes: { aisle: string; shelf: string; level: string; bin: string },
+) {
+  const chain = [
+    { type: 'AISLE' as const, code: codes.aisle, parentPath: null },
+    { type: 'SHELF' as const, code: codes.shelf, parentPath: codes.aisle },
+    { type: 'LEVEL' as const, code: codes.level, parentPath: `${codes.aisle}/${codes.shelf}` },
+    { type: 'BIN' as const, code: codes.bin, parentPath: `${codes.aisle}/${codes.shelf}/${codes.level}` },
+  ];
+
+  let parentId: string | null = null;
+  for (const node of chain) {
+    const path = node.parentPath ? `${node.parentPath}/${node.code}` : node.code;
+    const existing = await client.storageLocation.findFirst({ where: { warehouseId, path } });
+    if (existing) {
+      parentId = existing.id;
+      continue;
+    }
+    const created: { id: string } = await client.storageLocation.create({
+      data: { tenantId, warehouseId, parentId, type: node.type, code: node.code, path },
+    });
+    parentId = created.id;
+  }
+}
 
 async function main() {
   console.log('--- Iniciando Seed de Atrio ERP ---');
@@ -361,12 +398,16 @@ async function main() {
       code: 'SEDE-CCS',
       name: 'Sede Principal Caracas',
       address: 'Av. Francisco de Miranda, Edif. Parque Cristal, Caracas',
+      city: 'Caracas',
+      state: 'Distrito Capital',
       phone: '+58 212 285-1122',
     },
     {
       code: 'SUC-VAL',
       name: 'Sucursal Valencia',
       address: 'Av. Bolívar Norte, C.C. Camoruco, Valencia, Edo. Carabobo',
+      city: 'Valencia',
+      state: 'Carabobo',
       phone: '+58 241 824-3344',
     },
   ];
@@ -375,12 +416,14 @@ async function main() {
   for (const b of branchesData) {
     const branch = await prisma.branch.upsert({
       where: { tenantId_code: { tenantId: DEMO_TENANT_ID, code: b.code } },
-      update: { name: b.name, address: b.address, phone: b.phone },
+      update: { name: b.name, address: b.address, city: b.city, state: b.state, phone: b.phone },
       create: {
         tenantId: DEMO_TENANT_ID,
         code: b.code,
         name: b.name,
         address: b.address,
+        city: b.city,
+        state: b.state,
         phone: b.phone,
         isActive: true,
       },
@@ -431,16 +474,24 @@ async function main() {
           code: w.code,
           name: w.name,
           branchId: w.branchId,
-          aisle: w.aisle,
-          shelf: w.shelf,
-          level: w.level,
-          bin: w.bin,
           isActive: true,
         },
       });
     }
     warehouses[w.code] = wh;
+    await ensureStorageLocations(prisma, DEMO_TENANT_ID, wh.id, {
+      aisle: w.aisle,
+      shelf: w.shelf,
+      level: w.level,
+      bin: w.bin,
+    });
   }
+
+  await prisma.tenant.update({
+    where: { id: DEMO_TENANT_ID },
+    data: { defaultWarehouseId: warehouses['ALM-PRI'].id },
+  });
+
   console.log(`✓ Seeded ${Object.keys(warehouses).length} warehouses`);
 
   // 6. Inventory: Categories & Brands
@@ -1299,7 +1350,7 @@ async function main() {
     const supplierPartner = p.supplierName ? suppliers[p.supplierName] : null;
 
     const product = await prisma.product.upsert({
-      where: { sku: p.sku },
+      where: { tenantId_sku: { tenantId: DEMO_TENANT_ID, sku: p.sku } },
       update: {
         name: p.name,
         description: p.description,

@@ -273,6 +273,7 @@ model Tenant {
   subscriptionPlan SubscriptionPlan @default(free) @map("subscription_plan")
   status           TenantStatus     @default(active)
   enabledModules   String[]         @default([]) @map("enabled_modules")
+  defaultWarehouseId String?        @unique @map("default_warehouse_id") @db.Uuid
   settings         Json?
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
@@ -288,7 +289,9 @@ model Tenant {
   documentEvents          DocumentEvent[]
   products                Product[]
   productCategories       ProductCategory[]
-  warehouses              Warehouse[]
+  warehouses              Warehouse[]      @relation("TenantWarehouses")
+  defaultWarehouse        Warehouse?       @relation("TenantDefaultWarehouse", fields: [defaultWarehouseId], references: [id])
+  storageLocations        StorageLocation[]
   branches                Branch[]
   clients                 Client[]
   vendors                 Vendor[]
@@ -440,7 +443,7 @@ model ProductCategory {
 model Product {
   id                String    @id @default(uuid()) @db.Uuid
   tenantId          String    @map("tenant_id") @db.Uuid
-  sku               String    @unique
+  sku               String
   barcode           String?
   name              String
   description       String?
@@ -478,6 +481,7 @@ model Product {
 
   @@unique([tenantId, id])
   @@unique([tenantId, barcode])
+  @@unique([tenantId, sku])
   @@map("products")
 }
 
@@ -570,15 +574,13 @@ model Warehouse {
   branchId  String?  @map("branch_id") @db.Uuid
   name      String
   code      String?
-  aisle     String?
-  shelf     String?
-  level     String?
-  bin       String?
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
 
-  tenant            Tenant          @relation(fields: [tenantId], references: [id])
-  branch            Branch?         @relation(fields: [branchId], references: [id])
+  tenant            Tenant            @relation("TenantWarehouses", fields: [tenantId], references: [id])
+  defaultForTenant  Tenant?           @relation("TenantDefaultWarehouse")
+  branch            Branch?           @relation(fields: [branchId], references: [id])
+  locations         StorageLocation[]
   stock             Stock[]
   outgoingTransfers StockTransfer[] @relation("from_warehouse")
   incomingTransfers StockTransfer[] @relation("to_warehouse")
@@ -588,15 +590,48 @@ model Warehouse {
   @@map("warehouses")
 }
 
+enum StorageLocationType {
+  AISLE
+  SHELF
+  LEVEL
+  BIN
+}
+
+model StorageLocation {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  warehouseId String              @map("warehouse_id") @db.Uuid
+  parentId    String?             @map("parent_id") @db.Uuid
+  type        StorageLocationType
+  code        String
+  name        String?
+  path        String
+  isActive    Boolean             @default(true) @map("is_active")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  warehouse Warehouse         @relation(fields: [warehouseId], references: [id])
+  parent    StorageLocation?  @relation("StorageLocationTree", fields: [parentId], references: [id])
+  children  StorageLocation[] @relation("StorageLocationTree")
+
+  @@unique([warehouseId, path])
+  @@index([tenantId, warehouseId, type])
+  @@map("storage_locations")
+}
+
 model Branch {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  name      String
-  code      String?
-  address   String?
-  phone     String?
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  name              String
+  code              String?
+  address           String?
+  city              String?
+  state             String?
+  phone             String?
+  managerEmployeeId String?  @map("manager_employee_id") @db.Uuid
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
 
   tenant     Tenant      @relation(fields: [tenantId], references: [id])
   warehouses Warehouse[]
@@ -633,6 +668,9 @@ model StockMovement {
   lotId         String?  @map("lot_id") @db.Uuid
   balanceBefore Float?   @map("balance_before")
   balanceAfter  Float?   @map("balance_after")
+  operationKey  String?  @unique @map("operation_key")
+
+  @@index([productId, warehouseId, createdAt(sort: Desc)])
 
   @@map("stock_movements")
 }
@@ -1645,6 +1683,7 @@ model StockTransfer {
   productId       String    @map("product_id") @db.Uuid
   quantity        Float     @default(0)
   status          String    @default("pending")
+  lotNumber       String?   @map("lot_number")
   notes           String?
   createdAt       DateTime  @default(now()) @map("created_at")
   completedAt     DateTime? @map("completed_at")
