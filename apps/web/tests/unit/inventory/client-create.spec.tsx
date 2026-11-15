@@ -7,6 +7,7 @@ const { mutateAsync } = vi.hoisted(() => ({ mutateAsync: vi.fn() }));
 
 vi.mock('@/shared/hooks/useClients', () => ({
   useClients: () => ({ data: [], isLoading: false, refetch: vi.fn(), isFetching: false }),
+  useClientsPage: () => ({ data: { data: [], total: 0, page: 1, pageSize: 25 }, isLoading: false, refetch: vi.fn(), isFetching: false }),
 }));
 vi.mock('@/modules/client-vendor/hooks/useCreateClient', () => ({
   useCreateClient: () => ({ mutateAsync, isPending: false }),

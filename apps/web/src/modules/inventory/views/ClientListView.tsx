@@ -2,13 +2,12 @@ import { useDeferredValue, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
-import { useClients } from '@/shared/hooks/useClients';
+import { useClientsPage } from '@/shared/hooks/useClients';
 import { useCreateClient } from '@/modules/client-vendor/hooks/useCreateClient';
 import { Drawer } from '@heroui/react';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
-import { usePagination } from '@/shared/hooks/usePagination';
 import {
   applyServerErrors, resolveServerErrorMessage,
   clearServerErrors,
@@ -54,7 +53,12 @@ export function ClientListView() {
   const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);
   const [serverError, setServerError] = useState('');
-  const { data: clients, isLoading, refetch, isFetching } = useClients(deferredSearch || undefined);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const { data: clientPage, isLoading, refetch, isFetching } = useClientsPage(deferredSearch || undefined, page, pageSize);
+  const clients = clientPage?.data ?? [];
+  const total = clientPage?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const createClient = useCreateClient();
 
   const form = useForm({
@@ -91,15 +95,13 @@ export function ClientListView() {
     setShowForm(true);
   };
 
-  const rows: ClientRow[] = (clients ?? []).map((c: any) => ({
+  const rows: ClientRow[] = clients.map((c: any) => ({
     id: c.id,
     legalName: c.legalName,
     documentId: c.documentId,
     email: c.email ?? '',
     phone: c.phone ?? '',
   }));
-
-  const pagination = usePagination(rows, { resetKey: search });
 
   const columns: GridColumn<ClientRow>[] = [
     { key: 'legalName', label: t('clients.legalName'), sortable: true },
@@ -170,12 +172,12 @@ export function ClientListView() {
         refreshing={isFetching}
         pagination={
           <ListPagination
-            page={pagination.page}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            totalPages={pagination.totalPages}
-            onPageChange={pagination.setPage}
-            onPageSizeChange={pagination.setPageSize}
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
           />
         }
         actions={
@@ -183,7 +185,7 @@ export function ClientListView() {
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder={t('common.search')}
               aria-label={t('common.search')}
               className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
@@ -198,7 +200,7 @@ export function ClientListView() {
         }
       >
         <VirtualGrid
-          data={pagination.pageItems}
+          data={rows}
           columns={columns}
           loading={isLoading}
           emptyMessage={t('common.noResults')}

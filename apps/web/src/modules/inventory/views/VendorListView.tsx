@@ -2,14 +2,13 @@ import { useDeferredValue, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useStore } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
-import { useVendors } from '@/shared/hooks/useVendors';
+import { useVendorsPage } from '@/shared/hooks/useVendors';
 import { useCategories } from '@/shared/hooks/useCategories';
 import { useCreateVendor } from '@/modules/client-vendor/hooks/useCreateVendor';
 import { Drawer } from '@heroui/react';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
-import { usePagination } from '@/shared/hooks/usePagination';
 import {
   applyServerErrors,
   clearServerErrors,
@@ -100,7 +99,12 @@ export function VendorListView() {
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
   const [showForm, setShowForm] = useState(false);
-  const { data: vendors, isLoading, refetch, isFetching } = useVendors(deferredSearch || undefined);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const { data: vendorPage, isLoading, refetch, isFetching } = useVendorsPage(deferredSearch || undefined, page, pageSize);
+  const vendors = vendorPage?.data ?? [];
+  const total = vendorPage?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const { data: categories } = useCategories();
   const createVendor = useCreateVendor();
 
@@ -232,15 +236,13 @@ export function VendorListView() {
     setContacts((prev) => prev.map((c) => ({ ...c, isPrimary: c.key === key })));
   };
 
-  const rows: VendorRow[] = (vendors ?? []).map((v: any) => ({
+  const rows: VendorRow[] = vendors.map((v: any) => ({
     id: v.id,
     legalName: v.legalName,
     documentId: v.documentId,
     email: v.email ?? '',
     phone: v.phone ?? '',
   }));
-
-  const pagination = usePagination(rows, { resetKey: search });
 
   const columns: GridColumn<VendorRow>[] = [
     { key: 'legalName', label: t('vendors.legalName'), sortable: true },
@@ -550,12 +552,12 @@ export function VendorListView() {
         refreshing={isFetching}
         pagination={
           <ListPagination
-            page={pagination.page}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            totalPages={pagination.totalPages}
-            onPageChange={pagination.setPage}
-            onPageSizeChange={pagination.setPageSize}
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
           />
         }
         actions={
@@ -563,14 +565,14 @@ export function VendorListView() {
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder={t('common.search')}
               aria-label={t('common.search')}
               className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none sm:w-56"
             />
             {!isLoading && (
               <span className="text-xs text-text-secondary">
-                {t('vendors.count').replace('{count}', String(vendors?.length ?? 0))}
+                {t('vendors.count').replace('{count}', String(total))}
               </span>
             )}
             <button
@@ -587,7 +589,7 @@ export function VendorListView() {
         }
       >
         <VirtualGrid
-          data={pagination.pageItems}
+          data={rows}
           columns={columns}
           loading={isLoading}
           emptyMessage={t('common.noResults')}
