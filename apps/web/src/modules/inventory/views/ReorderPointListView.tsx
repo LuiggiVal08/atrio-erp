@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
@@ -35,6 +35,7 @@ export function ReorderPointListView() {
   const [warehouseId, setWarehouseId] = useState('');
   const [minQuantity, setMinQuantity] = useState('0');
   const [maxQuantity, setMaxQuantity] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<ReorderPoint | null>(null);
 
   const productMap = useMemo(
     () => new Map(products.map((product) => [product.id, product])),
@@ -52,8 +53,12 @@ export function ReorderPointListView() {
     setMaxQuantity('');
   };
 
+  const rangeInvalid =
+    maxQuantity !== '' && Number(maxQuantity) <= Number(minQuantity || 0);
+
   const handleCreate = async () => {
-    if (!productId || !warehouseId || !maxQuantity || setReorderPoint.isPending) return;
+    if (!productId || !warehouseId || !maxQuantity || setReorderPoint.isPending || rangeInvalid)
+      return;
     try {
       await setReorderPoint.mutateAsync({
         productId,
@@ -78,20 +83,15 @@ export function ReorderPointListView() {
     }
   };
 
-  const handleDelete = async (point: ReorderPoint) => {
-    const product = productMap.get(point.productId);
-    const warehouse = warehouseMap.get(point.warehouseId);
-    const confirmed = window.confirm(
-      t('inventory.reorderPoint.deleteConfirm')
-        .replace('{product}', product?.name ?? point.productId)
-        .replace('{warehouse}', warehouse?.name ?? point.warehouseId),
-    );
-    if (!confirmed) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteReorderPoint.mutateAsync(point.id);
+      await deleteReorderPoint.mutateAsync(deleteTarget.id);
       toastService.success(t('inventory.reorderPoint.deleteSuccessTitle'), '');
+      setDeleteTarget(null);
     } catch {
       toastService.error(t('inventory.reorderPoint.deleteErrorTitle'), t('common.saveUnconfirmed'));
+      setDeleteTarget(null);
     }
   };
 
@@ -123,6 +123,7 @@ export function ReorderPointListView() {
       width: 100,
       align: 'right',
       sortable: true,
+      render: (value) => <span className="font-mono tabular-nums">{String(value)}</span>,
     },
     {
       key: 'maxQuantity',
@@ -130,6 +131,7 @@ export function ReorderPointListView() {
       width: 100,
       align: 'right',
       sortable: true,
+      render: (value) => <span className="font-mono tabular-nums">{String(value)}</span>,
     },
     {
       key: 'createdAt',
@@ -145,7 +147,7 @@ export function ReorderPointListView() {
       render: (_v, row) => (
         <button
           type="button"
-          onClick={() => void handleDelete(row)}
+          onClick={() => setDeleteTarget(row)}
           aria-label={t('inventory.reorderPoint.delete')}
           className="rounded-md p-1.5 text-text-secondary hover:bg-error/10 hover:text-error"
         >
@@ -156,6 +158,11 @@ export function ReorderPointListView() {
   ];
 
   const noOptions = !products.length || !(warehouses ?? []).length;
+  const noOptionsReason = !products.length
+    ? t('inventory.reorderPoint.noProducts')
+    : !(warehouses ?? []).length
+      ? t('inventory.reorderPoint.noWarehouses')
+      : undefined;
 
   return (
     <>
@@ -188,9 +195,11 @@ export function ReorderPointListView() {
             <button
               onClick={() => setShowForm(true)}
               disabled={noOptions}
-              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+              title={noOptionsReason}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              + {t('inventory.reorderPoint.create')}
+              <Plus size={14} aria-hidden="true" />
+              {t('inventory.reorderPoint.create')}
             </button>
           </>
         }
@@ -199,7 +208,7 @@ export function ReorderPointListView() {
           data={pagination.pageItems}
           columns={columns}
           loading={isLoading}
-          emptyMessage={t('inventory.reorderPoint.empty')}
+          emptyMessage={noOptionsReason ?? t('inventory.reorderPoint.empty')}
           emptyActionLabel={noOptions ? undefined : t('inventory.reorderPoint.create')}
           emptyAction={noOptions ? undefined : () => setShowForm(true)}
         />
@@ -278,7 +287,7 @@ export function ReorderPointListView() {
                 onChange={(event) => setMinQuantity(event.target.value)}
                 className={inputClass}
               />
-              <p className="mt-1 text-[11px] text-text-muted">
+              <p className="mt-1 text-[11px] text-text-secondary">
                 {t('inventory.reorderPoint.minHint')}
               </p>
             </div>
@@ -299,11 +308,16 @@ export function ReorderPointListView() {
                 onChange={(event) => setMaxQuantity(event.target.value)}
                 className={inputClass}
               />
-              <p className="mt-1 text-[11px] text-text-muted">
+              <p className="mt-1 text-[11px] text-text-secondary">
                 {t('inventory.reorderPoint.maxHint')}
               </p>
             </div>
           </div>
+          {rangeInvalid && (
+            <p role="alert" className="text-sm text-error">
+              {t('inventory.reorderPoint.rangeError')}
+            </p>
+          )}
           {setReorderPoint.isError && (
             <p role="alert" className="text-sm text-error">
               {t('inventory.reorderPoint.createErrorBody')}
@@ -319,13 +333,53 @@ export function ReorderPointListView() {
             </button>
             <button
               type="submit"
-              disabled={setReorderPoint.isPending}
+              disabled={setReorderPoint.isPending || rangeInvalid}
               className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
             >
               {t('inventory.reorderPoint.save')}
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title={t('inventory.reorderPoint.delete')}
+        size="sm"
+      >
+        <p className="text-sm text-text-secondary">
+          {t('inventory.reorderPoint.deleteConfirm')
+            .replace(
+              '{product}',
+              deleteTarget
+                ? (productMap.get(deleteTarget.productId)?.name ?? deleteTarget.productId)
+                : '',
+            )
+            .replace(
+              '{warehouse}',
+              deleteTarget
+                ? (warehouseMap.get(deleteTarget.warehouseId)?.name ?? deleteTarget.warehouseId)
+                : '',
+            )}
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(null)}
+            className="rounded-lg px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void confirmDelete()}
+            disabled={deleteReorderPoint.isPending}
+            className="rounded-lg bg-error px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            {t('common.delete')}
+          </button>
+        </div>
       </Modal>
     </>
   );

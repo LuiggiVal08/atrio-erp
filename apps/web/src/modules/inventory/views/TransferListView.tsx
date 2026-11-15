@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import {
   useTransfers,
@@ -14,13 +15,14 @@ import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
+import { Modal } from '@/core/components/Modal';
 import { toastService } from '@/core/services/toast-service';
 
 const inputClass =
   'w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none';
 
 export function TransferListView() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { data: transfers, isLoading, refetch, isFetching } = useTransfers();
   const createMutation = useCreateTransfer();
   const completeMutation = useCompleteTransfer();
@@ -33,16 +35,31 @@ export function TransferListView() {
   const [fromWarehouseId, setFromWarehouseId] = useState('');
   const [toWarehouseId, setToWarehouseId] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const [formError, setFormError] = useState('');
+  const [confirm, setConfirm] = useState<{
+    action: 'complete' | 'cancel';
+    transfer: StockTransfer;
+  } | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productId || !fromWarehouseId || !toWarehouseId) return;
+    if (fromWarehouseId === toWarehouseId) {
+      setFormError(t('inventory.transfer.sameWarehouse'));
+      return;
+    }
+    const parsedQuantity = Number(quantity);
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      setFormError(t('inventory.transfer.invalidQuantity'));
+      return;
+    }
+    setFormError('');
     try {
       await createMutation.mutateAsync({
         productId,
         fromWarehouseId,
         toWarehouseId,
-        quantity: parseInt(quantity) || 1,
+        quantity: parsedQuantity,
       });
       toastService.success(
         t('inventory.transfer.createdSuccessTitle'),
@@ -61,34 +78,31 @@ export function TransferListView() {
     }
   };
 
-  const handleComplete = async (transfer: StockTransfer) => {
-    const confirmed = window.confirm(
-      t('inventory.transfer.completeConfirm')
-        .replace('{quantity}', String(transfer.quantity))
-        .replace('{product}', productName(transfer.productId)),
-    );
-    if (!confirmed) return;
-    try {
-      await completeMutation.mutateAsync(transfer.id);
-      toastService.success(
-        t('inventory.transfer.completeSuccessTitle'),
-        t('inventory.transfer.completeSuccessBody'),
-      );
-    } catch {
-      toastService.error(
-        t('inventory.transfer.completeErrorTitle'),
-        t('inventory.transfer.completeErrorBody'),
-      );
-    }
-  };
-
-  const handleCancel = async (transfer: StockTransfer) => {
-    if (!window.confirm(t('inventory.transfer.cancelConfirm'))) return;
-    try {
-      await cancelMutation.mutateAsync(transfer.id);
-      toastService.success(t('inventory.transfer.cancelSuccessTitle'), '');
-    } catch {
-      toastService.error(t('inventory.transfer.cancelErrorTitle'), t('common.saveUnconfirmed'));
+  const handleConfirm = async () => {
+    if (!confirm) return;
+    const { action, transfer } = confirm;
+    if (action === 'complete') {
+      try {
+        await completeMutation.mutateAsync(transfer.id);
+        toastService.success(
+          t('inventory.transfer.completeSuccessTitle'),
+          t('inventory.transfer.completeSuccessBody'),
+        );
+        setConfirm(null);
+      } catch {
+        toastService.error(
+          t('inventory.transfer.completeErrorTitle'),
+          t('inventory.transfer.completeErrorBody'),
+        );
+      }
+    } else {
+      try {
+        await cancelMutation.mutateAsync(transfer.id);
+        toastService.success(t('inventory.transfer.cancelSuccessTitle'), '');
+        setConfirm(null);
+      } catch {
+        toastService.error(t('inventory.transfer.cancelErrorTitle'), t('common.saveUnconfirmed'));
+      }
     }
   };
 
@@ -132,7 +146,15 @@ export function TransferListView() {
       label: t('inventory.transfer.to'),
       render: (value) => warehouseName(value),
     },
-    { key: 'quantity', label: t('inventory.transfer.quantity'), width: 90, align: 'right' },
+    {
+      key: 'quantity',
+      label: t('inventory.transfer.quantity'),
+      width: 90,
+      align: 'right',
+      render: (value) => (
+        <span className="font-mono tabular-nums">{Number(value).toLocaleString(locale)}</span>
+      ),
+    },
     {
       key: 'status',
       label: t('inventory.transfer.statusLabel'),
@@ -158,12 +180,12 @@ export function TransferListView() {
       key: 'createdAt',
       label: t('inventory.stockView.date'),
       width: 130,
-      render: (v) => new Date(v as string).toLocaleDateString(),
+      render: (v) => new Date(v as string).toLocaleDateString(locale),
     },
     {
       key: 'actions',
       label: t('common.actions'),
-      width: 180,
+      width: 220,
       align: 'center',
       render: (_value, transfer) =>
         transfer.status === 'pending' ? (
@@ -172,7 +194,7 @@ export function TransferListView() {
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                void handleComplete(transfer);
+                setConfirm({ action: 'complete', transfer });
               }}
               disabled={completeMutation.isPending}
               className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
@@ -183,12 +205,12 @@ export function TransferListView() {
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                void handleCancel(transfer);
+                setConfirm({ action: 'cancel', transfer });
               }}
               disabled={cancelMutation.isPending}
               className="rounded-lg border border-border px-3 py-1 text-xs text-text-secondary hover:text-error disabled:opacity-50"
             >
-              {t('common.cancel')}
+              {t('inventory.transfer.cancelAction')}
             </button>
           </div>
         ) : (
@@ -217,9 +239,10 @@ export function TransferListView() {
         <button
           onClick={() => setShowForm(!showForm)}
           aria-expanded={showForm}
-          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
         >
-          + {t('inventory.transfer.create')}
+          <Plus size={14} aria-hidden="true" />
+          {t('inventory.transfer.create')}
         </button>
       }
     >
@@ -254,16 +277,22 @@ export function TransferListView() {
             <select
               id="transfer-from"
               value={fromWarehouseId}
-              onChange={(e) => setFromWarehouseId(e.target.value)}
+              onChange={(e) => {
+                setFromWarehouseId(e.target.value);
+                if (e.target.value && e.target.value === toWarehouseId) setToWarehouseId('');
+                setFormError('');
+              }}
               required
               className={inputClass}
             >
               <option value="">{t('inventory.transfer.selectOrigin')}</option>
-              {(warehouses ?? []).map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name}
-                </option>
-              ))}
+              {(warehouses ?? [])
+                .filter((warehouse) => warehouse.id !== toWarehouseId)
+                .map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name}
+                  </option>
+                ))}
             </select>
           </div>
           <div>
@@ -273,16 +302,22 @@ export function TransferListView() {
             <select
               id="transfer-to"
               value={toWarehouseId}
-              onChange={(e) => setToWarehouseId(e.target.value)}
+              onChange={(e) => {
+                setToWarehouseId(e.target.value);
+                if (e.target.value && e.target.value === fromWarehouseId) setFromWarehouseId('');
+                setFormError('');
+              }}
               required
               className={inputClass}
             >
               <option value="">{t('inventory.transfer.selectDestination')}</option>
-              {(warehouses ?? []).map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name}
-                </option>
-              ))}
+              {(warehouses ?? [])
+                .filter((warehouse) => warehouse.id !== fromWarehouseId)
+                .map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name}
+                  </option>
+                ))}
             </select>
           </div>
           <div>
@@ -292,9 +327,14 @@ export function TransferListView() {
             <input
               id="transfer-quantity"
               type="number"
-              min={1}
+              min="0.01"
+              step="0.01"
+              required
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onChange={(e) => {
+                setQuantity(e.target.value);
+                setFormError('');
+              }}
               className={inputClass}
             />
           </div>
@@ -305,6 +345,11 @@ export function TransferListView() {
           >
             {t('common.create')}
           </button>
+          {formError && (
+            <p role="alert" className="text-sm text-error sm:col-span-2 lg:col-span-5">
+              {formError}
+            </p>
+          )}
         </form>
       )}
 
@@ -316,6 +361,46 @@ export function TransferListView() {
         emptyActionLabel={t('inventory.transfer.create')}
         emptyAction={() => setShowForm(true)}
       />
+
+      <Modal
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        title={
+          confirm?.action === 'complete'
+            ? t('inventory.transfer.completeTitle')
+            : t('inventory.transfer.cancelTitle')
+        }
+        size="sm"
+      >
+        <p className="text-sm text-text-secondary">
+          {confirm?.action === 'complete'
+            ? t('inventory.transfer.completeConfirm')
+                .replace('{quantity}', String(confirm.transfer.quantity))
+                .replace('{product}', productName(confirm.transfer.productId))
+            : t('inventory.transfer.cancelConfirm')}
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirm(null)}
+            className="rounded-lg px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleConfirm()}
+            disabled={completeMutation.isPending || cancelMutation.isPending}
+            className={`rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 ${
+              confirm?.action === 'complete' ? 'bg-accent hover:bg-accent-hover' : 'bg-error'
+            }`}
+          >
+            {confirm?.action === 'complete'
+              ? t('inventory.transfer.complete')
+              : t('inventory.transfer.cancelAction')}
+          </button>
+        </div>
+      </Modal>
     </ListPage>
   );
 }

@@ -1,40 +1,26 @@
 import { useState } from 'react';
+import { useForm, useStore } from '@tanstack/react-form';
+import { isAxiosError } from 'axios';
+import { usePermission } from '@/core/auth/usePermission';
+import { useAuthStore } from '@/core/auth/store';
+import { useTenantStore } from '@/core/tenant/store';
+import { useTenant } from '@/modules/settings/hooks/useTenant';
+import { FormInput, FormCombobox, FormSelect, applyServerErrors, resolveServerErrorMessage } from '@/shared/form';
+import { FormCheckbox } from '@/shared/form/form-checkbox';
+import { productDefaults, productFormSchema, productPayload } from '@/shared/validation/product';
 import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
+import { ArrowLeft, Minus, Plus } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { toastService } from '@/core/services/toast-service';
-import { Combobox } from '@/core/components/Combobox';
-import { useProduct } from '../hooks/useProduct';
+import { Skeleton } from '@/core/components/Skeleton';
+import { useProduct, useGenerateProductBarcode, useProductBalances, useProductSuppliers } from '../hooks/useProduct';
 import { useUpdateProduct } from '../hooks/useUpdateProduct';
 import { ProductImageGallery } from '../components/ProductImageGallery';
 import { ProductBarcodeLabel } from '../components/ProductBarcodeLabel';
 import { useCategories } from '@/shared/hooks/useCategories';
 import { useBrands } from '../hooks/useBrands';
 import { useTaxes } from '../hooks/useTaxes';
-
-interface FormData {
-  sku: string;
-  name: string;
-  description: string;
-  categoryId: string;
-  brandId: string;
-  unitPrice: string;
-  costPrice: string;
-  taxId: string;
-  isService: boolean;
-  isActive: boolean;
-  barcode: string;
-  baseUnit: string;
-  purchaseUnit: string;
-  conversionFactor: string;
-  minStock: string;
-  maxStock: string;
-  reorderPoint: string;
-  supplierSku: string;
-}
-
-const inputClass =
-  'mt-1 w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none';
 
 const readClass = 'mt-1 font-medium text-text-primary';
 const dataReadClass = 'mt-1 font-mono font-medium tabular-nums text-text-primary';
@@ -45,11 +31,6 @@ const MAX_COPIES = 100;
 function clampCopies(value: number) {
   if (!Number.isFinite(value)) return MIN_COPIES;
   return Math.min(MAX_COPIES, Math.max(MIN_COPIES, Math.round(value)));
-}
-
-function toNumberOrNull(value: string) {
-  const trimmed = value.trim();
-  return trimmed === '' ? null : Number(trimmed);
 }
 
 function Field({
@@ -88,9 +69,18 @@ function BrandChip({ name, logoUrl }: { name?: string | null; logoUrl?: string |
 }
 
 export function ProductDetailView() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { id } = useParams<{ id: string }>();
-  const { data: product, isLoading } = useProduct(id!);
+  const { data: product, isLoading, isError, error: readError, refetch } = useProduct(id!);
+  const canEdit = usePermission('inventory:product:update');
+  const canReadStock = usePermission('inventory:stock:read');
+  const generateBarcode = useGenerateProductBarcode();
+  const balances = useProductBalances(id!);
+  const suppliers = useProductSuppliers();
+  const tenantId = useTenantStore((state) => state.activeTenantId);
+  const authTenantId = useAuthStore((state) => state.user?.tenantId);
+  const { data: tenant } = useTenant(tenantId ?? authTenantId ?? null);
+  const currency = tenant?.baseCurrency === 'VED' ? 'VES' : tenant?.baseCurrency;
   const { data: categories } = useCategories();
   const { data: brands } = useBrands();
   const { data: taxes } = useTaxes();
@@ -99,39 +89,75 @@ export function ProductDetailView() {
   const [editing, setEditing] = useState(false);
   const [copies, setCopies] = useState(1);
 
-  const [form, setForm] = useState<FormData>({
-    sku: '',
-    name: '',
-    description: '',
-    categoryId: '',
-    brandId: '',
-    unitPrice: '',
-    costPrice: '',
-    taxId: '',
-    isService: false,
-    isActive: true,
-    barcode: '',
-    baseUnit: 'unidad',
-    purchaseUnit: '',
-    conversionFactor: '1',
-    minStock: '',
-    maxStock: '',
-    reorderPoint: '',
-    supplierSku: '',
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const editor = useForm({
+    defaultValues: { ...productDefaults },
+    validators: { onSubmit: productFormSchema },
+    onSubmit: async ({ value }) => {
+      if (!id || !canEdit || updateProduct.isPending) return;
+      setSaveError(null);
+      try {
+        await updateProduct.mutateAsync({ id, ...productPayload(value, true, product) });
+        toastService.success(t('inventory.product.saveSuccessTitle'));
+        setEditing(false);
+      } catch (error) {
+        const detail = resolveServerErrorMessage(applyServerErrors(editor, error), t('common.saveUnconfirmed'));
+        setSaveError(detail);
+        toastService.error(t('inventory.product.saveErrorTitle'), detail);
+      }
+    },
   });
+  const form = useStore(editor.store, (state) => state.values);
+  const submitting = useStore(editor.store, (state) => state.isSubmitting);
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center text-text-secondary">
-        {t('common.loading')}
+      <div role="status" aria-busy="true" className="mx-auto grid w-full max-w-5xl gap-4 p-6">
+        <span className="sr-only">{t('common.loading')}</span>
+        <Skeleton variant="rect" height={48} />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr]">
+          <Skeleton variant="rect" height={320} />
+          <Skeleton variant="rect" height={320} />
+        </div>
+        <Skeleton variant="rect" height={160} />
+      </div>
+    );
+  }
+
+  const notFound = isAxiosError(readError) && readError.response?.status === 404;
+  if (isError && !notFound && !product) {
+    return (
+      <div className="grid h-full place-content-center justify-items-center gap-3 p-10 text-center">
+        <p className="text-sm text-text-secondary">{t('inventory.product.loadError')}</p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+          >
+            {t('common.retry')}
+          </button>
+          <Link
+            to="/inventory/products"
+            className="text-xs font-semibold text-accent hover:underline"
+          >
+            {t('inventory.product.backToProducts')}
+          </Link>
+        </div>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="flex h-full items-center justify-center text-text-secondary">
-        {t('inventory.product.notFound')}
+      <div className="grid h-full place-content-center justify-items-center gap-3 p-10 text-center">
+        <p className="text-sm text-text-secondary">{t('inventory.product.notFound')}</p>
+        <Link
+          to="/inventory/products"
+          className="text-xs font-semibold text-accent hover:underline"
+        >
+          {t('inventory.product.backToProducts')}
+        </Link>
       </div>
     );
   }
@@ -145,59 +171,21 @@ export function ProductDetailView() {
   const brandLogoUrl = selectedBrand?.logoUrl ?? null;
 
   const enterEdit = () => {
-    setForm({
-      sku: product.sku ?? '',
-      name: product.name ?? '',
-      description: product.description ?? '',
-      categoryId: product.categoryId ?? '',
-      brandId: product.brandId ?? '',
-      unitPrice: product.unitPrice != null ? String(product.unitPrice) : '',
-      costPrice: product.costPrice != null ? String(product.costPrice) : '',
-      taxId: product.taxId ?? '',
-      isService: product.isService ?? false,
-      isActive: product.isActive ?? true,
-      barcode: product.barcode ?? '',
-      baseUnit: product.baseUnit ?? 'unidad',
-      purchaseUnit: product.purchaseUnit ?? '',
-      conversionFactor: product.conversionFactor != null ? String(product.conversionFactor) : '1',
-      minStock: product.minStock != null ? String(product.minStock) : '',
-      maxStock: product.maxStock != null ? String(product.maxStock) : '',
-      reorderPoint: product.reorderPoint != null ? String(product.reorderPoint) : '',
-      supplierSku: product.supplierSku ?? '',
-    });
+    if (!canEdit) return;
+    editor.reset({
+      sku: product.sku ?? '', name: product.name ?? '', description: product.description ?? '',
+      categoryId: product.categoryId ?? '', brandId: product.brandId ?? '',
+      unitPrice: Number(product.unitPrice ?? 0), costPrice: Number(product.costPrice ?? 0),
+      taxId: product.taxId ?? '', isService: product.isService ?? false, isActive: product.isActive ?? true,
+      barcode: product.barcode ?? '', baseUnit: product.baseUnit ?? 'unidad', purchaseUnit: product.purchaseUnit ?? '',
+      conversionFactor: Number(product.conversionFactor ?? 1), minStock: Number(product.minStock ?? 0),
+      maxStock: product.maxStock == null ? undefined : Number(product.maxStock), reorderPoint: Number(product.reorderPoint ?? 0),
+      supplierSku: product.supplierSku ?? '', primarySupplierId: product.primarySupplierId ?? '',
+    }, { keepDefaultValues: true });
+    setSaveError(null);
     setEditing(true);
   };
-
-  const handleSave = async () => {
-    if (!id) return;
-    try {
-      await updateProduct.mutateAsync({
-        id,
-        sku: form.sku.trim(),
-        name: form.name.trim(),
-        description: form.description.trim() || null,
-        barcode: form.barcode.trim() || null,
-        categoryId: form.categoryId || null,
-        brandId: form.brandId || null,
-        taxId: form.taxId || null,
-        unitPrice: form.unitPrice ? Number(form.unitPrice) : undefined,
-        costPrice: form.costPrice ? Number(form.costPrice) : undefined,
-        isService: form.isService,
-        isActive: form.isActive,
-        baseUnit: form.baseUnit.trim() || 'unidad',
-        purchaseUnit: form.purchaseUnit.trim() || null,
-        conversionFactor: Number(form.conversionFactor) || 1,
-        minStock: toNumberOrNull(form.minStock),
-        maxStock: toNumberOrNull(form.maxStock),
-        reorderPoint: toNumberOrNull(form.reorderPoint),
-        supplierSku: form.supplierSku.trim() || null,
-      });
-      toastService.success(t('inventory.product.saveSuccessTitle'));
-      setEditing(false);
-    } catch {
-      toastService.error(t('inventory.product.saveErrorTitle'), t('common.saveUnconfirmed'));
-    }
-  };
+  const handleSave = () => void editor.handleSubmit();
 
   const categoryOptions = categoryList.map((category: any) => ({
     id: category.id,
@@ -210,9 +198,11 @@ export function ProductDetailView() {
   const readNumber = (value: unknown, decimals?: number) =>
     value === null || value === undefined || value === ''
       ? '—'
-      : decimals != null
-        ? Number(value).toFixed(decimals)
-        : String(value);
+      : new Intl.NumberFormat(locale, { maximumFractionDigits: decimals ?? 6, minimumFractionDigits: decimals }).format(Number(value));
+  const readMoney = (value: unknown) => currency
+    ? new Intl.NumberFormat(locale, { style: 'currency', currency }).format(Number(value ?? 0))
+    : readNumber(value, 2);
+  const supplierOptions = (suppliers.data ?? []).map((supplier) => ({ id: supplier.id, name: supplier.legalName }));
 
   const categoryLabel =
     product.category ??
@@ -223,8 +213,12 @@ export function ProductDetailView() {
     <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Link to="/inventory/products" className="shrink-0 text-sm text-accent hover:underline">
-            &larr; {t('inventory.products')}
+          <Link
+            to="/inventory/products"
+            className="inline-flex shrink-0 items-center gap-1 text-sm text-accent hover:underline"
+          >
+            <ArrowLeft size={14} aria-hidden="true" />
+            {t('inventory.products')}
           </Link>
           <h1 className="truncate text-lg font-bold text-text-primary" title={product.name}>
             {product.name}
@@ -233,33 +227,28 @@ export function ProductDetailView() {
         <div className="flex shrink-0 items-center gap-3">
           {editing ? (
             <>
-              <button
-                onClick={() => setEditing(false)}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary"
-              >
+              <button type="button" onClick={() => setEditing(false)} disabled={submitting}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary disabled:opacity-50">
                 {t('common.cancel')}
               </button>
-              <button
-                onClick={handleSave}
-                disabled={updateProduct.isPending}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-              >
-                {t('common.save')}
+              <button type="button" onClick={handleSave} disabled={submitting} aria-busy={submitting}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50">
+                {submitting ? t('common.loading') : t('common.save')}
               </button>
             </>
-          ) : (
-            <button
-              onClick={enterEdit}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
-            >
+          ) : canEdit ? (
+            <button type="button" onClick={enterEdit}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover">
               {t('common.edit')}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
       <div className="flex-1 space-y-6 overflow-auto p-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
+        {saveError && <p role="alert" className="text-sm text-danger">{saveError}</p>}
+        {isError && <div role="alert" className="text-sm text-danger">{t('inventory.product.loadError')} <button type="button" onClick={() => void refetch()} className="underline">{t('common.retry')}</button></div>}
+        <fieldset disabled={submitting} className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
           {id && (
             <div className="h-fit lg:sticky lg:top-0">
               <ProductImageGallery
@@ -274,51 +263,23 @@ export function ProductDetailView() {
             <div className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
               <Field label={t('inventory.product.price')}>
                 {editing ? (
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.unitPrice}
-                    onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
-                    aria-label={t('inventory.product.price')}
-                    className={inputClass}
-                  />
+                  <FormInput form={editor} name="unitPrice" type="number" min={0} step={0.01} ariaLabel={t('inventory.product.price')} />
                 ) : (
                   <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                    {readNumber(product.unitPrice, 2)}
+                    {readMoney(product.unitPrice)}
                   </p>
                 )}
               </Field>
               <Field label={t('inventory.product.cost')}>
                 {editing ? (
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.costPrice}
-                    onChange={(e) => setForm({ ...form, costPrice: e.target.value })}
-                    aria-label={t('inventory.product.cost')}
-                    className={inputClass}
-                  />
+                  <FormInput form={editor} name="costPrice" type="number" min={0} step={0.01} ariaLabel={t('inventory.product.cost')} />
                 ) : (
-                  <p className={dataReadClass}>{readNumber(product.costPrice, 2)}</p>
+                  <p className={dataReadClass}>{readMoney(product.costPrice)}</p>
                 )}
               </Field>
               <Field label={t('inventory.tax')}>
                 {editing ? (
-                  <select
-                    value={form.taxId}
-                    onChange={(e) => setForm({ ...form, taxId: e.target.value })}
-                    aria-label={t('inventory.tax')}
-                    className={inputClass}
-                  >
-                    <option value="">—</option>
-                    {(taxes ?? []).map((tx: any) => (
-                      <option key={tx.id} value={tx.id}>
-                        {tx.name}
-                      </option>
-                    ))}
-                  </select>
+                  <FormSelect form={editor} name="taxId" ariaLabel={t('inventory.tax')} placeholder="—" options={(taxes ?? []).map((tax) => ({ value: tax.id, label: tax.name }))} />
                 ) : (
                   <p className={readClass}>
                     {product.taxName ??
@@ -332,66 +293,41 @@ export function ProductDetailView() {
             <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-4 border-t border-border pt-5 text-sm sm:grid-cols-2">
               <Field label={t('inventory.product.sku')}>
                 {editing ? (
-                  <input
-                    type="text"
-                    value={form.sku}
-                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                    aria-label={t('inventory.product.sku')}
-                    className={inputClass}
-                  />
+                  <FormInput form={editor} name="sku" ariaLabel={t('inventory.product.sku')} />
                 ) : (
                   <p className={dataReadClass}>{product.sku}</p>
                 )}
               </Field>
               <Field label={t('inventory.product.barcode')}>
                 {editing ? (
-                  <input
-                    type="text"
-                    value={form.barcode}
-                    onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-                    placeholder={t('inventory.product.barcodePlaceholder')}
-                    aria-label={t('inventory.product.barcode')}
-                    className={inputClass}
-                  />
+                  <FormInput form={editor} name="barcode" ariaLabel={t('inventory.product.barcode')} placeholder={t('inventory.product.barcodePlaceholder')} />
                 ) : (
                   <p className={dataReadClass}>{product.barcode || '—'}</p>
                 )}
               </Field>
               <Field label={t('inventory.product.name')}>
                 {editing ? (
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    aria-label={t('inventory.product.name')}
-                    className={inputClass}
-                  />
+                  <FormInput form={editor} name="name" ariaLabel={t('inventory.product.name')} />
                 ) : (
                   <p className={`${readClass} break-words`}>{product.name}</p>
                 )}
               </Field>
+              <Field label={t('inventory.product.supplier')}>
+                {editing ? <>
+                  <FormCombobox form={editor} name="primarySupplierId" options={supplierOptions} ariaLabel={t('inventory.product.supplier')} />
+                  {suppliers.isError && <div role="alert" className="text-sm text-danger">{t('inventory.product.suppliersError')} <button type="button" onClick={() => void suppliers.refetch()} className="underline">{t('common.retry')}</button></div>}
+                </> : <p className={readClass}>{supplierOptions.find((supplier) => supplier.id === product.primarySupplierId)?.name ?? readValue(product.primarySupplierId)}</p>}
+              </Field>
               <Field label={t('inventory.product.supplierRef')}>
                 {editing ? (
-                  <input
-                    type="text"
-                    value={form.supplierSku}
-                    onChange={(e) => setForm({ ...form, supplierSku: e.target.value })}
-                    aria-label={t('inventory.product.supplierRef')}
-                    className={inputClass}
-                  />
+                  <FormInput form={editor} name="supplierSku" ariaLabel={t('inventory.product.supplierRef')} />
                 ) : (
                   <p className={dataReadClass}>{readValue(product.supplierSku)}</p>
                 )}
               </Field>
               <Field label={t('common.notes')} className="sm:col-span-2">
                 {editing ? (
-                  <input
-                    type="text"
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    aria-label={t('common.notes')}
-                    className={inputClass}
-                  />
+                  <FormInput form={editor} name="description" ariaLabel={t('common.notes')} />
                 ) : (
                   <p className={`${readClass} break-words`}>{product.description || '—'}</p>
                 )}
@@ -404,12 +340,7 @@ export function ProductDetailView() {
                   <div className="mt-1 flex items-center gap-2">
                     <BrandChip name={brandName} logoUrl={brandLogoUrl} />
                     <div className="min-w-0 flex-1">
-                      <Combobox
-                        value={form.brandId}
-                        onChange={(brandId) => setForm({ ...form, brandId })}
-                        options={brandOptions}
-                        aria-label={t('inventory.product.brand')}
-                      />
+                      <FormCombobox form={editor} name="brandId" options={brandOptions} ariaLabel={t('inventory.product.brand')} />
                     </div>
                   </div>
                 ) : (
@@ -422,12 +353,7 @@ export function ProductDetailView() {
               <Field label={t('inventory.categories')}>
                 {editing ? (
                   <div className="mt-1">
-                    <Combobox
-                      value={form.categoryId}
-                      onChange={(categoryId) => setForm({ ...form, categoryId })}
-                      options={categoryOptions}
-                      aria-label={t('inventory.categories')}
-                    />
+                    <FormCombobox form={editor} name="categoryId" options={categoryOptions} ariaLabel={t('inventory.categories')} />
                   </div>
                 ) : (
                   <p className={readClass}>{readValue(categoryLabel)}</p>
@@ -435,87 +361,44 @@ export function ProductDetailView() {
               </Field>
               <Field label={t('inventory.product.isService')}>
                 {editing ? (
-                  <label className="mt-2 flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={form.isService}
-                      onChange={(e) => setForm({ ...form, isService: e.target.checked })}
-                      aria-label={t('inventory.product.isService')}
-                      className="rounded border-border"
-                    />
-                    <span className="text-sm text-text-secondary">
-                      {form.isService ? t('common.yes') : t('common.no')}
-                    </span>
-                  </label>
+                  <FormCheckbox form={editor} name="isService" label={t('inventory.product.isService')} />
                 ) : (
                   <p className={readClass}>{product.isService ? t('common.yes') : t('common.no')}</p>
                 )}
               </Field>
               <Field label={t('inventory.product.isActive')}>
                 {editing ? (
-                  <label className="mt-2 flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={form.isActive}
-                      onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                      aria-label={t('inventory.product.isActive')}
-                      className="rounded border-border"
-                    />
-                    <span className="text-sm text-text-secondary">
-                      {form.isActive ? t('common.yes') : t('common.no')}
-                    </span>
-                  </label>
+                  <FormCheckbox form={editor} name="isActive" label={t('inventory.product.isActive')} />
                 ) : (
                   <p className={readClass}>{product.isActive ? t('common.yes') : t('common.no')}</p>
                 )}
               </Field>
             </div>
           </div>
-        </div>
+        </fieldset>
 
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <fieldset disabled={submitting} className="min-w-0 rounded-lg border border-border bg-surface p-6">
           <h2 className="mb-4 text-sm font-bold text-text-primary">
             {t('inventory.product.groupUnits')}
           </h2>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
             <Field label={t('inventory.product.baseUnit')}>
               {editing ? (
-                <input
-                  type="text"
-                  value={form.baseUnit}
-                  onChange={(e) => setForm({ ...form, baseUnit: e.target.value })}
-                  aria-label={t('inventory.product.baseUnit')}
-                  className={inputClass}
-                />
+                <FormInput form={editor} name="baseUnit" ariaLabel={t('inventory.product.baseUnit')} />
               ) : (
                 <p className={readClass}>{readValue(product.baseUnit)}</p>
               )}
             </Field>
             <Field label={t('inventory.product.purchaseUnit')}>
               {editing ? (
-                <input
-                  type="text"
-                  value={form.purchaseUnit}
-                  onChange={(e) => setForm({ ...form, purchaseUnit: e.target.value })}
-                  placeholder={t('inventory.product.purchaseUnitPlaceholder')}
-                  aria-label={t('inventory.product.purchaseUnit')}
-                  className={inputClass}
-                />
+                <FormInput form={editor} name="purchaseUnit" ariaLabel={t('inventory.product.purchaseUnit')} placeholder={t('inventory.product.purchaseUnitPlaceholder')} />
               ) : (
                 <p className={readClass}>{readValue(product.purchaseUnit)}</p>
               )}
             </Field>
             <Field label={t('inventory.product.conversionFactor')}>
               {editing ? (
-                <input
-                  type="number"
-                  min="0.000001"
-                  step="0.000001"
-                  value={form.conversionFactor}
-                  onChange={(e) => setForm({ ...form, conversionFactor: e.target.value })}
-                  aria-label={t('inventory.product.conversionFactor')}
-                  className={inputClass}
-                />
+                <FormInput form={editor} name="conversionFactor" type="number" min={0.000001} step="any" ariaLabel={t('inventory.product.conversionFactor')} />
               ) : (
                 <p className={dataReadClass}>{readNumber(product.conversionFactor)}</p>
               )}
@@ -523,51 +406,42 @@ export function ProductDetailView() {
             <div aria-hidden className="hidden border-t border-border sm:col-span-3 sm:block" />
             <Field label={t('inventory.product.reorderPoint')}>
               {editing ? (
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.reorderPoint}
-                  onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })}
-                  aria-label={t('inventory.product.reorderPoint')}
-                  className={inputClass}
-                />
+                <FormInput form={editor} name="reorderPoint" type="number" min={0} step="any" ariaLabel={t('inventory.product.reorderPoint')} />
               ) : (
                 <p className={dataReadClass}>{readNumber(product.reorderPoint)}</p>
               )}
             </Field>
             <Field label={t('inventory.product.minStock')}>
               {editing ? (
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.minStock}
-                  onChange={(e) => setForm({ ...form, minStock: e.target.value })}
-                  aria-label={t('inventory.product.minStock')}
-                  className={inputClass}
-                />
+                <FormInput form={editor} name="minStock" type="number" min={0} step="any" ariaLabel={t('inventory.product.minStock')} />
               ) : (
                 <p className={dataReadClass}>{readNumber(product.minStock)}</p>
               )}
             </Field>
             <Field label={t('inventory.product.maxStock')}>
               {editing ? (
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.maxStock}
-                  onChange={(e) => setForm({ ...form, maxStock: e.target.value })}
-                  aria-label={t('inventory.product.maxStock')}
-                  className={inputClass}
-                />
+                <FormInput form={editor} name="maxStock" type="number" min={0} step="any" ariaLabel={t('inventory.product.maxStock')} />
               ) : (
                 <p className={dataReadClass}>{readNumber(product.maxStock)}</p>
               )}
             </Field>
           </div>
-        </div>
+        </fieldset>
+
+        {canReadStock && !product.isService && <section className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="mb-4 text-sm font-bold text-text-primary">{t('inventory.product.stockByWarehouse')}</h2>
+          {balances.isLoading ? <Skeleton variant="rect" height={80} /> : balances.isError ? (
+            <div role="alert" className="text-sm text-danger">{t('inventory.stockView.loadError')} <button type="button" onClick={() => void balances.refetch()} className="underline">{t('common.retry')}</button></div>
+          ) : balances.data?.length ? (
+            <ul className="divide-y divide-border">
+              {balances.data.map((balance) => <li key={balance.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+                <span>{balance.warehouse.name}</span>
+                <span className="font-mono tabular-nums">{readNumber(balance.quantity)} {product.baseUnit}</span>
+                <Link className="text-accent underline" to={`/inventory/stock?tab=movements&productId=${encodeURIComponent(id!)}&warehouseId=${encodeURIComponent(balance.warehouseId)}`}>{t('inventory.product.stockHistory')}</Link>
+              </li>)}
+            </ul>
+          ) : <p className="text-sm text-text-secondary">{t('inventory.product.noStock')}</p>}
+        </section>}
 
         <div className="rounded-lg border border-border bg-surface p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -587,9 +461,9 @@ export function ProductDetailView() {
                     aria-label={t('inventory.product.removeCopy')}
                     disabled={copies <= MIN_COPIES}
                     onClick={() => setCopies((value) => clampCopies(value - 1))}
-                    className="h-8 w-8 rounded-lg border border-border text-sm text-text-primary hover:bg-surface-hover disabled:opacity-40"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-text-primary hover:bg-surface-hover disabled:opacity-40"
                   >
-                    −
+                    <Minus size={14} aria-hidden="true" />
                   </button>
                   <input
                     type="text"
@@ -613,9 +487,9 @@ export function ProductDetailView() {
                     aria-label={t('inventory.product.addCopy')}
                     disabled={copies >= MAX_COPIES}
                     onClick={() => setCopies((value) => clampCopies(value + 1))}
-                    className="h-8 w-8 rounded-lg border border-border text-sm text-text-primary hover:bg-surface-hover disabled:opacity-40"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-text-primary hover:bg-surface-hover disabled:opacity-40"
                   >
-                    +
+                    <Plus size={14} aria-hidden="true" />
                   </button>
                 </div>
                 <button
@@ -635,10 +509,19 @@ export function ProductDetailView() {
                 price={Number(product.unitPrice ?? 0)}
                 sku={product.sku}
                 barcode={product.barcode}
+                currency={currency}
               />
             </div>
           ) : (
-            <p className="text-sm text-text-secondary">{t('inventory.product.labelHint')}</p>
+            <div className="space-y-3">
+              <p className="text-sm text-text-secondary">{t('inventory.product.labelHint')}</p>
+              {canEdit && <button type="button" disabled={generateBarcode.isPending || editing} aria-busy={generateBarcode.isPending}
+                onClick={() => generateBarcode.mutate(id!)}
+                className="rounded-lg border border-border px-3 py-2 text-sm text-text-primary hover:bg-surface-hover disabled:opacity-50">
+                {generateBarcode.isPending ? t('common.loading') : t('inventory.product.generateBarcode')}
+              </button>}
+              {generateBarcode.isError && <p role="alert" className="text-sm text-danger">{t('inventory.product.barcodeError')}</p>}
+            </div>
           )}
         </div>
       </div>
@@ -653,6 +536,7 @@ export function ProductDetailView() {
                 price={Number(product.unitPrice ?? 0)}
                 sku={product.sku}
                 barcode={product.barcode}
+                currency={currency}
               />
             ))}
           </div>,

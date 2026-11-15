@@ -9,6 +9,7 @@ const stored = vi.hoisted(() => ({
   product: null as Record<string, unknown> | null,
 }));
 
+vi.mock('@/core/auth/usePermission', () => ({ usePermission: () => true }));
 vi.mock('@/shared/lib/api/client', () => ({
   default: {
     get: vi.fn().mockImplementation((url: string) => {
@@ -144,6 +145,28 @@ describe('product detail and edit', () => {
       reorderPoint: 5,
       supplierSku: 'TR-500',
     })));
+  });
+
+  it('sends zero for cleared mandatory stock limits and null for maximum', async () => {
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+    for (const name of ['Stock mínimo', 'Punto de reorden', 'Stock máximo']) {
+      fireEvent.change(screen.getByLabelText(name), { target: { value: '' } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/inventory/products/p-1', expect.objectContaining({
+      minStock: 0, reorderPoint: 0, maxStock: null,
+    })));
+    expect(vi.mocked(api.patch).mock.calls[0][1]).not.toHaveProperty('costPrice');
+  });
+
+  it('retains zero conversion as a validation error rather than saving one', async () => {
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Conversión a unidad base'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await screen.findByRole('alert');
+    expect(api.patch).not.toHaveBeenCalled();
   });
 
   it('sends null to clear the brand selection', async () => {

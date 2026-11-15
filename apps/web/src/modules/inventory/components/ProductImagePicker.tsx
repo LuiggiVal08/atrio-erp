@@ -30,7 +30,7 @@ export function ProductImagePicker({ files, onChange }: ProductImagePickerProps)
       <div className="mb-3 flex items-start justify-between">
         <div>
           <label className="block text-xs font-medium text-text-secondary">{t('inventory.product.images')}</label>
-          <p className="mt-1 text-xs text-text-muted">{t('inventory.product.imagesHint')}</p>
+          <p className="mt-1 text-xs text-text-secondary">{t('inventory.product.imagesHint')}</p>
         </div>
         <span className="font-mono text-xs text-text-secondary">{files.length}/{MAX_IMAGES}</span>
       </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
-import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useCategories } from '@/shared/hooks/useCategories';
 import { useCreateCategory } from '../hooks/useCreateCategory';
 import { useUpdateCategory } from '../hooks/useUpdateCategory';
@@ -10,6 +10,7 @@ import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
+import { Modal } from '@/core/components/Modal';
 import { applyServerErrors, resolveServerErrorMessage, clearServerErrors, FormInput, FormSelect } from '@/shared/form';
 import { categoryFormSchema, type CategoryFormValues } from '@/shared/validation/category';
 
@@ -35,6 +36,7 @@ export function CategoryListView() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CategoryRow | null>(null);
 
   const form = useForm({
     defaultValues: { name: '', parentId: '' } satisfies CategoryFormValues,
@@ -96,16 +98,29 @@ export function CategoryListView() {
     );
   };
 
-  const handleDelete = (row: CategoryRow) => {
-    if (!window.confirm(t('inventory.categoryView.deleteConfirm').replace('{name}', row.name)))
-      return;
-    deleteCategory.mutate(row.id, {
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteCategory.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        setDeleteTarget(null);
+        setError(null);
+      },
       onError: (err: any) => {
         const message =
           err?.response?.data?.message || err?.message || t('inventory.categoryView.deleteError');
         setError(Array.isArray(message) ? message.join(' ') : message);
+        setDeleteTarget(null);
       },
     });
+  };
+
+  const handleEditKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleSaveEdit();
+    } else if (event.key === 'Escape') {
+      setEditing(null);
+    }
   };
 
   const pagination = usePagination(categories);
@@ -123,6 +138,7 @@ export function CategoryListView() {
               type="text"
               value={editing.name}
               onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+              onKeyDown={handleEditKeyDown}
               aria-label={t('inventory.categoryView.name')}
               className="w-full rounded border border-border bg-canvas px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
               autoFocus
@@ -141,6 +157,7 @@ export function CategoryListView() {
             <select
               value={editing.parentId}
               onChange={(e) => setEditing({ ...editing, parentId: e.target.value })}
+              onKeyDown={handleEditKeyDown}
               aria-label={t('inventory.categoryView.parent')}
               className="w-full rounded border border-border bg-canvas px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
             >
@@ -197,7 +214,7 @@ export function CategoryListView() {
               <Pencil size={16} aria-hidden="true" />
             </button>
             <button
-              onClick={() => handleDelete(row)}
+              onClick={() => setDeleteTarget(row)}
               disabled={deleteCategory.isPending}
               aria-label={t('common.delete')}
               className="rounded p-1 text-text-secondary hover:bg-error/10 hover:text-error disabled:opacity-50"
@@ -229,9 +246,11 @@ export function CategoryListView() {
       actions={
         <button
           onClick={toggleForm}
-          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+          aria-expanded={showForm}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
         >
-          + {t('common.create')}
+          <Plus size={14} aria-hidden="true" />
+          {t('inventory.categoryView.create')}
         </button>
       }
     >
@@ -300,7 +319,37 @@ export function CategoryListView() {
         columns={columns}
         loading={isLoading}
         emptyMessage={t('inventory.categoryView.empty')}
+        emptyActionLabel={t('inventory.categoryView.create')}
+        emptyAction={() => setShowForm(true)}
       />
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title={t('inventory.categoryView.deleteTitle')}
+        size="sm"
+      >
+        <p className="text-sm text-text-secondary">
+          {t('inventory.categoryView.deleteConfirm').replace('{name}', deleteTarget?.name ?? '')}
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(null)}
+            className="rounded-lg px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={confirmDelete}
+            disabled={deleteCategory.isPending}
+            className="rounded-lg bg-error px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            {t('common.delete')}
+          </button>
+        </div>
+      </Modal>
     </ListPage>
   );
 }

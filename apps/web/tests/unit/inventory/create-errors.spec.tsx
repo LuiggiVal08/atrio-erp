@@ -8,6 +8,7 @@ import { VendorListView } from '@/modules/inventory/views/VendorListView';
 import { InventoryListView } from '@/modules/inventory/views/InventoryListView';
 import { BranchListView } from '@/modules/inventory/views/BranchListView';
 
+vi.mock('@/core/auth/usePermission', () => ({ usePermission: () => true }));
 vi.mock('@/shared/lib/api/client', () => ({
   default: {
     get: vi.fn().mockImplementation((url: string) => Promise.resolve({
@@ -52,7 +53,8 @@ function openForm(form: typeof forms[number]) {
       <QueryClientProvider client={client}><form.Component /></QueryClientProvider>
     </MemoryRouter>,
   );
-  fireEvent.click(screen.getByRole('button', { name: form.name === 'product' ? '+ Crear producto' : '+ Crear' }));
+  const createLabel = form.name === 'product' ? 'Crear producto' : form.name === 'branch' ? 'Nueva sucursal' : '+ Crear';
+  fireEvent.click(screen.getByRole('button', { name: createLabel }));
   const inputs = document.querySelectorAll('input');
   if (form.name === 'vendor') {
     fireEvent.change(inputs[1], { target: { value: 'Proveedor de prueba' } });

@@ -1,4 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useIsMutating } from '@tanstack/react-query';
+import { usePermission } from '@/core/auth/usePermission';
+import { useInventoryProducts } from '../hooks/useInventoryList';
+import { StockAdjustmentForm } from '../components/StockAdjustmentForm';
 import { ArrowDownLeft, ArrowUpRight, SlidersHorizontal } from 'lucide-react';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
@@ -12,34 +17,47 @@ import { useTenant } from '@/modules/settings/hooks/useTenant';
 import { useBranches } from '../hooks/useBranches';
 import { useWarehouses } from '../hooks/useWarehouses';
 import {
-  useAdjustStock,
   useAllStockMovements,
   useStockBalances,
   type StockBalance,
 } from '../hooks/useStockMovements';
 
 export function StockMovementsView() {
-  const { t } = useTranslation();
-  const [tab, setTab] = useState<'balances' | 'movements'>('balances');
+  const { t, locale } = useTranslation();
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<'balances' | 'movements'>(params.get('tab') === 'movements' ? 'movements' : 'balances');
   const [branchId, setBranchId] = useState('');
-  const [warehouseId, setWarehouseId] = useState('');
+  const [warehouseId, setWarehouseId] = useState(params.get('warehouseId') ?? '');
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
+  const productId = params.get('productId') ?? '';
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [adjusting, setAdjusting] = useState<StockBalance | null>(null);
-  const [adjustType, setAdjustType] = useState<'in' | 'out'>('in');
-  const [adjustQuantity, setAdjustQuantity] = useState('1');
-  const [reason, setReason] = useState('');
-  const [lotNumber, setLotNumber] = useState('');
-  const [serialNumber, setSerialNumber] = useState('');
-  const [expirationDate, setExpirationDate] = useState('');
+  const [showAdjustment, setShowAdjustment] = useState(false);
+  const canAdjust = usePermission('inventory:stock:adjust');
+  const productsQuery = useInventoryProducts();
 
   const tenantId = useTenantStore((state) => state.activeTenantId);
+  const savingAdjustment = useIsMutating({ mutationKey: ['stock-adjustment', tenantId] }) > 0;
   const { data: tenant } = useTenant(tenantId);
   const currency = tenant?.baseCurrency === 'VED' ? 'VES' : tenant?.baseCurrency || 'VES';
   const formatMoney = useMemo(
     () => (value: number) =>
-      new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value),
-    [currency],
+      new Intl.NumberFormat(locale, { style: 'currency', currency }).format(value),
+    [currency, locale],
   );
+  const formatNumber = useMemo(
+    () => (value: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 20 }).format(value),
+    [locale],
+  );
+  const formatUnit = (unit?: string | null) => {
+    const value = unit || 'unidad';
+    const translated = t(`inventory.units.${value}`);
+    return translated === `inventory.units.${value}` ? value : translated;
+  };
 
   const { data: branches } = useBranches();
   const { data: warehouses } = useWarehouses();
@@ -48,14 +66,22 @@ export function StockMovementsView() {
     isLoading: loadingBalances,
     refetch: refetchBalances,
     isFetching: isFetchingBalances,
+    isError: balancesError,
   } = useStockBalances();
   const {
-    data: movements = [],
+    data: movementPage,
     isLoading: loadingMovements,
     refetch: refetchMovements,
     isFetching: isFetchingMovements,
-  } = useAllStockMovements();
-  const adjustStock = useAdjustStock();
+    isError: movementsError,
+  } = useAllStockMovements({
+    page, pageSize, search: deferredSearch || undefined,
+    warehouseId: warehouseId || undefined, branchId: branchId || undefined,
+    productId: productId || undefined, dateFrom: from || undefined, dateTo: to || undefined,
+  });
+  const movements = movementPage?.items ?? [];
+  const activeError = tab === 'balances' ? balancesError : movementsError;
+  const showGrid = !activeError || (tab === 'balances' ? balances.length : movements.length) > 0;
 
   const warehouseOptions = (warehouses ?? []).filter(
     (warehouse) => !branchId || warehouse.branchId === branchId,
@@ -69,60 +95,20 @@ export function StockMovementsView() {
       !needle ||
       row.product.name.toLowerCase().includes(needle) ||
       row.product.sku.toLowerCase().includes(needle);
-    return matchesWarehouse && matchesBranch && matchesSearch;
+    return matchesWarehouse && matchesBranch && matchesSearch && (!productId || row.productId === productId);
   });
 
-  const filteredMovements = movements.filter((row) => {
-    const matchesWarehouse = !warehouseId || row.warehouseId === warehouseId;
-    const matchesBranch = !branchId || row.warehouse?.branchId === branchId;
-    const needle = search.trim().toLowerCase();
-    const matchesSearch =
-      !needle ||
-      row.product?.name?.toLowerCase().includes(needle) ||
-      row.product?.sku?.toLowerCase().includes(needle) ||
-      row.referenceId?.toLowerCase().includes(needle);
-    return matchesWarehouse && matchesBranch && matchesSearch;
-  });
-
-  const filterKey = `${branchId}|${warehouseId}|${search}`;
+  const filterKey = `${tenantId}|${branchId}|${warehouseId}|${search}|${productId}`;
   const balancePagination = usePagination(filteredBalances, {
     resetKey: `${filterKey}|balances`,
   });
-  const movementPagination = usePagination(filteredMovements, {
-    resetKey: `${filterKey}|movements`,
-  });
-  const activePagination = tab === 'balances' ? balancePagination : movementPagination;
-
-  const handleAdjust = async () => {
-    if (!adjusting || !reason.trim() || Number(adjustQuantity) <= 0) return;
-    try {
-      await adjustStock.mutateAsync({
-        productId: adjusting.productId,
-        warehouseId: adjusting.warehouseId,
-        type: adjustType,
-        quantity: Number(adjustQuantity),
-        reason: reason.trim(),
-        lotNumber: lotNumber || undefined,
-        serialNumber: serialNumber || undefined,
-        expirationDate: expirationDate || undefined,
-      });
-      toastService.success(
-        t('inventory.stockView.adjustSuccessTitle'),
-        t('inventory.stockView.adjustSuccessBody'),
-      );
-      setAdjusting(null);
-      setReason('');
-      setAdjustQuantity('1');
-      setLotNumber('');
-      setSerialNumber('');
-      setExpirationDate('');
-    } catch {
-      toastService.error(
-        t('inventory.stockView.adjustErrorTitle'),
-        t('inventory.stockView.adjustErrorBody'),
-      );
-    }
+  const movementPagination = {
+    page, pageSize, total: movementPage?.total ?? 0,
+    totalPages: Math.max(1, Math.ceil((movementPage?.total ?? 0) / pageSize)),
+    pageItems: movements, setPage,
+    setPageSize: (size: number) => { setPageSize(size); setPage(1); },
   };
+  const activePagination = tab === 'balances' ? balancePagination : movementPagination;
 
   const balanceColumns: GridColumn<StockBalance>[] = [
     {
@@ -158,17 +144,17 @@ export function StockMovementsView() {
         const over = row.product.maxStock != null && quantity > Number(row.product.maxStock);
         return (
           <span
-            className={
+            className={`font-mono tabular-nums ${
               low
                 ? 'font-semibold text-error'
                 : over
                   ? 'font-semibold text-warning'
                   : 'font-semibold text-text-primary'
-            }
+            }`}
           >
-            {quantity}{' '}
-            <span className="font-normal text-text-secondary">
-              {row.product.baseUnit || 'unidad'}
+            {formatNumber(quantity)}{' '}
+            <span className="font-sans font-normal text-text-secondary">
+              {formatUnit(row.product.baseUnit)}
             </span>
           </span>
         );
@@ -180,9 +166,10 @@ export function StockMovementsView() {
       width: 160,
       align: 'right',
       render: (_v, row) => (
-        <span className="text-xs text-text-secondary">
-          {Number(row.product.minStock ?? 0)} / {row.product.maxStock ?? '—'} /{' '}
-          {Number(row.product.reorderPoint ?? 0)}
+        <span className="font-mono text-xs tabular-nums text-text-secondary">
+          {formatNumber(Number(row.product.minStock ?? 0))} /{' '}
+          {row.product.maxStock != null ? formatNumber(Number(row.product.maxStock)) : '—'} /{' '}
+          {formatNumber(Number(row.product.reorderPoint ?? 0))}
         </span>
       ),
     },
@@ -191,25 +178,30 @@ export function StockMovementsView() {
       label: t('inventory.stockView.totalCost'),
       width: 120,
       align: 'right',
-      render: (_v, row) => formatMoney(Number(row.quantity) * Number(row.product.costPrice ?? 0)),
+      render: (_v, row) => (
+        <span className="font-mono tabular-nums">
+          {formatMoney(Number(row.quantity) * Number(row.product.costPrice ?? 0))}
+        </span>
+      ),
     },
     {
       key: 'updatedAt',
       label: t('inventory.stockView.updatedAt'),
       width: 150,
-      render: (value) => new Date(value as string).toLocaleString(),
+      render: (value) => new Date(value as string).toLocaleString(locale),
     },
     {
       key: 'actions',
       label: '',
       width: 130,
       align: 'right',
-      render: (_v, row) => (
+      render: (_v, row) => canAdjust && (
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             setAdjusting(row);
+            setShowAdjustment(true);
           }}
           className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:border-accent hover:text-accent"
         >
@@ -225,7 +217,7 @@ export function StockMovementsView() {
       key: 'createdAt',
       label: t('inventory.stockView.date'),
       width: 150,
-      render: (value) => new Date(value as string).toLocaleString(),
+      render: (value) => new Date(value as string).toLocaleString(locale),
     },
     {
       key: 'product',
@@ -262,7 +254,15 @@ export function StockMovementsView() {
         );
       },
     },
-    { key: 'quantity', label: t('inventory.stockView.amount'), width: 100, align: 'right' },
+    {
+      key: 'quantity',
+      label: t('inventory.stockView.amount'),
+      width: 100,
+      align: 'right',
+      render: (value) => (
+        <span className="font-mono tabular-nums">{formatNumber(Number(value))}</span>
+      ),
+    },
     {
       key: 'referenceId',
       label: t('inventory.stockView.reference'),
@@ -274,9 +274,13 @@ export function StockMovementsView() {
       width: 120,
       align: 'right',
       render: (_v, row) =>
-        row.balanceBefore != null && row.balanceAfter != null
-          ? `${row.balanceBefore} → ${row.balanceAfter}`
-          : '—',
+        row.balanceBefore != null && row.balanceAfter != null ? (
+          <span className="font-mono tabular-nums">
+            {formatNumber(Number(row.balanceBefore))} → {formatNumber(Number(row.balanceAfter))}
+          </span>
+        ) : (
+          '—'
+        ),
     },
     {
       key: 'userName',
@@ -286,22 +290,24 @@ export function StockMovementsView() {
     },
   ];
 
-  const emptyMessage = search.trim()
-    ? tab === 'balances'
-      ? t('inventory.stockView.noMatchBalances')
-      : t('inventory.stockView.noMatchMovements')
-    : tab === 'balances'
-      ? t('inventory.stockView.emptyBalances')
-      : t('inventory.stockView.emptyMovements');
+  const emptyMessage =
+    search.trim() || branchId || warehouseId
+      ? tab === 'balances'
+        ? t('inventory.stockView.noMatchBalances')
+        : t('inventory.stockView.noMatchMovements')
+      : tab === 'balances'
+        ? t('inventory.stockView.emptyBalances')
+        : t('inventory.stockView.emptyMovements');
 
   return (
     <>
       <ListPage
         title={t('inventory.stockView.title')}
         subtitle={t('inventory.stockView.subtitle')}
+        actions={canAdjust && <button type="button" onClick={() => { setAdjusting(null); setShowAdjustment(true); }} disabled={!productsQuery.data?.length || !warehouses?.length} className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{t('inventory.stockView.registerStock')}</button>}
         onRefresh={() => Promise.all([refetchBalances(), refetchMovements()])}
         refreshing={isFetchingBalances || isFetchingMovements}
-        pagination={
+        pagination={showGrid && (
           <ListPagination
             page={activePagination.page}
             pageSize={activePagination.pageSize}
@@ -310,17 +316,25 @@ export function StockMovementsView() {
             onPageChange={activePagination.setPage}
             onPageSizeChange={activePagination.setPageSize}
           />
-        }
+        )}
         toolbar={
           <>
             <div
               role="tablist"
               aria-label={t('inventory.stockView.title')}
               className="flex items-center gap-2 border-b border-border px-6"
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                event.preventDefault();
+                const next = tab === 'balances' ? 'movements' : 'balances';
+                setTab(next);
+                event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next === 'balances' ? 0 : 1].focus();
+              }}
             >
               <button
                 role="tab"
                 aria-selected={tab === 'balances'}
+                tabIndex={tab === 'balances' ? 0 : -1}
                 onClick={() => setTab('balances')}
                 className={`border-b-2 px-1 py-3 text-sm font-medium ${tab === 'balances' ? 'border-accent text-accent' : 'border-transparent text-text-secondary'}`}
               >
@@ -329,6 +343,7 @@ export function StockMovementsView() {
               <button
                 role="tab"
                 aria-selected={tab === 'movements'}
+                tabIndex={tab === 'movements' ? 0 : -1}
                 onClick={() => setTab('movements')}
                 className={`border-b-2 px-1 py-3 text-sm font-medium ${tab === 'movements' ? 'border-accent text-accent' : 'border-transparent text-text-secondary'}`}
               >
@@ -341,6 +356,7 @@ export function StockMovementsView() {
                 onChange={(e) => {
                   setBranchId(e.target.value);
                   setWarehouseId('');
+                  setPage(1);
                 }}
                 aria-label={t('inventory.stockView.branch')}
                 className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm"
@@ -354,7 +370,7 @@ export function StockMovementsView() {
               </select>
               <select
                 value={warehouseId}
-                onChange={(e) => setWarehouseId(e.target.value)}
+                onChange={(e) => { setWarehouseId(e.target.value); setPage(1); }}
                 aria-label={t('inventory.stockView.warehouse')}
                 className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm"
               >
@@ -367,16 +383,21 @@ export function StockMovementsView() {
               </select>
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 placeholder={t('inventory.stockView.searchPlaceholder')}
                 aria-label={t('inventory.stockView.searchPlaceholder')}
                 className="min-w-52 flex-1 rounded-lg border border-border bg-canvas px-3 py-2 text-sm"
               />
+              {tab === 'movements' && <>
+                <label className="text-xs">{t('inventory.stockView.fromDate')}<input type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} className="ml-2 rounded-lg border border-border bg-canvas px-3 py-2" /></label>
+                <label className="text-xs">{t('inventory.stockView.toDate')}<input type="date" min={from} value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} className="ml-2 rounded-lg border border-border bg-canvas px-3 py-2" /></label>
+              </>}
             </div>
           </>
         }
       >
-        {tab === 'balances' ? (
+        {activeError && <div role="alert" className="mb-3 flex items-center justify-between gap-3 text-sm text-error">{t('inventory.stockView.loadError')}<button type="button" onClick={() => void (tab === 'balances' ? refetchBalances() : refetchMovements())} className="rounded-lg border border-border px-3 py-2">{t('common.retry')}</button></div>}
+        {showGrid && (tab === 'balances' ? (
           <VirtualGrid
             columns={balanceColumns}
             data={balancePagination.pageItems}
@@ -390,130 +411,26 @@ export function StockMovementsView() {
             loading={loadingMovements}
             emptyMessage={emptyMessage}
           />
-        )}
+        ))}
       </ListPage>
       <Modal
-        open={!!adjusting}
-        onClose={() => setAdjusting(null)}
-        title={t('inventory.stockView.adjustTitle')}
+        open={showAdjustment}
+        dismissible={!savingAdjustment}
+        onClose={() => { if (!savingAdjustment) setShowAdjustment(false); }}
+        title={t(adjusting ? 'inventory.stockView.adjustTitle' : 'inventory.stockView.registerStock')}
       >
-        {adjusting && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleAdjust();
-            }}
-            className="space-y-4"
-          >
-            <div className="rounded-lg bg-surface px-4 py-3">
-              <div className="font-medium">{adjusting.product.name}</div>
-              <div className="text-sm text-text-secondary">
-                {adjusting.warehouse.name} · {t('inventory.stockView.currentStock')}:{' '}
-                {adjusting.quantity}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setAdjustType('in')}
-                className={`rounded-lg border px-3 py-2 text-sm ${adjustType === 'in' ? 'border-success bg-success/10 text-success' : 'border-border'}`}
-              >
-                <ArrowDownLeft className="mr-1 inline h-4 w-4" aria-hidden="true" />{' '}
-                {t('inventory.stockView.entry')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdjustType('out')}
-                className={`rounded-lg border px-3 py-2 text-sm ${adjustType === 'out' ? 'border-error bg-error/10 text-error' : 'border-border'}`}
-              >
-                <ArrowUpRight className="mr-1 inline h-4 w-4" aria-hidden="true" />{' '}
-                {t('inventory.stockView.exit')}
-              </button>
-            </div>
-            <div>
-              <label htmlFor="adjust-quantity" className="mb-1 block text-xs font-medium">
-                {t('inventory.stockView.amount')}
-              </label>
-              <input
-                id="adjust-quantity"
-                type="number"
-                min="0.01"
-                step="0.01"
-                required
-                value={adjustQuantity}
-                onChange={(e) => setAdjustQuantity(e.target.value)}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2"
-              />
-            </div>
-            <div>
-              <label htmlFor="adjust-reason" className="mb-1 block text-xs font-medium">
-                {t('inventory.stockView.reason')}
-              </label>
-              <input
-                id="adjust-reason"
-                required
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={t('inventory.stockView.reasonPlaceholder')}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="adjust-lot" className="mb-1 block text-xs font-medium">
-                  {t('inventory.stockView.lot')}
-                </label>
-                <input
-                  id="adjust-lot"
-                  value={lotNumber}
-                  onChange={(e) => setLotNumber(e.target.value)}
-                  placeholder={t('inventory.stockView.optional')}
-                  className="w-full rounded-lg border border-border bg-canvas px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="adjust-serial" className="mb-1 block text-xs font-medium">
-                  {t('inventory.stockView.serial')}
-                </label>
-                <input
-                  id="adjust-serial"
-                  value={serialNumber}
-                  onChange={(e) => setSerialNumber(e.target.value)}
-                  placeholder={t('inventory.stockView.optional')}
-                  className="w-full rounded-lg border border-border bg-canvas px-3 py-2"
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor="adjust-expiration" className="mb-1 block text-xs font-medium">
-                {t('inventory.stockView.expiration')}
-              </label>
-              <input
-                id="adjust-expiration"
-                type="date"
-                value={expirationDate}
-                onChange={(e) => setExpirationDate(e.target.value)}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAdjusting(null)}
-                className="rounded-lg border border-border px-4 py-2 text-sm"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="submit"
-                disabled={adjustStock.isPending}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {t('inventory.stockView.registerAdjustment')}
-              </button>
-            </div>
-          </form>
-        )}
+        {showAdjustment && <StockAdjustmentForm
+          key={`${tenantId}|${adjusting?.id ?? 'new'}`}
+          balance={adjusting}
+          balances={balances}
+          products={productsQuery.data ?? []}
+          warehouses={warehouses ?? []}
+          onClose={() => setShowAdjustment(false)}
+          onSaved={() => {
+            setShowAdjustment(false);
+            toastService.success(t('inventory.stockView.adjustSuccessTitle'), t('inventory.stockView.adjustSuccessBody'));
+          }}
+        />}
       </Modal>
     </>
   );

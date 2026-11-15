@@ -13,6 +13,12 @@ import {
   type ProductBrand,
 } from '../hooks/useBrands';
 
+function serverMessage(err: any, fallback: string): string {
+  const message = err?.response?.data?.message;
+  if (Array.isArray(message)) return message.join(' · ');
+  return typeof message === 'string' && message ? message : fallback;
+}
+
 export function BrandListView() {
   const { t } = useTranslation();
   const { data: brands = [], isLoading, refetch, isFetching } = useBrands();
@@ -38,7 +44,7 @@ export function BrandListView() {
           setError(null);
         },
         onError: (err: any) =>
-          setError(err?.response?.data?.message ?? t('inventory.brandView.createError')),
+          setError(serverMessage(err, t('inventory.brandView.createError'))),
       },
     );
   };
@@ -54,7 +60,7 @@ export function BrandListView() {
           setError(null);
         },
         onError: (err: any) =>
-          setError(err?.response?.data?.message ?? t('inventory.brandView.updateError')),
+          setError(serverMessage(err, t('inventory.brandView.updateError'))),
       },
     );
   };
@@ -75,7 +81,7 @@ export function BrandListView() {
           setError(null);
         },
         onError: (err: any) =>
-          setError(err?.response?.data?.message ?? t('inventory.brandView.logoError')),
+          setError(serverMessage(err, t('inventory.brandView.logoError'))),
       },
     );
   };
@@ -140,7 +146,10 @@ export function BrandListView() {
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(event) => uploadSelectedLogo(event.target.files?.[0])}
+          onChange={(event) => {
+            uploadSelectedLogo(event.target.files?.[0]);
+            event.target.value = '';
+          }}
         />
         {isLoading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -173,6 +182,11 @@ export function BrandListView() {
                         autoFocus
                         value={editing.name}
                         onChange={(event) => setEditing({ ...editing, name: event.target.value })}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') saveEdit();
+                          if (event.key === 'Escape') setEditing(null);
+                        }}
+                        aria-label={t('inventory.brandView.namePlaceholder')}
                         className="w-full rounded border border-border bg-canvas px-2 py-1 text-sm text-text-primary focus:border-accent focus:outline-none"
                       />
                     ) : (
@@ -236,9 +250,7 @@ export function BrandListView() {
                         { id: brand.id, isActive: !brand.isActive },
                         {
                           onError: (err: any) =>
-                            setError(
-                              err?.response?.data?.message ?? t('inventory.brandView.updateError'),
-                            ),
+                            setError(serverMessage(err, t('inventory.brandView.updateError'))),
                         },
                       );
                     }}

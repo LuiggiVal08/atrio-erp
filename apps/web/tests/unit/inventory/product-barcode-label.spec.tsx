@@ -1,5 +1,6 @@
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import QRCode from 'qrcode';
 import { ProductBarcodeLabel } from '@/modules/inventory/components/ProductBarcodeLabel';
 
 vi.mock('qrcode', () => ({ default: { toCanvas: vi.fn().mockResolvedValue(undefined) } }));
@@ -19,6 +20,17 @@ function svgTexts(container: HTMLElement) {
 }
 
 describe('ProductBarcodeLabel', () => {
+  it('reports unsupported characters without crashing the product', () => {
+    render(<ProductBarcodeLabel {...props} barcode="código" />);
+    expect(screen.getByRole('alert')).toBeDefined();
+  });
+
+  it('catches QR renderer rejection', async () => {
+    vi.mocked(QRCode.toCanvas).mockRejectedValueOnce(new Error('Canvas unavailable'));
+    render(<ProductBarcodeLabel {...props} barcode="SKU-001" />);
+    await waitFor(() => expect(screen.getByRole('alert')).toBeDefined());
+  });
+
   it('renders 13-digit codes as EAN-13 with split digit groups', () => {
     const { container } = render(<ProductBarcodeLabel {...props} barcode="2000000000015" />);
     const texts = svgTexts(container);

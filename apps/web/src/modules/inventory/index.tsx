@@ -3,11 +3,13 @@ import { useTranslation } from '@/shared/hooks/useTranslation';
 import { Package, Warehouse, Store, PackageSearch, ArrowRightLeft, BellRing, Tag, Tags } from 'lucide-react';
 import { InventoryListView } from './views/InventoryListView';
 import { WarehouseListView } from './views/WarehouseListView';
+import { WarehouseDetailView } from './views/WarehouseDetailView';
 import { TransferListView } from './views/TransferListView';
 import { ReorderPointListView } from './views/ReorderPointListView';
 import { CategoryListView } from './views/CategoryListView';
 import { ProductDetailView } from './views/ProductDetailView';
 import { BranchListView } from './views/BranchListView';
+import { BranchDetailView } from './views/BranchDetailView';
 import { StockMovementsView } from './views/StockMovementsView';
 import { BrandListView } from './views/BrandListView';
 
@@ -21,7 +23,9 @@ export function InventoryModule() {
         <Route path="products" element={<InventoryListView />} />
         <Route path=":id" element={<ProductDetailView />} />
         <Route path="warehouses" element={<WarehouseListView />} />
+        <Route path="warehouses/:id" element={<WarehouseDetailView />} />
         <Route path="branches" element={<BranchListView />} />
+        <Route path="branches/:id" element={<BranchDetailView />} />
         <Route path="stock" element={<StockMovementsView />} />
         <Route path="categories" element={<CategoryListView />} />
         <Route path="brands" element={<BrandListView />} />

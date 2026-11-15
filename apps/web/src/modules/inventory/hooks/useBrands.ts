@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
+import { refQueryOptions } from '@/core/lib/query-defaults';
 
 export interface ProductBrand {
   id: string;
@@ -16,8 +18,10 @@ export interface ProductBrand {
 }
 
 export function useBrands() {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   return useQuery<ProductBrand[]>({
-    queryKey: ['brands'],
+    queryKey: ['brands', tenantId],
+    ...refQueryOptions(),
     queryFn: async () => (await api.get('/inventory/brands')).data,
   });
 }
@@ -27,7 +31,11 @@ export function useCreateBrand() {
   return useMutation({
     mutationFn: async (data: { name: string; logoFileId?: string }) =>
       (await api.post('/inventory/brands', data)).data as ProductBrand,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brands'] }),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['brands'] }),
+      queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+      queryClient.invalidateQueries({ queryKey: ['product'] }),
+    ]),
   });
 }
 
@@ -36,7 +44,11 @@ export function useUpdateBrand() {
   return useMutation({
     mutationFn: async ({ id, ...data }: { id: string; name?: string; logoFileId?: string | null; isActive?: boolean }) =>
       (await api.patch(`/inventory/brands/${id}`, data)).data as ProductBrand,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brands'] }),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['brands'] }),
+      queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+      queryClient.invalidateQueries({ queryKey: ['product'] }),
+    ]),
   });
 }
 
@@ -50,6 +62,10 @@ export function useUploadBrandLogo() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })).data as ProductBrand;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brands'] }),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['brands'] }),
+      queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+      queryClient.invalidateQueries({ queryKey: ['product'] }),
+    ]),
   });
 }

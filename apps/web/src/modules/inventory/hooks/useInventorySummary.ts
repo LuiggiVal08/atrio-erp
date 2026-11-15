@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
+import { txQueryOptions } from '@/core/lib/query-defaults';
 
 export interface InventorySummary {
   totalProducts: number;
@@ -20,8 +22,10 @@ export interface InventorySummary {
 }
 
 export function useInventorySummary() {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   return useQuery({
-    queryKey: ['inventory', 'summary'],
+    queryKey: ['inventory', 'summary', tenantId],
+    ...txQueryOptions(),
     queryFn: async (): Promise<InventorySummary> => {
       const res = await api.get('/inventory/products/summary');
       return res.data;

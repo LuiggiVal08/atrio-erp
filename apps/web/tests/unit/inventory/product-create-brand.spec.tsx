@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import api from '@/shared/lib/api/client';
 import { InventoryListView } from '@/modules/inventory/views/InventoryListView';
 
+vi.mock('@/core/auth/usePermission', () => ({ usePermission: () => true }));
 vi.mock('@/shared/lib/api/client', () => {
   const brands = [
     { id: 'brand-1', name: 'Truper', isActive: true },
@@ -58,7 +59,7 @@ function openProductForm() {
       <QueryClientProvider client={client}><InventoryListView /></QueryClientProvider>
     </MemoryRouter>,
   );
-  fireEvent.click(screen.getByRole('button', { name: '+ Crear producto' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Crear producto' }));
   fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST-SKU' } });
   fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Producto de prueba' } });
   fireEvent.change(screen.getByLabelText('Costo de compra'), { target: { value: '10' } });
@@ -98,7 +99,7 @@ describe('product creation with searchable category and brand', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Nueva marca' }));
     const brandInput = screen.getByPlaceholderText('Nueva marca');
     fireEvent.change(brandInput, { target: { value: 'Nueva Marca' } });
-    const quickCreate = within(brandInput.closest('div')!.parentElement!).getByRole('button', { name: 'Guardar' });
+    const quickCreate = within(brandInput.closest('.mt-2')!).getByRole('button', { name: 'Guardar' });
     fireEvent.click(quickCreate);
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/inventory/brands', { name: 'Nueva Marca' }));

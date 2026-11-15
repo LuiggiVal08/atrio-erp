@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
+import { txQueryOptions } from '@/core/lib/query-defaults';
+
+export const PRODUCT_IMAGE_ACCEPT = '.jpg,.jpeg,.png,.webp,.gif';
+export function isSupportedProductImage(file: File) {
+  return /\.(jpe?g|png|webp|gif)$/i.test(file.name) && file.size <= 5 * 1024 * 1024;
+}
 
 export interface ProductImage {
   id: string;
@@ -8,8 +15,10 @@ export interface ProductImage {
 }
 
 export function useProductImages(id: string) {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   return useQuery({
-    queryKey: ['product-images', id],
+    queryKey: ['product-images', id, tenantId],
+    ...txQueryOptions(),
     queryFn: async () => {
       const res = await api.get(`/inventory/products/${id}/images`);
       return res.data as ProductImage[];

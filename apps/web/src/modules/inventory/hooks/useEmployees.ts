@@ -3,7 +3,7 @@ import api from '@/shared/lib/api/client';
 import { useTenantStore } from '@/core/tenant/store';
 
 function useTenantId() {
-  return useTenantStore.getState().activeTenantId;
+  return useTenantStore(state => state.activeTenantId);
 }
 
 export interface Department {
@@ -196,13 +196,74 @@ export function useUpdateEmployee() {
       secondLastName?: string; identityDoc?: string; identificationType?: string;
       taxIdentifier?: string; phone?: string; email?: string; address?: string;
       emergencyContactName?: string; emergencyContactPhone?: string; hireDate?: string;
-      department?: string; position?: string; baseSalary?: number;
+      department?: string; position?: string;
     }) => {
       const res = await api.patch(`/employees/${id}`, data);
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['employee', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+    },
+  });
+}
+
+export interface EmploymentRelationshipSummary {
+  id: string;
+  status: string;
+  startDate: string;
+}
+
+export function useEmployeeEmploymentRelationships(employeeId: string) {
+  return useQuery<EmploymentRelationshipSummary[]>({
+    queryKey: ['employee-employment-relationships', employeeId],
+    queryFn: async () => {
+      const res = await api.get(`/employees/${employeeId}/employment-relationships`);
+      return res.data;
+    },
+    enabled: !!employeeId,
+  });
+}
+
+export interface CurrentCompensation {
+  id: string;
+  currency?: string;
+  effectiveDate?: string;
+  components: { type: string; amount: number }[];
+}
+
+export function useCurrentCompensation(relationshipId?: string) {
+  return useQuery<CurrentCompensation | null>({
+    queryKey: ['current-compensation', relationshipId],
+    queryFn: async () => {
+      const res = await api.get(`/employment-relationships/${relationshipId}/compensation/current`);
+      return res.data;
+    },
+    enabled: !!relationshipId,
+    retry: false,
+  });
+}
+
+export function useAdjustCompensation(relationshipId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ agreementId, ...data }: {
+      agreementId: string;
+      effectiveDate: string;
+      currency?: string;
+      reason: string;
+      components: { type: string; amount: number }[];
+    }) => {
+      if (!relationshipId) throw new Error('Employment relationship is required');
+      const res = await api.post(
+        `/employment-relationships/${relationshipId}/compensation/${agreementId}/adjust`,
+        data,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['current-compensation', relationshipId] });
+      queryClient.invalidateQueries({ queryKey: ['employee-compensation-history', relationshipId] });
     },
   });
 }
@@ -219,10 +280,13 @@ export function useDeleteEmployee() {
   });
 }
 
-interface SetupEmployeeData {
-  department: { name: string; description?: string };
-  position: { name: string; code?: string };
+export interface SetupEmployeeData {
+  departmentId?: string;
+  department?: { name: string; description?: string };
+  positionId?: string;
+  position?: { name: string; code?: string };
   employee: {
+    id: string;
     firstName: string; middleName?: string; lastName: string;
     secondLastName?: string; identityDoc: string; identificationType?: string;
     taxIdentifier?: string; phone?: string; email?: string; address?: string;
@@ -230,7 +294,7 @@ interface SetupEmployeeData {
     baseSalary: number;
   };
   employment: { startDate: string; reason: string };
-  contract: { contractType: string; startDate: string };
+  contract: { contractType: string; startDate: string; endDate?: string; reason?: string };
   compensation: {
     effectiveDate: string; currency?: string;
     components: { type: string; amount: number }[];
@@ -243,50 +307,8 @@ export function useSetupEmployee() {
 
   return useMutation({
     mutationFn: async (data: SetupEmployeeData) => {
-      // 1. Create department
-      const deptRes = await api.post(`/tenants/${tenantId}/departments`, data.department);
-
-      // 2. Create position
-      const posRes = await api.post(`/tenants/${tenantId}/positions`, {
-        ...data.position,
-        departmentId: deptRes.data.id,
-      });
-
-      // 3. Create employee
-      const empRes = await api.post(`/tenants/${tenantId}/employees`, {
-        ...data.employee,
-        department: data.department.name,
-        departmentId: deptRes.data.id,
-        position: data.position.name,
-      });
-
-      // 4. Create position assignment
-      await api.post(`/tenants/${tenantId}/assignments`, {
-        employeeId: empRes.data.id,
-        positionId: posRes.data.id,
-        startDate: data.employment.startDate,
-      });
-
-      // 5. Create employment relationship
-      const relRes = await api.post(`/tenants/${tenantId}/employment-relationships`, {
-        employeeId: empRes.data.id,
-        startDate: data.employment.startDate,
-        reason: data.employment.reason,
-      });
-
-      // 6. Create contract
-      await api.post(
-        `/employment-relationships/${relRes.data.id}/contracts`,
-        data.contract,
-      );
-
-      // 7. Create compensation
-      await api.post(
-        `/employment-relationships/${relRes.data.id}/compensation`,
-        data.compensation,
-      );
-
-      return { employee: empRes.data, relationshipId: relRes.data.id };
+      if (!tenantId) throw new Error('Tenant context is required');
+      return (await api.post(`/tenants/${tenantId}/employees/setup`, data)).data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });

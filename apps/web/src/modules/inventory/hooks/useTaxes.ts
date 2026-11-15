@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
+import { refQueryOptions } from '@/core/lib/query-defaults';
 
 export interface Tax {
   id: string;
@@ -11,8 +13,10 @@ export interface Tax {
 }
 
 export function useTaxes() {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   return useQuery({
-    queryKey: ['taxes'],
+    queryKey: ['taxes', tenantId],
+    ...refQueryOptions(),
     queryFn: async () => {
       const res = await api.get('/localization/taxes');
       return res.data as Tax[];

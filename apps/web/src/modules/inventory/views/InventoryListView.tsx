@@ -1,13 +1,23 @@
 import { useState } from 'react';
-import { isAxiosError } from 'axios';
+import { useForm, useStore } from '@tanstack/react-form';
+import { useQueryClient, useIsFetching } from '@tanstack/react-query';
+import { FormInput, FormSelect, FormCombobox, applyServerErrors, resolveServerErrorMessage } from '@/shared/form';
+import { FormCheckbox } from '@/shared/form/form-checkbox';
+import { productFormSchema, productDefaults, productPayload } from '@/shared/validation/product';
+import { brandFormSchema } from '@/shared/validation/brand';
+import { categoryFormSchema } from '@/shared/validation/category';
+import { usePermission } from '@/core/auth/usePermission';
+import { useAuthStore } from '@/core/auth/store';
+import { useTenantStore } from '@/core/tenant/store';
+import { useTenant } from '@/modules/settings/hooks/useTenant';
+import { useProductSuppliers } from '../hooks/useProduct';
 import { useInventoryStore, type InventoryProduct } from '../store/inventory-store';
 import { useInventoryList } from '../hooks/useInventoryList';
 import { useCreateProduct } from '../hooks/useCreateProduct';
 import { useCategories } from '@/shared/hooks/useCategories';
 import { useCreateCategory } from '../hooks/useCreateCategory';
-import { useTaxes, type Tax } from '../hooks/useTaxes';
+import { useTaxes } from '../hooks/useTaxes';
 import { useBrands, useCreateBrand } from '../hooks/useBrands';
-import { Combobox } from '@/core/components/Combobox';
 import { Drawer } from '@heroui/react';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPage } from '@/core/components/ListPage';
@@ -16,14 +26,22 @@ import { InventorySummaryCards } from '../components/InventorySummaryCards';
 import { ProductImagePicker } from '../components/ProductImagePicker';
 import { useUploadProductImages } from '../hooks/useProductImage';
 import { useTranslation } from '@/shared/hooks/useTranslation';
-import { ChevronRight, Tags } from 'lucide-react';
+import { toastService } from '@/core/services/toast-service';
+import { ChevronRight, Plus, Tags, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const inputClass =
-  'w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none';
-
 export function InventoryListView() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const client = useQueryClient();
+  const refreshing = useIsFetching({ queryKey: ['inventory'] }) > 0;
+  const canCreate = usePermission('inventory:product:create');
+  const canCreateCategory = usePermission('inventory:category:create');
+  const canCreateBrand = usePermission('inventory:brand:create');
+  const tenantId = useTenantStore((state) => state.activeTenantId);
+  const authTenantId = useAuthStore((state) => state.user?.tenantId);
+  const { data: tenant } = useTenant(tenantId ?? authTenantId ?? null);
+  const currency = tenant?.baseCurrency === 'VED' ? 'VES' : tenant?.baseCurrency;
+  const suppliers = useProductSuppliers();
   const {
     filter,
     setFilter,
@@ -39,7 +57,7 @@ export function InventoryListView() {
     items: products,
     total,
     isLoading: loading,
-    isFetching: isFetchingInventory,
+    isError: listError,
     refetch: refetchInventory,
   } = useInventoryList();
   const createProduct = useCreateProduct();
@@ -54,40 +72,85 @@ export function InventoryListView() {
   const [showForm, setShowForm] = useState(false);
   const [showCatForm, setShowCatForm] = useState(false);
   const [groupByCategory, setGroupByCategory] = useState(false);
-  const [sku, setSku] = useState('');
-  const [barcode, setBarcode] = useState('');
-  const [pname, setPname] = useState('');
-  const [desc, setDesc] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [catName, setCatName] = useState('');
-  const [brandId, setBrandId] = useState('');
-  const [brandName, setBrandName] = useState('');
   const [showBrandForm, setShowBrandForm] = useState(false);
-  const [unitPrice, setUnitPrice] = useState('');
-  const [costPrice, setCostPrice] = useState('');
-  const [taxId, setTaxId] = useState('');
-  const [isService, setIsService] = useState(false);
-  const [baseUnit, setBaseUnit] = useState('unidad');
-  const [purchaseUnit, setPurchaseUnit] = useState('');
-  const [conversionFactor, setConversionFactor] = useState('1');
-  const [minStock, setMinStock] = useState('0');
-  const [maxStock, setMaxStock] = useState('');
-  const [reorderPoint, setReorderPoint] = useState('0');
-  const [supplierSku, setSupplierSku] = useState('');
   const [productImages, setProductImages] = useState<File[]>([]);
-  const [imageUploadError, setImageUploadError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const form = useForm({
+    defaultValues: { ...productDefaults },
+    validators: { onSubmit: productFormSchema },
+    onSubmit: async ({ value }) => {
+      if (!canCreate || createProduct.isPending || uploadProductImages.isPending) return;
+      setError(null);
+      try {
+        const created = await createProduct.mutateAsync(productPayload(value));
+        if (productImages.length && created?.id) {
+          try {
+            await uploadProductImages.mutateAsync({ id: created.id, files: productImages });
+          } catch {
+            toastService.error(t('inventory.product.imageUploadError'));
+            navigate(`/inventory/${created.id}`);
+          }
+        }
+        form.reset();
+        categoryForm.reset();
+        brandForm.reset();
+        setShowCatForm(false);
+        setShowBrandForm(false);
+        setProductImages([]);
+        setShowForm(false);
+      } catch (err) {
+        setError(resolveServerErrorMessage(applyServerErrors(form, err), t('common.saveUnconfirmed')));
+      }
+    },
+  });
+  const values = useStore(form.store, (state) => state.values);
+  const submitting = useStore(form.store, (state) => state.isSubmitting);
+  const categoryForm = useForm({
+    defaultValues: { name: '', parentId: '' },
+    validators: { onSubmit: categoryFormSchema },
+    onSubmit: async ({ value }) => {
+      if (!canCreateCategory) return;
+      setInlineError(null);
+      try {
+        const created = await createCategory.mutateAsync({ name: value.name.trim() });
+        form.setFieldValue('categoryId', created.id);
+        categoryForm.reset();
+        setShowCatForm(false);
+      } catch (err) {
+        setInlineError(resolveServerErrorMessage(applyServerErrors(categoryForm, err), t('inventory.categoryView.createError')));
+      }
+    },
+  });
+  const brandForm = useForm({
+    defaultValues: { name: '' },
+    validators: { onSubmit: brandFormSchema },
+    onSubmit: async ({ value }) => {
+      if (!canCreateBrand) return;
+      setInlineError(null);
+      try {
+        const created = await createBrand.mutateAsync({ name: value.name.trim() });
+        form.setFieldValue('brandId', created.id);
+        brandForm.reset();
+        setShowBrandForm(false);
+      } catch (err) {
+        setInlineError(resolveServerErrorMessage(applyServerErrors(brandForm, err), t('inventory.brandView.createError')));
+      }
+    },
+  });
 
   const columns: GridColumn<InventoryProduct>[] = [
     { key: 'sku', label: t('inventory.product.sku'), width: 120, sortable: true },
     { key: 'name', label: t('inventory.product.name'), sortable: true },
-    { key: 'category', label: t('inventory.categories'), width: 140, sortable: true },
-    { key: 'stock', label: t('inventory.stock'), width: 100, align: 'right', sortable: true },
+    { key: 'category', label: t('inventory.categories'), width: 140 },
+    { key: 'stock', label: t('inventory.stock'), width: 100, align: 'right' },
     {
       key: 'averageCost',
       label: t('inventory.product.cost'),
       width: 120,
       align: 'right',
       sortable: true,
+      render: (value) => `${Number(value).toLocaleString(locale, { minimumFractionDigits: 2 })} ${currency ?? ''}`,
     },
     {
       key: 'unitPrice',
@@ -95,12 +158,12 @@ export function InventoryListView() {
       width: 120,
       align: 'right',
       sortable: true,
+      render: (value) => `${Number(value).toLocaleString(locale, { minimumFractionDigits: 2 })} ${currency ?? ''}`,
     },
     {
       key: 'isActive',
       label: t('inventory.product.isActive'),
       width: 100,
-      sortable: true,
       render: (_v, row) => (
         <span
           className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
@@ -115,378 +178,57 @@ export function InventoryListView() {
     },
   ];
 
-  const serverMessage = isAxiosError(createProduct.error)
-    ? createProduct.error.response?.data?.message
-    : undefined;
-  const errorMessage = Array.isArray(serverMessage)
-    ? serverMessage.join(' ')
-    : typeof serverMessage === 'string'
-      ? serverMessage
-      : t('common.saveUnconfirmed');
-
-  const handleCreate = () => {
-    if (!sku.trim() || !pname.trim() || !unitPrice || !costPrice || createProduct.isPending) return;
-    createProduct.mutate(
-      {
-        sku: sku.trim(),
-        barcode: barcode.trim() || undefined,
-        name: pname.trim(),
-        description: desc.trim() || undefined,
-        categoryId: categoryId || undefined,
-        brandId: brandId || undefined,
-        unitPrice: Number(unitPrice),
-        costPrice: Number(costPrice),
-        taxId: taxId || undefined,
-        isService,
-        baseUnit,
-        purchaseUnit: purchaseUnit || undefined,
-        conversionFactor: Number(conversionFactor) || 1,
-        minStock: Number(minStock) || 0,
-        maxStock: maxStock ? Number(maxStock) : undefined,
-        reorderPoint: Number(reorderPoint) || 0,
-        supplierSku: supplierSku || undefined,
-      },
-      {
-        onSuccess: async (createdProduct) => {
-          if (productImages.length && createdProduct?.id) {
-            try {
-              await uploadProductImages.mutateAsync({
-                id: createdProduct.id,
-                files: productImages,
-              });
-            } catch {
-              setImageUploadError(true);
-              return;
-            }
-          }
-          setSku('');
-          setBarcode('');
-          setPname('');
-          setDesc('');
-          setCategoryId('');
-          setUnitPrice('');
-          setCostPrice('');
-          setTaxId('');
-          setIsService(false);
-          setBaseUnit('unidad');
-          setPurchaseUnit('');
-          setConversionFactor('1');
-          setMinStock('0');
-          setMaxStock('');
-          setReorderPoint('0');
-          setSupplierSku('');
-          setBrandId('');
-          setBrandName('');
-          setShowBrandForm(false);
-          setProductImages([]);
-          setImageUploadError(false);
-          setShowForm(false);
-        },
-      },
-    );
-  };
-
-  const handleCreateCategory = async () => {
-    if (!catName.trim()) return;
-    await createCategory.mutateAsync({ name: catName.trim() });
-    setCatName('');
-    setShowCatForm(false);
-  };
-
-  const handleCreateBrand = async () => {
-    if (!brandName.trim()) return;
-    const created = await createBrand.mutateAsync({ name: brandName.trim() });
-    setBrandId(created.id);
-    setBrandName('');
-    setShowBrandForm(false);
-  };
+  const handleCreate = () => void form.handleSubmit();
 
   const productFields = (
-    <div className="space-y-6">
-      <fieldset className="space-y-4">
-        <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-          {t('inventory.product.groupIdentity')}
-        </legend>
+    <form id="create-product" noValidate onSubmit={(event) => { event.preventDefault(); handleCreate(); }} className="space-y-6">
+      <fieldset disabled={submitting} className="space-y-4">
+        <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">{t('inventory.product.groupIdentity')}</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('inventory.product.sku')} htmlFor="product-sku">
-            <input
-              id="product-sku"
-              type="text"
-              value={sku}
-              onChange={(e) => setSku(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field
-            label={t('inventory.product.barcode')}
-            htmlFor="product-barcode"
-            hint={t('inventory.product.barcodeHint')}
-          >
-            <input
-              id="product-barcode"
-              type="text"
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              placeholder={t('inventory.product.barcodePlaceholder')}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t('inventory.product.name')} htmlFor="product-name">
-            <input
-              id="product-name"
-              type="text"
-              value={pname}
-              onChange={(e) => setPname(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t('inventory.product.supplierRef')} htmlFor="product-supplier-ref">
-            <input
-              id="product-supplier-ref"
-              type="text"
-              value={supplierSku}
-              onChange={(e) => setSupplierSku(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
+          <FormInput form={form} name="sku" label={t('inventory.product.sku')} id="product-sku" required />
+          <div><FormInput form={form} name="barcode" label={t('inventory.product.barcode')} id="product-barcode" description={t('inventory.product.barcodeHint')} placeholder={t('inventory.product.barcodePlaceholder')} />
+            <button type="button" disabled={!values.sku.trim()} onClick={() => form.setFieldValue('barcode', values.sku.trim())} className="mt-1 text-xs text-accent hover:underline disabled:opacity-50">{t('inventory.product.generateFromSku')}</button>
+          </div>
+          <FormInput form={form} name="name" label={t('inventory.product.name')} id="product-name" required />
+          <FormInput form={form} name="supplierSku" label={t('inventory.product.supplierRef')} id="product-supplier-ref" />
+          <FormCombobox form={form} name="primarySupplierId" label={t('inventory.product.supplier')} options={(suppliers.data ?? []).map((supplier) => ({ id: supplier.id, name: supplier.legalName }))} className="sm:col-span-2" />
           <div className="sm:col-span-2">
-            <Field label={t('inventory.categories')} htmlFor="product-category">
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Combobox
-                    id="product-category"
-                    value={categoryId}
-                    onChange={setCategoryId}
-                    options={(categories ?? []).map((c: any) => ({ id: c.id, name: c.name }))}
-                    placeholder={t('common.select')}
-                    aria-label={t('inventory.categories')}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowCatForm(!showCatForm)}
-                  aria-label={t('inventory.product.newCategoryPlaceholder')}
-                  aria-expanded={showCatForm}
-                  className="rounded-lg bg-accent px-3 text-sm text-white hover:bg-accent-hover"
-                >
-                  +
-                </button>
-              </div>
-            </Field>
-            {showCatForm && (
-              <div className="mt-2 flex gap-2">
-                <input
-                  type="text"
-                  value={catName}
-                  onChange={(e) => setCatName(e.target.value)}
-                  aria-label={t('inventory.product.newCategoryPlaceholder')}
-                  placeholder={t('inventory.product.newCategoryPlaceholder')}
-                  className={`flex-1 ${inputClass}`}
-                />
-                <button
-                  onClick={handleCreateCategory}
-                  disabled={createCategory.isPending}
-                  className="rounded-lg bg-accent px-3 text-sm text-white disabled:opacity-50"
-                >
-                  {t('common.save')}
-                </button>
-              </div>
-            )}
+            <div className="flex items-end gap-2"><FormCombobox form={form} name="categoryId" label={t('inventory.categories')} id="product-category" options={(categories ?? []).map((category) => ({ id: category.id, name: category.name }))} placeholder={t('common.select')} className="flex-1" />
+              {canCreateCategory && <button type="button" onClick={() => setShowCatForm(!showCatForm)} aria-label={t('inventory.product.newCategoryPlaceholder')} aria-expanded={showCatForm} className="rounded-lg bg-accent px-3 py-2 text-white hover:bg-accent-hover"><Plus size={16} aria-hidden="true" /></button>}
+            </div>
+            {showCatForm && <div className="mt-2 flex items-start gap-2"><FormInput form={categoryForm} name="name" ariaLabel={t('inventory.product.newCategoryPlaceholder')} placeholder={t('inventory.product.newCategoryPlaceholder')} className="flex-1" /><button type="button" onClick={() => void categoryForm.handleSubmit()} disabled={createCategory.isPending} className="rounded-lg bg-accent px-3 py-2 text-sm text-white disabled:opacity-50">{t('common.save')}</button></div>}
           </div>
           <div className="sm:col-span-2">
-            <Field label={t('inventory.product.brand')} htmlFor="product-brand">
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Combobox
-                    id="product-brand"
-                    value={brandId}
-                    onChange={setBrandId}
-                    options={(brands ?? []).map((b) => ({ id: b.id, name: b.name }))}
-                    placeholder={t('common.select')}
-                    aria-label={t('inventory.product.brand')}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowBrandForm(!showBrandForm)}
-                  aria-label={t('inventory.product.newBrand')}
-                  aria-expanded={showBrandForm}
-                  className="rounded-lg bg-accent px-3 text-sm text-white hover:bg-accent-hover"
-                >
-                  +
-                </button>
-              </div>
-            </Field>
-            {showBrandForm && (
-              <div className="mt-2 flex gap-2">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    aria-label={t('inventory.product.newBrand')}
-                    placeholder={t('inventory.product.newBrand')}
-                    className={inputClass}
-                  />
-                </div>
-                <button
-                  onClick={handleCreateBrand}
-                  disabled={createBrand.isPending}
-                  className="rounded-lg bg-accent px-3 text-sm text-white disabled:opacity-50"
-                >
-                  {t('common.save')}
-                </button>
-              </div>
-            )}
+            <div className="flex items-end gap-2"><FormCombobox form={form} name="brandId" label={t('inventory.product.brand')} id="product-brand" options={(brands ?? []).map((brand) => ({ id: brand.id, name: brand.name }))} placeholder={t('common.select')} className="flex-1" />
+              {canCreateBrand && <button type="button" onClick={() => setShowBrandForm(!showBrandForm)} aria-label={t('inventory.product.newBrand')} aria-expanded={showBrandForm} className="rounded-lg bg-accent px-3 py-2 text-white hover:bg-accent-hover"><Plus size={16} aria-hidden="true" /></button>}
+            </div>
+            {showBrandForm && <div className="mt-2 flex items-start gap-2"><div className="flex-1"><FormInput form={brandForm} name="name" ariaLabel={t('inventory.product.newBrand')} placeholder={t('inventory.product.newBrand')} /></div><button type="button" onClick={() => void brandForm.handleSubmit()} disabled={createBrand.isPending} className="rounded-lg bg-accent px-3 py-2 text-sm text-white disabled:opacity-50">{t('common.save')}</button></div>}
           </div>
-          <div className="sm:col-span-2">
-            <Field label={t('inventory.product.description')} htmlFor="product-description">
-              <input
-                id="product-description"
-                type="text"
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-          </div>
+          <FormInput form={form} name="description" label={t('inventory.product.description')} id="product-description" className="sm:col-span-2" />
         </div>
       </fieldset>
-
-      <fieldset className="space-y-4">
-        <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-          {t('inventory.product.groupPricing')}
-        </legend>
+      <fieldset disabled={submitting} className="space-y-4">
+        <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">{t('inventory.product.groupPricing')}</legend>
+        <p className="text-xs text-text-secondary">{currency ?? '—'} · {t('inventory.product.salePrice')}/{values.baseUnit} · {t('inventory.product.purchaseCost')}/{values.baseUnit} · 1 {values.purchaseUnit || values.baseUnit} = {values.conversionFactor} {values.baseUnit}</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('inventory.product.purchaseCost')} htmlFor="product-cost">
-            <input
-              id="product-cost"
-              type="number"
-              min="0"
-              step="0.01"
-              value={costPrice}
-              onChange={(e) => setCostPrice(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t('inventory.product.salePrice')} htmlFor="product-price">
-            <input
-              id="product-price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={unitPrice}
-              onChange={(e) => setUnitPrice(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t('inventory.tax')} htmlFor="product-tax">
-            <select
-              id="product-tax"
-              value={taxId}
-              onChange={(e) => setTaxId(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">-- {t('common.select')} --</option>
-              {(taxes ?? []).map((tx: Tax) => (
-                <option key={tx.id} value={tx.id}>
-                  {tx.name} ({(tx.rate * 100).toFixed(0)}%)
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="flex items-end">
-            <label className="flex cursor-pointer items-center gap-2 pb-2">
-              <input
-                type="checkbox"
-                checked={isService}
-                onChange={(e) => setIsService(e.target.checked)}
-                className="rounded border-border"
-              />
-              <span className="text-sm text-text-secondary">
-                {t('inventory.product.isService')}
-              </span>
-            </label>
-          </div>
+          <FormInput form={form} name="costPrice" label={t('inventory.product.purchaseCost')} id="product-cost" type="number" min={0} step={0.01} required />
+          <FormInput form={form} name="unitPrice" label={t('inventory.product.salePrice')} id="product-price" type="number" min={0} step={0.01} required />
+          <FormSelect form={form} name="taxId" label={t('inventory.tax')} id="product-tax" placeholder={t('common.select')} options={(taxes ?? []).map((tax) => ({ value: tax.id, label: `${tax.name} (${tax.type === 'fixed' ? `${tax.rate} ${currency ?? '—'}` : `${tax.rate * 100}%`})` }))} />
+          <FormCheckbox form={form} name="isService" label={t('inventory.product.isService')} />
         </div>
       </fieldset>
-
-      <fieldset className="space-y-4">
-        <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-          {t('inventory.product.groupUnits')}
-        </legend>
+      <fieldset disabled={submitting} className="space-y-4">
+        <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">{t('inventory.product.groupUnits')}</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('inventory.product.baseUnit')} htmlFor="product-base-unit">
-            <select
-              id="product-base-unit"
-              value={baseUnit}
-              onChange={(e) => setBaseUnit(e.target.value)}
-              className={inputClass}
-            >
-              <option value="unidad">Unidad</option>
-              <option value="metro">Metro</option>
-              <option value="gramo">Gramo</option>
-              <option value="litro">Litro</option>
-              <option value="caja">Caja</option>
-            </select>
-          </Field>
-          <Field label={t('inventory.product.purchaseUnit')} htmlFor="product-purchase-unit">
-            <input
-              id="product-purchase-unit"
-              type="text"
-              value={purchaseUnit}
-              onChange={(e) => setPurchaseUnit(e.target.value)}
-              placeholder={t('inventory.product.purchaseUnitPlaceholder')}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t('inventory.product.conversionFactor')} htmlFor="product-conversion">
-            <input
-              id="product-conversion"
-              type="number"
-              min="0.000001"
-              step="0.000001"
-              value={conversionFactor}
-              onChange={(e) => setConversionFactor(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t('inventory.product.reorderPoint')} htmlFor="product-reorder">
-            <input
-              id="product-reorder"
-              type="number"
-              min="0"
-              step="0.01"
-              value={reorderPoint}
-              onChange={(e) => setReorderPoint(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t('inventory.product.minStock')} htmlFor="product-min-stock">
-            <input
-              id="product-min-stock"
-              type="number"
-              min="0"
-              step="0.01"
-              value={minStock}
-              onChange={(e) => setMinStock(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t('inventory.product.maxStock')} htmlFor="product-max-stock">
-            <input
-              id="product-max-stock"
-              type="number"
-              min="0"
-              step="0.01"
-              value={maxStock}
-              onChange={(e) => setMaxStock(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
+          <FormSelect form={form} name="baseUnit" label={t('inventory.product.baseUnit')} id="product-base-unit" options={['unidad', 'metro', 'gramo', 'litro', 'caja'].map((unit) => ({ value: unit, label: t(`inventory.units.${unit}`) }))} />
+          <FormInput form={form} name="purchaseUnit" label={t('inventory.product.purchaseUnit')} id="product-purchase-unit" placeholder={t('inventory.product.purchaseUnitPlaceholder')} />
+          <FormInput form={form} name="conversionFactor" label={t('inventory.product.conversionFactor')} id="product-conversion" type="number" min={0.000001} step={0.000001} />
+          <FormInput form={form} name="reorderPoint" label={t('inventory.product.reorderPoint')} id="product-reorder" type="number" min={0} step={0.01} />
+          <FormInput form={form} name="minStock" label={t('inventory.product.minStock')} id="product-min-stock" type="number" min={0} step={0.01} />
+          <FormInput form={form} name="maxStock" label={t('inventory.product.maxStock')} id="product-max-stock" type="number" min={0} step={0.01} />
         </div>
       </fieldset>
-    </div>
+    </form>
   );
 
   const productActions = (
@@ -499,7 +241,7 @@ export function InventoryListView() {
       </button>
       <button
         onClick={handleCreate}
-        disabled={createProduct.isPending}
+        disabled={submitting}
         className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
       >
         {t('common.save')}
@@ -514,8 +256,8 @@ export function InventoryListView() {
         subtitle={t('inventory.productsSubtitle')}
         contentClassName="m-6 gap-4 overflow-y-auto"
         contentPadding={false}
-        onRefresh={refetchInventory}
-        refreshing={isFetchingInventory}
+        onRefresh={() => Promise.all([refetchInventory(), client.invalidateQueries({ queryKey: ['inventory', 'summary'] })])}
+        refreshing={refreshing}
         pagination={
           <ListPagination
             page={page}
@@ -537,7 +279,7 @@ export function InventoryListView() {
             onChange={(e) => setFilter(e.target.value)}
             placeholder={t('common.search')}
             aria-label={t('common.search')}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none sm:w-64"
           />
           <div className="ml-auto flex flex-wrap items-center gap-3">
             <span className="text-xs text-text-secondary">
@@ -561,14 +303,16 @@ export function InventoryListView() {
               <Tags size={14} aria-hidden="true" />
               {t('inventory.categories')}
             </button>
-            <button
+            {canCreate && <button
               onClick={() => setShowForm(true)}
-              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
             >
-              + {t('inventory.product.create')}
-            </button>
+              <Plus size={14} aria-hidden="true" />
+              {t('inventory.product.create')}
+            </button>}
           </div>
         </div>
+        {listError && <p role="alert" className="text-sm text-error">{t('inventory.product.loadError')} <button type="button" onClick={() => void refetchInventory()} className="underline">{t('common.retry')}</button></p>}
         <div className="flex shrink-0 flex-col">
           {groupByCategory &&
             (() => {
@@ -625,22 +369,14 @@ export function InventoryListView() {
                   aria-label={t('common.close')}
                   className="rounded-md p-1.5 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
                 >
-                  ✕
+                  <X size={16} aria-hidden="true" />
                 </Drawer.CloseTrigger>
               </Drawer.Header>
               <Drawer.Body className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
                 <ProductImagePicker files={productImages} onChange={setProductImages} />
                 <div className="mt-4">{productFields}</div>
-                {createProduct.isError && (
-                  <p role="alert" className="mt-4 text-sm text-error">
-                    {errorMessage}
-                  </p>
-                )}
-                {imageUploadError && (
-                  <p role="alert" className="mt-4 text-sm text-error">
-                    {t('inventory.product.imageUploadError')}
-                  </p>
-                )}
+                {error && <p role="alert" className="mt-4 text-sm text-error">{error}</p>}
+                {inlineError && <p role="alert" className="mt-4 text-sm text-error">{inlineError}</p>}
               </Drawer.Body>
               <Drawer.Footer className="shrink-0 border-t border-border px-6 py-4">
                 {productActions}
@@ -650,28 +386,6 @@ export function InventoryListView() {
         </Drawer.Backdrop>
       </Drawer.Root>
     </>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium text-text-secondary">
-        {label}
-      </label>
-      {children}
-      {hint && <p className="mt-1 text-[11px] text-text-muted">{hint}</p>}
-    </div>
   );
 }
 

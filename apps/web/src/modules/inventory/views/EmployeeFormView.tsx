@@ -6,12 +6,13 @@ import {
   useEmployee,
   useUpdateEmployee,
   useDepartments,
-  useCreateDepartment,
   usePositions,
-  useCreatePosition,
   useEmployeePaymentDetails,
   useSaveEmployeePaymentDetails,
   useClearEmployeePaymentDetails,
+  useEmployeeEmploymentRelationships,
+  useCurrentCompensation,
+  useAdjustCompensation,
 } from '../hooks/useEmployees';
 import { DocumentInput } from '@/shared/ui/DocumentInput';
 import { PhoneInput } from '@/shared/ui/PhoneInput';
@@ -40,8 +41,14 @@ export function EmployeeFormView() {
   const { data: employee, isLoading: empLoading } = useEmployee(id ?? '');
   const { data: departments = [] } = useDepartments();
   const { data: positions = [] } = usePositions();
-  const createDept = useCreateDepartment();
-  const createPos = useCreatePosition();
+  const { data: relationships = [], isLoading: relationshipsLoading } =
+    useEmployeeEmploymentRelationships(isEdit ? id ?? '' : '');
+  const activeRelationship = relationships.find((item) => item.status === 'ACTIVE') ?? relationships[0];
+  const {
+    data: currentCompensation,
+    isLoading: compensationLoading,
+  } = useCurrentCompensation(activeRelationship?.id);
+  const adjustCompensation = useAdjustCompensation(activeRelationship?.id);
   const setupEmp = useSetupEmployee();
   const updateEmp = useUpdateEmployee();
   const { data: paymentDetails, isLoading: paymentDetailsLoading, isError: paymentDetailsLoadError } =
@@ -78,10 +85,15 @@ export function EmployeeFormView() {
 
   const [hireDate, setHireDate] = useState('');
   const [contractType, setContractType] = useState('FULL_TIME');
+  const [contractEndDate, setContractEndDate] = useState('');
   const [reason, setReason] = useState('NEW_HIRE');
 
   const [baseSalary, setBaseSalary] = useState('');
   const [currency, setCurrency] = useState('USD');
+  const [compensationEffectiveDate, setCompensationEffectiveDate] = useState('');
+  const [compensationReason, setCompensationReason] = useState('');
+  const [validationError, setValidationError] = useState('');
+  const [setupId] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
     if (!employee) return;
@@ -102,6 +114,13 @@ export function EmployeeFormView() {
   }, [employee]);
 
   useEffect(() => {
+    if (!currentCompensation) return;
+    const salary = currentCompensation.components?.find((component) => component.type === 'SALARY');
+    if (salary) setBaseSalary(String(Number(salary.amount)));
+    if (currentCompensation.currency) setCurrency(currentCompensation.currency);
+  }, [currentCompensation]);
+
+  useEffect(() => {
     if (paymentDetails === undefined) return;
     setPaymentMethod(paymentDetails?.method ?? 'BANK');
     setBankName(paymentDetails?.bankName ?? '');
@@ -110,17 +129,30 @@ export function EmployeeFormView() {
     setMobilePaymentPhone(paymentDetails?.mobilePaymentPhone ?? '');
   }, [paymentDetails]);
 
-  const isPending = setupEmp.isPending || updateEmp.isPending || createDept.isPending || createPos.isPending;
-  const saveFailed = setupEmp.isError || updateEmp.isError || createDept.isError || createPos.isError;
+  const isPending = setupEmp.isPending || updateEmp.isPending || adjustCompensation.isPending;
+  const saveFailed = setupEmp.isError || updateEmp.isError || adjustCompensation.isError;
 
-  const selectedDept = departments.find((d) => d.id === selectedDeptId);
   const filteredPositions = positions.filter((p) => p.departmentId === selectedDeptId);
 
   const handleSave = async () => {
-    if (!firstName || !lastName || !identityDoc || !hireDate || !baseSalary) return;
+    setValidationError('');
+    const salaryAmount = Number(baseSalary);
+
+    if (!firstName || !lastName || !identityDoc || !hireDate) {
+      setValidationError('Complete nombre, apellido, documento y fecha de ingreso.');
+      return;
+    }
+    if (!baseSalary || !Number.isFinite(salaryAmount) || salaryAmount <= 0) {
+      setValidationError('El salario base debe ser un valor mayor que cero.');
+      return;
+    }
+    if (!isEdit && contractType === 'FIXED_TERM' && !contractEndDate) {
+      setValidationError('El contrato a plazo fijo requiere fecha de fin.');
+      return;
+    }
 
     if (isEdit && id) {
-      updateEmp.mutate({
+      const identity = {
         id,
         firstName, middleName: middleName || undefined,
         lastName, secondLastName: secondLastName || undefined,
@@ -131,33 +163,58 @@ export function EmployeeFormView() {
         address: address.trim() || undefined,
         emergencyContactName: emergencyContactName.trim() || undefined,
         emergencyContactPhone: emergencyContactPhone || undefined,
-        baseSalary: Number(baseSalary),
-      }, { onSuccess: () => navigate('/employees') });
+        hireDate,
+      };
+
+      const originalSalary = currentCompensation?.components?.find((component) => component.type === 'SALARY')?.amount;
+      const salaryChanged = originalSalary !== undefined
+        ? Number(originalSalary) !== salaryAmount
+        : Number(employee?.baseSalary ?? 0) !== salaryAmount;
+
+      try {
+        if (salaryChanged) {
+          if (!currentCompensation?.id) {
+            setValidationError('No se encontró un acuerdo de compensación vigente.');
+            return;
+          }
+          if (!compensationEffectiveDate) {
+            setValidationError('Indique la fecha efectiva de la compensación.');
+            return;
+          }
+          if (!compensationReason) {
+            setValidationError('Indique el motivo de la compensación.');
+            return;
+          }
+          await adjustCompensation.mutateAsync({
+            agreementId: currentCompensation.id,
+            effectiveDate: compensationEffectiveDate,
+            currency: currentCompensation.currency ?? currency,
+            reason: compensationReason,
+            components: [{ type: 'SALARY', amount: salaryAmount }],
+          });
+        }
+        await updateEmp.mutateAsync(identity);
+        navigate('/employees');
+      } catch {
+        // mutation error state renders the failure alert
+      }
       return;
     }
 
-    if (!selectedDeptId && !newDeptName) return;
-    if (!selectedPosId && !newPosName) return;
-
-    let deptId = selectedDeptId;
-    if (showNewDept && newDeptName) {
-      const dept = await createDept.mutateAsync({ name: newDeptName });
-      deptId = dept.id;
+    if (!selectedDeptId && !newDeptName) {
+      setValidationError('Seleccione un departamento o cree uno nuevo.');
+      return;
     }
-
-    let posId = selectedPosId;
-    if (showNewPos && newPosName) {
-      const pos = await createPos.mutateAsync({ name: newPosName, departmentId: deptId });
-      posId = pos.id;
+    if (!selectedPosId && !newPosName) {
+      setValidationError('Seleccione un cargo o cree uno nuevo.');
+      return;
     }
-
-    const deptName = selectedDept?.name || newDeptName;
-    const posName = positions.find((p) => p.id === posId)?.name || newPosName;
 
     setupEmp.mutate({
-      department: { name: deptName },
-      position: { name: posName, code: posName.toUpperCase().replace(/\s+/g, '-') },
+      ...(showNewDept ? { department: { name: newDeptName.trim() } } : { departmentId: selectedDeptId }),
+      ...(showNewPos ? { position: { name: newPosName.trim(), code: newPosName.trim().toUpperCase().replace(/\s+/g, '-') } } : { positionId: selectedPosId }),
       employee: {
+        id: setupId,
         firstName, middleName: middleName || undefined,
         lastName, secondLastName: secondLastName || undefined,
         identityDoc, identificationType: identificationType || undefined,
@@ -168,13 +225,13 @@ export function EmployeeFormView() {
         emergencyContactName: emergencyContactName.trim() || undefined,
         emergencyContactPhone: emergencyContactPhone || undefined,
         hireDate,
-        baseSalary: Number(baseSalary),
+        baseSalary: salaryAmount,
       },
       employment: { startDate: hireDate, reason },
-      contract: { contractType, startDate: hireDate },
+      contract: { contractType, startDate: hireDate, ...(contractEndDate ? { endDate: contractEndDate } : {}) },
       compensation: {
         effectiveDate: hireDate, currency,
-        components: [{ type: 'SALARY', amount: Number(baseSalary) }],
+        components: [{ type: 'SALARY', amount: salaryAmount }],
       },
     }, { onSuccess: () => navigate('/employees') });
   };
@@ -232,20 +289,20 @@ export function EmployeeFormView() {
           <h2 className="text-sm font-bold text-text-primary">Información Personal</h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-text-secondary">Primer Nombre *</label>
-              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} />
+              <label htmlFor="employee-first-name" className="text-xs font-medium text-text-secondary">Primer Nombre *</label>
+              <input id="employee-first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-text-secondary">Otros Nombres</label>
-              <input value={middleName} onChange={(e) => setMiddleName(e.target.value)} className={inputClass} />
+              <label htmlFor="employee-middle-name" className="text-xs font-medium text-text-secondary">Otros Nombres</label>
+              <input id="employee-middle-name" value={middleName} onChange={(e) => setMiddleName(e.target.value)} className={inputClass} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-text-secondary">Primer Apellido *</label>
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} />
+              <label htmlFor="employee-last-name" className="text-xs font-medium text-text-secondary">Primer Apellido *</label>
+              <input id="employee-last-name" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-text-secondary">Segundo Apellido</label>
-              <input value={secondLastName} onChange={(e) => setSecondLastName(e.target.value)} className={inputClass} />
+              <label htmlFor="employee-second-last-name" className="text-xs font-medium text-text-secondary">Segundo Apellido</label>
+              <input id="employee-second-last-name" value={secondLastName} onChange={(e) => setSecondLastName(e.target.value)} className={inputClass} />
             </div>
           </div>
 
@@ -387,15 +444,40 @@ export function EmployeeFormView() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-text-secondary">Fecha de Ingreso *</label>
-              <input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} className={inputClass} />
+              <label htmlFor="employee-hire-date" className="text-xs font-medium text-text-secondary">Fecha de Ingreso *</label>
+              <input id="employee-hire-date" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} className={inputClass} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-text-secondary">Salario Base *</label>
-              <input type="number" min="0" step="0.01" value={baseSalary}
-                onChange={(e) => setBaseSalary(e.target.value)} className={inputClass} />
+              <label htmlFor="employee-base-salary" className="text-xs font-medium text-text-secondary">Salario Base *</label>
+              {isEdit && (relationshipsLoading || compensationLoading) ? (
+                <p role="status" className="text-xs text-text-secondary">{t('common.loading')}</p>
+              ) : (
+                <input id="employee-base-salary" type="number" min="0" step="0.01" value={baseSalary}
+                  onChange={(e) => setBaseSalary(e.target.value)} className={inputClass} />
+              )}
             </div>
           </div>
+
+          {isEdit && !relationshipsLoading && !compensationLoading && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label htmlFor="employee-compensation-effective" className="text-xs font-medium text-text-secondary">Fecha Efectiva *</label>
+                <input id="employee-compensation-effective" type="date" value={compensationEffectiveDate}
+                  onChange={(e) => setCompensationEffectiveDate(e.target.value)} className={inputClass} />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="employee-compensation-reason" className="text-xs font-medium text-text-secondary">Motivo de Compensación *</label>
+                <select id="employee-compensation-reason" value={compensationReason}
+                  onChange={(e) => setCompensationReason(e.target.value)} className={inputClass}>
+                  <option value="">Seleccionar motivo...</option>
+                  <option value="SALARY_REVIEW">Revisión salarial</option>
+                  <option value="MERIT_INCREASE">Aumento por mérito</option>
+                  <option value="PROMOTION">Promoción</option>
+                  <option value="OTHER">Otro</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         {!isEdit && (
@@ -405,7 +487,7 @@ export function EmployeeFormView() {
               <h2 className="text-sm font-bold text-text-primary">Departamento y Cargo</h2>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-text-secondary">Departamento *</label>
+                <label htmlFor="employee-department" className="text-xs font-medium text-text-secondary">Departamento *</label>
                 {showNewDept ? (
                   <div className="flex gap-2">
                     <input
@@ -421,14 +503,14 @@ export function EmployeeFormView() {
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <select value={selectedDeptId} onChange={(e) => { setSelectedDeptId(e.target.value); setSelectedPosId(''); }}
+                    <select id="employee-department" value={selectedDeptId} onChange={(e) => { setSelectedDeptId(e.target.value); setSelectedPosId(''); }}
                       className={`flex-1 ${inputClass}`}>
                       <option value="">Seleccionar departamento...</option>
                       {departments.map((d) => (
                         <option key={d.id} value={d.id}>{d.name}</option>
                       ))}
                     </select>
-                    <button onClick={() => setShowNewDept(true)}
+                    <button onClick={() => { setShowNewDept(true); if (!selectedPosId) setShowNewPos(true); }}
                       className="rounded-lg border border-border px-3 text-xs text-text-secondary hover:bg-surface-hover whitespace-nowrap">
                       + Nuevo
                     </button>
@@ -437,7 +519,7 @@ export function EmployeeFormView() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-text-secondary">Cargo *</label>
+                <label htmlFor="employee-position" className="text-xs font-medium text-text-secondary">Cargo *</label>
                 {showNewPos ? (
                   <div className="flex gap-2">
                     <input
@@ -453,7 +535,7 @@ export function EmployeeFormView() {
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <select value={selectedPosId} onChange={(e) => setSelectedPosId(e.target.value)}
+                    <select id="employee-position" value={selectedPosId} onChange={(e) => setSelectedPosId(e.target.value)}
                       className={`flex-1 ${inputClass}`}
                       disabled={!selectedDeptId && !showNewDept}>
                       <option value="">Seleccionar cargo...</option>
@@ -475,16 +557,23 @@ export function EmployeeFormView() {
               <h2 className="text-sm font-bold text-text-primary">Relación Laboral</h2>
               <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-text-secondary">Tipo de Contrato *</label>
-                  <select value={contractType} onChange={(e) => setContractType(e.target.value)} className={inputClass}>
+                <label htmlFor="employee-contract-type" className="text-xs font-medium text-text-secondary">Tipo de Contrato *</label>
+                  <select id="employee-contract-type" value={contractType} onChange={(e) => setContractType(e.target.value)} className={inputClass}>
                     {contractTypes.map((ct) => (
                       <option key={ct.value} value={ct.value}>{ct.label}</option>
                     ))}
                   </select>
                 </div>
+                {contractType === 'FIXED_TERM' && (
+                  <div className="space-y-1.5">
+                    <label htmlFor="employee-contract-end-date" className="text-xs font-medium text-text-secondary">Fecha de Fin *</label>
+                    <input id="employee-contract-end-date" type="date" value={contractEndDate}
+                      onChange={(e) => setContractEndDate(e.target.value)} className={inputClass} />
+                  </div>
+                )}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-text-secondary">Motivo</label>
-                  <select value={reason} onChange={(e) => setReason(e.target.value)} className={inputClass}>
+                  <label htmlFor="employee-employment-reason" className="text-xs font-medium text-text-secondary">Motivo</label>
+                  <select id="employee-employment-reason" value={reason} onChange={(e) => setReason(e.target.value)} className={inputClass}>
                     <option value="NEW_HIRE">Nuevo Ingreso</option>
                     <option value="TRANSFER">Transferencia</option>
                     <option value="PROMOTION">Promoción</option>
@@ -511,6 +600,11 @@ export function EmployeeFormView() {
         )}
 
         <div className="flex justify-end gap-3 pb-6">
+          {validationError && (
+            <p role="alert" className="mr-auto self-center text-xs text-error">
+              {validationError}
+            </p>
+          )}
           {saveFailed && (
             <p role="alert" className="mr-auto self-center text-xs text-error">
               {t('hr.employee.saveFailed')}
