@@ -38,7 +38,8 @@ export class SalesReturnService {
       throw new BadRequestException('Invalid sales return status');
     }
     const updated = await this.repo.updateStatus(id, status);
-    if (status === 'approved' || status === 'completed') {
+    if (status === 'approved' && ret.status !== 'approved') {
+      const lines = (ret.lines ?? []) as Array<{ productId: string; warehouseId: string; quantity: number }>;
       await this.commissionService.adjustForReturn(ret.invoiceId, ret.total);
       this.eventEmitter.emit('document.returned', {
         eventType: 'document.returned',
@@ -48,8 +49,9 @@ export class SalesReturnService {
         timestamp: new Date().toISOString(),
         triggeredBy: ret.userId ?? null,
         metadata: {
+          operationId: id,
           invoiceId: ret.invoiceId,
-          lines: ret.lines,
+          lines: lines.map((line, index) => ({ ...line, lineId: String(index) })),
           productCondition: ret.productCondition,
           resolution: ret.resolution,
           cashRegisterId: ret.cashRegisterId,

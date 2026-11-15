@@ -79,7 +79,7 @@ export class StockEventHandler {
         this.logger.log(`Sales return ${payload.documentId}: product routed to ${payload.metadata?.destination ?? 'quarantine'}`);
         return;
       }
-      for (const line of lines) {
+      for (const [index, line] of lines.entries()) {
         if (!line.productId || !line.warehouseId) continue;
         await this.withRetry(() =>
           this.stockService.adjust({
@@ -92,6 +92,9 @@ export class StockEventHandler {
             userId: payload.triggeredBy,
             lotNumber: line.lotNumber,
             serialNumber: line.serialNumber,
+            operationId: JSON.stringify(['sales-return', payload.documentId, line.lineId ?? String(index)]),
+            referenceType: 'sales_return',
+            referenceId: payload.documentId,
           }),
           `Stock return for product ${line.productId} (doc ${payload.documentId})`,
         );
@@ -99,7 +102,7 @@ export class StockEventHandler {
       return;
     }
     if (payload.documentType !== 'purchase_return') return;
-    for (const line of lines) {
+    for (const [index, line] of lines.entries()) {
       if (!line.productId || !line.warehouseId) continue;
       await this.withRetry(() =>
         this.stockService.adjust({
@@ -112,6 +115,9 @@ export class StockEventHandler {
             ? `Devolución a proveedor: ${payload.metadata.reasonCode}`
             : `Devolución a proveedor ${payload.documentId}`,
           userId: payload.triggeredBy ?? payload.metadata?.triggeredBy,
+          operationId: JSON.stringify(['purchase-return', payload.documentId, line.lineId ?? String(index)]),
+          referenceType: 'purchase_return',
+          referenceId: payload.documentId,
         }),
         `Stock reverse for product ${line.productId} (doc ${payload.documentId})`,
       );

@@ -124,6 +124,43 @@ describe('StockEventHandler', () => {
     expect((mockStockService.adjust as jest.Mock).mock.calls[1][0]).toEqual((mockStockService.adjust as jest.Mock).mock.calls[0][0]);
   });
 
+  it('uses the purchase return operation and line identity for idempotent stock exits', async () => {
+    await handler.handleDocumentReturned({
+      eventType: 'document.returned',
+      tenantId: 'tenant-1',
+      documentId: 'return-1',
+      documentType: 'purchase_return',
+      metadata: { operationId: 'return-1', lines: [{ lineId: '0', productId: 'prod-1', warehouseId: 'wh-1', quantity: 2 }] },
+    });
+
+    expect(mockStockService.adjust).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'out',
+      quantity: 2,
+      operationId: JSON.stringify(['purchase-return', 'return-1', '0']),
+      referenceType: 'purchase_return',
+      referenceId: 'return-1',
+    }));
+  });
+
+  it('uses the sales return operation and line identity for idempotent stock entries', async () => {
+    await handler.handleDocumentReturned({
+      eventType: 'document.returned',
+      tenantId: 'tenant-1',
+      documentId: 'return-2',
+      documentType: 'sales_return',
+      triggeredBy: 'user-1',
+      metadata: { operationId: 'return-2', productCondition: 'saleable', lines: [{ lineId: '0', productId: 'prod-1', warehouseId: 'wh-1', quantity: 1 }] },
+    });
+
+    expect(mockStockService.adjust).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'in',
+      quantity: 1,
+      operationId: JSON.stringify(['sales-return', 'return-2', '0']),
+      referenceType: 'sales_return',
+      referenceId: 'return-2',
+    }));
+  });
+
   it('rejects receipt events without stable batch and line identities before any stock write', async () => {
     const payload = { eventType: 'document.received', tenantId: 't1', documentId: 'po1', documentType: 'purchase_order',
       metadata: { lines: [{ productId: 'p1', warehouseId: 'w1', quantity: 1 }] } };

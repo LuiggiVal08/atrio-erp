@@ -90,14 +90,62 @@ describe('SalesReturnService', () => {
         timestamp: expect.any(String),
         triggeredBy: 'user-1',
         metadata: {
+          operationId: 'ret-1',
           invoiceId: 'inv-1',
-          lines,
+          lines: lines.map((line, index) => ({ ...line, lineId: String(index) })),
           productCondition: 'saleable',
           resolution: 'refund_cash',
           cashRegisterId: 'reg-1',
           amount: 110,
         },
       });
+    });
+
+    it('does not emit or adjust commission when approval is replayed', async () => {
+      const existingReturn = {
+        id: 'ret-1', status: 'approved', tenantId: 't1', invoiceId: 'inv-1', total: 110,
+        userId: 'user-1', lines: [], productCondition: 'saleable',
+      };
+      (mockRepo.findById as jest.Mock).mockResolvedValue(existingReturn);
+      (mockRepo.updateStatus as jest.Mock).mockResolvedValue({ ...existingReturn, status: 'approved' });
+
+      await service.updateStatus('ret-1', 'approved');
+
+      expect(mockCommissionService.adjustForReturn).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('does not emit stock on completion after approval', async () => {
+      const existingReturn = {
+        id: 'ret-1', status: 'approved', tenantId: 't1', invoiceId: 'inv-1', total: 110,
+        userId: 'user-1', lines: [], productCondition: 'saleable',
+      };
+      (mockRepo.findById as jest.Mock).mockResolvedValue(existingReturn);
+      (mockRepo.updateStatus as jest.Mock).mockResolvedValue({ ...existingReturn, status: 'completed' });
+
+      await service.updateStatus('ret-1', 'completed');
+
+      expect(mockCommissionService.adjustForReturn).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('includes stable line identity for idempotent stock returns', async () => {
+      const existingReturn = {
+        id: 'ret-1', status: 'draft', tenantId: 't1', invoiceId: 'inv-1', total: 0,
+        userId: 'user-1', lines: [{ productId: 'prod-1', warehouseId: 'wh-1', quantity: 1 }],
+        productCondition: 'saleable',
+      };
+      (mockRepo.findById as jest.Mock).mockResolvedValue(existingReturn);
+      (mockRepo.updateStatus as jest.Mock).mockResolvedValue({ ...existingReturn, status: 'approved' });
+
+      await service.updateStatus('ret-1', 'approved');
+
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('document.returned', expect.objectContaining({
+        metadata: expect.objectContaining({
+          operationId: 'ret-1',
+          lines: [{ productId: 'prod-1', warehouseId: 'wh-1', quantity: 1, lineId: '0' }],
+        }),
+      }));
     });
 
     it('should throw when return not found', async () => {
