@@ -13,6 +13,9 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { RbacGuard } from '@/common/auth/rbac.guard';
 import { RequirePermission } from '@/common/auth/require-permission.decorator';
 import { EmployeePaymentDetailsDto } from './dto/employee-payment-details.dto';
+import { EmployeeTenantGuard } from './employee-tenant.guard';
+import { EmployeeSetupService } from './employee-setup.service';
+import { SetupEmployeeDto } from './dto/setup-employee.dto';
 
 interface EmployeeUser {
   id: string;
@@ -20,12 +23,13 @@ interface EmployeeUser {
 }
 
 @ApiTags('Employees')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, EmployeeTenantGuard)
 @ApiBearerAuth()
 @Controller()
 export class EmployeeController {
   constructor(
     private readonly manageEmployeeUseCase: ManageEmployeeUseCase,
+    private readonly employeeSetup: EmployeeSetupService,
   ) {}
 
   @Get('employees/:id/payment-details')
@@ -67,6 +71,12 @@ export class EmployeeController {
   @ApiOperation({ summary: 'List employees for a tenant' })
   findAll(@Param('tenantId') tenantId: string) {
     return this.manageEmployeeUseCase.findByTenant(tenantId);
+  }
+
+  @Post('tenants/:tenantId/employees/setup')
+  @ApiOperation({ summary: 'Atomically onboard an employee using existing or explicit new organization' })
+  setup(@Param('tenantId') tenantId: string, @Body() dto: SetupEmployeeDto, @CurrentUser() user: EmployeeUser) {
+    return this.employeeSetup.setup(tenantId, user.id, dto);
   }
 
   @Post('tenants/:tenantId/employees')

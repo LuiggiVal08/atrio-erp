@@ -1,21 +1,24 @@
-import { IsString, IsArray, IsNumber, Min, IsOptional, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsArray, IsNumber, Min, IsOptional, ValidateNested, ArrayMinSize, IsDateString, IsEnum, Matches, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CompensationType, EmploymentReason } from '@prisma/client';
 
 export class CompensationComponentDto {
-  @IsString() type!: string;
-  @IsNumber() @Min(0.01) amount!: number;
+  @IsEnum(CompensationType) type!: CompensationType;
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) amount!: number;
 }
 
 export class CreateCompensationDto {
-  @IsString() effectiveDate!: string;
-  @IsOptional() @IsString() currency?: string;
+  @IsDateString() effectiveDate!: string;
+  @IsOptional() @IsString() @Matches(/^[A-Z]{3}$/) currency?: string;
+  @IsOptional() @IsEnum(EmploymentReason) reason?: EmploymentReason;
   @IsArray() @ValidateNested({ each: true }) @ArrayMinSize(1)
   @Type(() => CompensationComponentDto) components!: CompensationComponentDto[];
 }
 
 export class AdjustCompensationDto {
-  @IsString() effectiveDate!: string;
-  @IsOptional() @IsString() currency?: string;
+  @IsDateString() effectiveDate!: string;
+  @IsOptional() @IsString() @Matches(/^[A-Z]{3}$/) currency?: string;
+  @IsEnum(EmploymentReason) reason!: EmploymentReason;
   @IsArray() @ValidateNested({ each: true }) @ArrayMinSize(1)
   @Type(() => CompensationComponentDto) components!: CompensationComponentDto[];
 }

@@ -7,9 +7,10 @@ import { ManageContractUseCase } from '../application/manage-contract.use-case';
 import { CreateContractDto, RenewContractDto, TerminateContractDto } from './dto/contract.dto';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { EmployeeTenantGuard } from '../../employee/infrastructure/employee-tenant.guard';
 
 @ApiTags('Contracts')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, EmployeeTenantGuard)
 @ApiBearerAuth()
 @Controller()
 export class ContractController {

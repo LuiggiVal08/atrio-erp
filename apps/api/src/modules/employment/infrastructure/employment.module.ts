@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EmployeeTenantGuard } from '../../employee/infrastructure/employee-tenant.guard';
 import { EmploymentController } from './employment.controller';
 import { ContractController } from './contract.controller';
 import { CompensationController } from './compensation.controller';
@@ -16,6 +17,7 @@ export const COMPENSATION_REPOSITORY = 'COMPENSATION_REPOSITORY';
 @Module({
   controllers: [EmploymentController, ContractController, CompensationController],
   providers: [
+    EmployeeTenantGuard,
     { provide: EMPLOYMENT_REPOSITORY, useClass: PrismaEmploymentRepository },
     { provide: CONTRACT_REPOSITORY, useClass: PrismaContractRepository },
     { provide: COMPENSATION_REPOSITORY, useClass: PrismaCompensationRepository },

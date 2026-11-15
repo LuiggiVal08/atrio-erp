@@ -7,9 +7,10 @@ import { ManageCompensationUseCase } from '../application/manage-compensation.us
 import { CreateCompensationDto, AdjustCompensationDto } from './dto/compensation.dto';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { EmployeeTenantGuard } from '../../employee/infrastructure/employee-tenant.guard';
 
 @ApiTags('Compensation')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, EmployeeTenantGuard)
 @ApiBearerAuth()
 @Controller()
 export class CompensationController {

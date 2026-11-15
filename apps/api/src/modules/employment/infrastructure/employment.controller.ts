@@ -7,9 +7,10 @@ import { ManageEmploymentUseCase } from '../application/manage-employment.use-ca
 import { CreateEmploymentDto, TerminateEmploymentDto, EmploymentActionDto } from './dto/create-employment.dto';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { EmployeeTenantGuard } from '../../employee/infrastructure/employee-tenant.guard';
 
 @ApiTags('Employment')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, EmployeeTenantGuard)
 @ApiBearerAuth()
 @Controller()
 export class EmploymentController {

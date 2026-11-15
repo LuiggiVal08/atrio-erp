@@ -51,34 +51,7 @@ export class ManageCompensationUseCase {
       throw new Error('Previous agreement does not belong to this relationship');
     }
 
-    const effectiveDate = new Date(data.effectiveDate);
-    const overlapping = await this.compensationRepository.findOverlapping(data.relationshipId, effectiveDate, data.previousAgreementId);
-    if (overlapping.length > 0) throw new Error('Overlapping agreements are not allowed');
-
-    const agreement = await this.compensationRepository.create({
-      relationshipId: data.relationshipId,
-      effectiveDate: data.effectiveDate,
-      currency: data.currency,
-      components: data.components,
-    });
-
-    await this.employmentRepository.addChange({
-      relationshipId: data.relationshipId,
-      changeType: 'COMPENSATION_CHANGED',
-      reason: 'SALARY_REVIEW',
-      previousValue: {
-        agreementId: previous.id,
-        components: previous.components.map(c => ({ type: c.type, amount: c.amount })),
-      } as any,
-      newValue: {
-        agreementId: agreement.id,
-        components: data.components.map(c => ({ type: c.type, amount: c.amount })),
-        effectiveDate: data.effectiveDate,
-      } as any,
-      changedBy: (data as any).changedBy,
-    });
-
-    return agreement;
+    return this.compensationRepository.adjustVersion(data);
   }
 
   async findCurrent(relationshipId: string): Promise<CompensationAgreement | null> {

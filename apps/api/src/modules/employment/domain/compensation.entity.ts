@@ -32,6 +32,8 @@ export interface CreateCompensationData {
 }
 
 export interface AdjustCompensationData {
+  reason: import('./employment-relationship.entity').EmploymentReason;
+  changedBy: string;
   relationshipId: string;
   previousAgreementId: string;
   effectiveDate: string;

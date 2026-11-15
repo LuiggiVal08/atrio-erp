@@ -7,9 +7,10 @@ import { ManagePositionUseCase } from '../application/manage-position.use-case';
 import { CreatePositionDto, UpdatePositionDto } from './dto/create-position.dto';
 import { CreateAssignmentDto, EndAssignmentDto } from './dto/create-position-assignment.dto';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
+import { EmployeeTenantGuard } from '../../employee/infrastructure/employee-tenant.guard';
 
 @ApiTags('Organization')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, EmployeeTenantGuard)
 @ApiBearerAuth()
 @Controller()
 export class OrganizationController {
