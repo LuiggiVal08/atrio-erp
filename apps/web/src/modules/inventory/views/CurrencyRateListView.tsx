@@ -30,6 +30,7 @@ export function CurrencyRateListView() {
 
   const [providerChain, setProviderChain] = useState('automatic');
   const [serverError, setServerError] = useState('');
+  const [confirmSync, setConfirmSync] = useState(false);
 
   const defaultValues: CurrencyRateFormValues = {
     fromCurrency: 'USD',
@@ -78,10 +79,9 @@ export function CurrencyRateListView() {
           ? undefined
           : providerChain === 'open-er-api'
             ? ['open-er-api', 'frankfurter']
-            : providerChain === 'custom'
-              ? undefined
-              : ['frankfurter', 'open-er-api'],
+            : ['frankfurter', 'open-er-api'],
     });
+    setConfirmSync(false);
   };
 
   const pagination = usePagination(rates);
@@ -184,21 +184,45 @@ export function CurrencyRateListView() {
                 onChange={(e) => setProviderChain(e.target.value)}
                 className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
               >
-                <option value="automatic">Automático</option>
+                <option value="automatic">Automático (incluye proveedores configurados)</option>
                 <option value="open-er-api">Open ER API primero</option>
                 <option value="frankfurter">Frankfurter primero</option>
-                <option value="custom">Proveedores personalizados</option>
               </select>
             </label>
             <button
               type="button"
-              onClick={handleSync}
+              onClick={() => setConfirmSync(true)}
               disabled={syncRate.isPending || fromCurrency === toCurrency}
               className="rounded-lg border border-accent px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent-alpha disabled:cursor-not-allowed disabled:opacity-50"
             >
               {syncRate.isPending ? 'Consultando proveedores...' : 'Actualizar automáticamente'}
             </button>
           </div>
+          {confirmSync && (
+            <div role="alertdialog" aria-label="Confirmar actualización de tasa" className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-text-primary">
+              <p>
+                Se consultará el proveedor y, si ya existe una tasa para la fecha devuelta, se
+                reemplazará. Los documentos ya emitidos conservan su tasa registrada.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSync}
+                  disabled={syncRate.isPending}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Confirmar actualización
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmSync(false)}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
           {syncRate.isSuccess && (
             <p className="mt-3 text-sm text-success">
               Tasa actualizada desde {syncRate.data.provider}: 1 {syncRate.data.fromCurrency} ={' '}
@@ -214,6 +238,10 @@ export function CurrencyRateListView() {
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-4">
+          <p className="mb-3 text-xs text-text-secondary">
+            Las tasas se guardan por moneda y fecha. La lista no conserva el proveedor de origen de
+            cada fila; la confirmación de sincronización indica el proveedor que respondió.
+          </p>
           <VirtualGrid
             columns={columns}
             data={pagination.pageItems}
