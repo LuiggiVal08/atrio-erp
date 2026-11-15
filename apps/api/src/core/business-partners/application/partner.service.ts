@@ -15,7 +15,7 @@ export class PartnerService {
     tenantId: string,
     role: PartnerRoleType,
     filter?: { search?: string; page?: number; pageSize?: number },
-  ): Promise<PartnerSummary[]> {
+  ) {
     const filters: PartnerFilters = {
       tenantId,
       roles: [role],
@@ -23,8 +23,7 @@ export class PartnerService {
       page: filter?.page ?? 1,
       pageSize: filter?.pageSize ?? 100,
     };
-    const result = await this.partnerRepository.findMany(filters);
-    return result.data;
+    return this.partnerRepository.findMany(filters);
   }
 
   async findPartnerById(id: string): Promise<PartnerWithRelations | null> {

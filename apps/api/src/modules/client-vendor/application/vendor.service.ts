@@ -22,21 +22,26 @@ export class VendorService {
     return this.repo.findVendorsByCategory(tenantId, categoryId);
   }
 
-  async findById(id: string) {
+  async findPage(tenantId: string, filter: import('../domain/client-vendor.repository.interface').PartnerListFilter) {
+    if (!this.repo.findVendorsPage) throw new Error('Partner pagination is unavailable');
+    return this.repo.findVendorsPage(tenantId, filter);
+  }
+
+  async findById(id: string, tenantId?: string) {
     const vendor = await this.repo.findVendorById(id);
-    if (!vendor) throw new NotFoundException('Vendor not found');
+    if (!vendor || (tenantId !== undefined && vendor.tenantId !== tenantId)) throw new NotFoundException('Vendor not found');
     return vendor;
   }
 
   async update(id: string, data: UpdateVendorData) {
     const existing = await this.repo.findVendorById(id);
-    if (!existing) throw new NotFoundException('Vendor not found');
+    if (!existing || (data.tenantId !== undefined && existing.tenantId !== data.tenantId)) throw new NotFoundException('Vendor not found');
     return this.repo.updateVendor(id, data);
   }
 
-  async softDelete(id: string, deletedById?: string) {
+  async softDelete(id: string, deletedById?: string, tenantId?: string) {
     const existing = await this.repo.findVendorById(id);
-    if (!existing) throw new NotFoundException('Vendor not found');
+    if (!existing || (tenantId !== undefined && existing.tenantId !== tenantId)) throw new NotFoundException('Vendor not found');
     return this.repo.softDeleteVendor(id, deletedById);
   }
 }

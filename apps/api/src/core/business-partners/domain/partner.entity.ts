@@ -36,6 +36,7 @@ export interface PartnerWithRelations extends Partner {
   categories?: PartnerCategoryRelation[];
   contacts: ContactRelation[];
   addresses: AddressRelation[];
+  clientIdentity?: Record<string, string | null>;
 }
 
 export interface PartnerRoleRelation {

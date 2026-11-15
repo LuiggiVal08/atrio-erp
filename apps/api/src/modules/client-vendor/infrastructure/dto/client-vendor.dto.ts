@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, IsEnum, IsArray, IsInt, IsBoolean, ValidateNested } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEmail, IsEnum, IsArray, IsInt, IsBoolean, Min, Max, ValidateNested } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { IdentificationType } from '@prisma/client';
 
@@ -8,13 +8,21 @@ const emptyToUndefined = ({ value }: { value: unknown }) =>
 const trimToUndefined = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() || undefined : value;
 
+export class PartnerListDto {
+  @IsOptional() @IsString() search?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) pageSize?: number;
+}
+
 export class VendorContactDto {
   @IsOptional() @IsString() id?: string;
-  @IsString() fullName!: string;
-  @IsOptional() @IsString() position?: string;
-  @IsOptional() @Transform(trimToUndefined) @IsEmail({}, { message: 'El correo no es válido' }) email?: string;
-  @IsOptional() @IsString() phone?: string;
-  @IsOptional() @IsString() mobile?: string;
+  @IsString() @IsNotEmpty() fullName!: string;
+  @IsOptional() @IsString() position?: string | null;
+  @IsOptional() @Transform(trimToUndefined) @IsEmail({}, { message: 'El correo no es válido' }) email?: string | null;
+  @IsOptional() @IsString() phone?: string | null;
+  @IsOptional() @IsString() mobile?: string | null;
+  @IsOptional() @IsString() identificationType?: string | null;
+  @IsOptional() @IsString() identificationNumber?: string | null;
   @IsOptional() @IsBoolean() isPrimary?: boolean;
 }
 
@@ -38,6 +46,7 @@ export class CreateClientDto {
   @IsOptional() @Transform(trimToUndefined) @IsEmail({}, { message: 'El correo no es válido' }) email?: string;
   @IsOptional() @IsString() phone?: string;
   @IsOptional() @IsString() addressId?: string;
+  @IsOptional() @ValidateNested() @Type(() => VendorAddressDto) address?: VendorAddressDto;
   @IsOptional() @IsString() contributorType?: string;
 }
 
@@ -53,6 +62,7 @@ export class UpdateClientDto {
   @IsOptional() @Transform(trimToUndefined) @IsEmail({}, { message: 'El correo no es válido' }) email?: string;
   @IsOptional() @IsString() phone?: string;
   @IsOptional() @IsString() addressId?: string;
+  @IsOptional() @ValidateNested() @Type(() => VendorAddressDto) address?: VendorAddressDto;
   @IsOptional() @IsString() contributorType?: string;
 }
 
@@ -74,7 +84,7 @@ export class CreateVendorDto {
   @IsOptional() @IsString() website?: string;
   @IsOptional() @IsString() metadataNotes?: string;
   @IsOptional() @IsString() paymentTerms?: string;
-  @IsOptional() @Type(() => Number) @IsInt() deliveryDays?: number;
+  @IsOptional() @Transform(({ value }) => value == null ? value : Number(value)) @IsInt() @Min(0) deliveryDays?: number;
   @IsOptional() @IsArray() @IsString({ each: true }) categoryTags?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) categoryIds?: string[];
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VendorContactDto) contacts?: VendorContactDto[];
@@ -106,7 +116,7 @@ export class UpdateVendorDto {
   @IsOptional() @IsString() website?: string;
   @IsOptional() @IsString() metadataNotes?: string;
   @IsOptional() @IsString() paymentTerms?: string;
-  @IsOptional() @Type(() => Number) @IsInt() deliveryDays?: number;
+  @IsOptional() @Transform(({ value }) => value == null ? value : Number(value)) @IsInt() @Min(0) deliveryDays?: number;
   @IsOptional() @IsArray() @IsString({ each: true }) categoryTags?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) categoryIds?: string[];
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VendorContactDto) contacts?: VendorContactDto[];

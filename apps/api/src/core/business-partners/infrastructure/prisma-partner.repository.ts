@@ -7,11 +7,20 @@ import type { Partner, PartnerWithRelations, PartnerSummary, PartnerRoleType, Pa
 export class PrismaPartnerRepository implements PartnerRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async withTransaction<T>(work: (repository: PartnerRepository) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction((tx) => work(new PrismaPartnerRepository(tx as PrismaService)));
+  }
+
   async create(data: CreatePartnerData): Promise<Partner> {
-    const { roles, tags, categoryIds, taxId, ...fields } = data;
+    const { roles, tags, categoryIds, taxId, contacts, addresses, clientIdentity, ...fields } = data;
     const partner = await this.prisma.partner.create({
       data: {
         ...fields,
+        contacts: contacts?.length ? { create: contacts } : undefined,
+        addresses: addresses?.length ? { create: addresses } : undefined,
+        events: clientIdentity ? { create: {
+          eventType: 'compatibility.client.identity', payload: clientIdentity, createdById: data.createdById,
+        } } : undefined,
         taxIdValue: taxId?.value ?? null,
         taxIdCountry: taxId?.country ?? null,
         taxIdType: taxId?.type ?? null,
@@ -35,6 +44,7 @@ export class PrismaPartnerRepository implements PartnerRepository {
       include: {
         roles: true,
         tags: true,
+        events: { where: { eventType: 'compatibility.client.identity' }, orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], take: 1 },
         categories: { include: { category: { select: { id: true, name: true } } } },
         contacts: { where: { deletedAt: null } },
         addresses: { where: { deletedAt: null } },
@@ -78,7 +88,7 @@ export class PrismaPartnerRepository implements PartnerRepository {
           categories: { include: { category: { select: { id: true, name: true } } } },
           contacts: { where: { deletedAt: null, isPrimary: true }, take: 1 },
         },
-        orderBy: orderBy as any,
+        orderBy: [orderBy, { id: 'asc' }] as any,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -223,6 +233,7 @@ export class PrismaPartnerRepository implements PartnerRepository {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       deletedAt: row.deletedAt,
+      clientIdentity: row.events?.[0]?.payload ?? undefined,
       roles: (row.roles ?? []).map((r: any): PartnerRoleRelation => ({ role: r.role, assignedAt: r.assignedAt })),
       tags: (row.tags ?? []).map((t: any): PartnerTagRelation => ({ value: t.value })),
       categories: (row.categories ?? []).map((c: any): PartnerCategoryRelation => ({ categoryId: c.categoryId, name: c.category?.name ?? '' })),

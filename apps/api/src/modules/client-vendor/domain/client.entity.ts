@@ -18,5 +18,6 @@ export class Client {
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public readonly deletedAt: Date | null,
+    public readonly addresses: import('@/core/business-partners/domain/partner.entity').AddressRelation[] = [],
   ) {}
 }

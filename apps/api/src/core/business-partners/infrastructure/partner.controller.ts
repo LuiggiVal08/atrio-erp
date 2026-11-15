@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards,
-  NotFoundException, BadRequestException, HttpCode, HttpStatus, Inject,
+  NotFoundException, BadRequestException, ForbiddenException, HttpCode, HttpStatus, Inject,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@/common/auth/jwt-auth.guard';
@@ -23,12 +23,25 @@ export class PartnerController {
     @Inject(PARTNER_REPOSITORY) private readonly partnerRepository: PartnerRepository,
   ) {}
 
+  private assertTenant(tenantId: string, user: any) {
+    if (!user?.effectiveTenantId || tenantId !== user.effectiveTenantId) throw new ForbiddenException('Tenant does not match effective context');
+  }
+
+  private async requirePartner(id: string, tenantId: string, user: any) {
+    this.assertTenant(tenantId, user);
+    const partner = await this.partnerService.findPartnerById(id);
+    if (!partner || partner.deletedAt || partner.tenantId !== tenantId) throw new NotFoundException('Partner not found');
+    return partner;
+  }
+
   @Get('tenants/:tenantId/partners')
   @ApiOperation({ summary: 'List partners with filters and pagination' })
   async findAll(
     @Param('tenantId') tenantId: string,
     @Query() filters: PartnerFiltersDto,
+    @CurrentUser() user: any,
   ) {
+    this.assertTenant(tenantId, user);
     const result = await this.partnerRepository.findMany({
       tenantId,
       search: filters.search,
@@ -51,6 +64,7 @@ export class PartnerController {
     @Body() dto: CreatePartnerDto,
     @CurrentUser() user: any,
   ) {
+    this.assertTenant(tenantId, user);
     try {
       const partner = await this.partnerService.createPartner({
         tenantId,
@@ -109,10 +123,8 @@ export class PartnerController {
 
   @Get('tenants/:tenantId/partners/:id')
   @ApiOperation({ summary: 'Get partner detail with relations' })
-  async findOne(@Param('id') id: string) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
-    return partner;
+  async findOne(@Param('id') id: string, @Param('tenantId') tenantId: string, @CurrentUser() user: any) {
+    return this.requirePartner(id, tenantId, user);
   }
 
   @Patch('tenants/:tenantId/partners/:id')
@@ -121,7 +133,9 @@ export class PartnerController {
     @Param('id') id: string,
     @Body() dto: UpdatePartnerDto,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
+    await this.requirePartner(id, tenantId, user);
     try {
       return await this.partnerService.updatePartner(id, {
         legalName: dto.legalName,
@@ -145,8 +159,10 @@ export class PartnerController {
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    await this.partnerService.softDeletePartner(id, user?.id ?? 'system');
+    await this.requirePartner(id, tenantId, user);
+    await this.partnerService.softDeletePartner(id, user.id);
   }
 
   @Post('tenants/:tenantId/partners/:id/roles')
@@ -155,9 +171,9 @@ export class PartnerController {
     @Param('id') id: string,
     @Body() dto: AssignRoleDto,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
     await this.partnerService.assignRole(id, dto.role as any);
     await this.partnerRepository.addEvent(id, 'role.assigned', { role: dto.role }, user?.id ?? 'system');
     return { role: dto.role, assignedAt: new Date().toISOString() };
@@ -170,9 +186,9 @@ export class PartnerController {
     @Param('id') id: string,
     @Param('role') role: string,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
     await this.partnerRepository.removeRole(id, role as any);
     await this.partnerRepository.addEvent(id, 'role.removed', { role }, user?.id ?? 'system');
   }
@@ -183,9 +199,9 @@ export class PartnerController {
     @Param('id') id: string,
     @Body() dto: CreateContactDto,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
     return this.partnerRepository.addContact({
       partnerId: id,
       fullName: dto.fullName,
@@ -206,9 +222,10 @@ export class PartnerController {
     @Param('contactId') contactId: string,
     @Body() dto: UpdateContactDto,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
+    if (!partner.contacts.some((c) => c.id === contactId && !c.deletedAt)) throw new NotFoundException('Contact not found');
     await this.partnerRepository.updateContact(contactId, {
       fullName: dto.fullName,
       position: dto.position ?? null,
@@ -226,9 +243,11 @@ export class PartnerController {
   async removeContact(
     @Param('id') id: string,
     @Param('contactId') contactId: string,
+    @Param('tenantId') tenantId: string,
+    @CurrentUser() user: any,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
+    if (!partner.contacts.some((c) => c.id === contactId && !c.deletedAt)) throw new NotFoundException('Contact not found');
     await this.partnerRepository.softDeleteContact(contactId);
   }
 
@@ -238,9 +257,9 @@ export class PartnerController {
     @Param('id') id: string,
     @Body() dto: CreateAddressDto,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
     return this.partnerRepository.addAddress({
       partnerId: id,
       type: dto.type as any,
@@ -263,9 +282,10 @@ export class PartnerController {
     @Param('addressId') addressId: string,
     @Body() dto: UpdateAddressDto,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
+    if (!partner.addresses.some((a) => a.id === addressId && !a.deletedAt)) throw new NotFoundException('Address not found');
     await this.partnerRepository.updateAddress(addressId, {
       type: dto.type as any,
       line1: dto.line1,
@@ -285,9 +305,10 @@ export class PartnerController {
   async removeAddress(
     @Param('id') id: string,
     @Param('addressId') addressId: string,
+    @Param('tenantId') tenantId: string,
+    @CurrentUser() user: any,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
     await this.partnerRepository.softDeleteAddress(addressId);
   }
 
@@ -297,9 +318,9 @@ export class PartnerController {
     @Param('id') id: string,
     @Body() dto: TagsDto,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
     await this.partnerRepository.addTags(id, dto.tags);
     await this.partnerRepository.addEvent(id, 'tags.updated', { added: dto.tags }, user?.id ?? 'system');
     return { tags: dto.tags };
@@ -312,9 +333,9 @@ export class PartnerController {
     @Param('id') id: string,
     @Body() dto: TagsDto,
     @CurrentUser() user: any,
+    @Param('tenantId') tenantId: string,
   ) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+    const partner = await this.requirePartner(id, tenantId, user);
     await this.partnerRepository.removeTags(id, dto.tags);
     await this.partnerRepository.addEvent(id, 'tags.updated', { removed: dto.tags }, user?.id ?? 'system');
     return { tags: dto.tags };
@@ -322,9 +343,8 @@ export class PartnerController {
 
   @Get('tenants/:tenantId/partners/:id/commercial-history')
   @ApiOperation({ summary: 'Get commercial history (delegated to Sales/Purchasing)' })
-  async getCommercialHistory(@Param('id') id: string) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+  async getCommercialHistory(@Param('id') id: string, @Param('tenantId') tenantId: string, @CurrentUser() user: any) {
+    const partner = await this.requirePartner(id, tenantId, user);
     return {
       sales: { lastInvoices: [], pendingInvoices: [], totalPaid: { amount: 0, currency: 'USD' }, totalPending: { amount: 0, currency: 'USD' } },
       purchases: { lastOrders: [], totalSpent: { amount: 0, currency: 'USD' } },
@@ -334,9 +354,8 @@ export class PartnerController {
 
   @Get('tenants/:tenantId/partners/:id/events')
   @ApiOperation({ summary: 'Get partner event timeline' })
-  async getEvents(@Param('id') id: string) {
-    const partner = await this.partnerService.findPartnerById(id);
-    if (!partner) throw new NotFoundException('Partner not found');
+  async getEvents(@Param('id') id: string, @Param('tenantId') tenantId: string, @CurrentUser() user: any) {
+    const partner = await this.requirePartner(id, tenantId, user);
     return this.partnerRepository.findEvents(id);
   }
 }

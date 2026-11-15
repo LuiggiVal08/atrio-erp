@@ -122,8 +122,8 @@ describe('PartnerCompatibilityAdapter', () => {
         tenantId: 't1', documentId: 'DOC-001', legalName: 'Test Corp', taxId: 'J-123456',
         createdById: 'actor-1', contactFirstName: 'Jane', contactEmail: 'jane@example.com',
       });
-      expect(mockPartnerRepository.addContact).toHaveBeenCalledWith(expect.objectContaining({
-        createdById: 'actor-1', updatedById: 'actor-1',
+      expect(mockPartnerService.createPartner).toHaveBeenCalledWith(expect.objectContaining({
+        contacts: [expect.objectContaining({ createdById: 'actor-1', updatedById: 'actor-1' })],
       }));
       expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
     });
@@ -151,17 +151,18 @@ describe('PartnerCompatibilityAdapter', () => {
 
   describe('findAllClients', () => {
     it('should return clients from partners with CUSTOMER role', async () => {
-      (mockPartnerService.findPartnersByRole as jest.Mock).mockResolvedValue([
-        { id: 'p1', legalName: 'A Corp', status: 'ACTIVE', roles: ['CUSTOMER'] },
-      ]);
+      (mockPartnerService.findPartnersByRole as jest.Mock).mockResolvedValue({
+        data: [{ id: 'p1', legalName: 'A Corp', status: 'ACTIVE', roles: ['CUSTOMER'] }],
+        total: 1, page: 1, pageSize: 100,
+      });
       const result = await adapter.findAllClients('t1');
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('p1');
-      expect(mockPartnerService.findPartnersByRole).toHaveBeenCalledWith('t1', 'CUSTOMER', {});
+      expect(mockPartnerService.findPartnersByRole).toHaveBeenCalledWith('t1', 'CUSTOMER', { search: undefined, page: 1, pageSize: 100 });
     });
 
     it('should return empty array when no partners found', async () => {
-      (mockPartnerService.findPartnersByRole as jest.Mock).mockResolvedValue([]);
+      (mockPartnerService.findPartnersByRole as jest.Mock).mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 100 });
       const result = await adapter.findAllClients('t1');
       expect(result).toEqual([]);
     });
@@ -211,7 +212,10 @@ describe('PartnerCompatibilityAdapter', () => {
           externalId: 'DOC-002',
         }),
       );
-      expect(mockPartnerRepository.addContact).toHaveBeenCalled();
+      expect(mockPartnerService.createPartner).toHaveBeenCalledWith(expect.objectContaining({
+        contacts: [expect.objectContaining({ fullName: 'Jane', email: 'jane@vendor.com', phone: '555-0002', createdById: 'admin-1', updatedById: 'admin-1' })],
+      }));
+      expect(mockPartnerRepository.addContact).not.toHaveBeenCalled();
       expect(result.legalName).toBe('Test Corp');
     });
 
@@ -233,24 +237,18 @@ describe('PartnerCompatibilityAdapter', () => {
         address: { country: 'VE', state: 'Miranda', city: 'Caracas', addressLine: 'Av. Principal', reference: 'Torre A' },
       });
 
-      expect(mockPartnerRepository.addContact).toHaveBeenCalledWith(expect.objectContaining({
-        position: 'Dueño',
-        fullName: 'Ana Perez',
-        email: 'ana@vendor.com',
-        phone: '555-0003',
-        identificationType: 'CI_VE',
-        identificationNumber: 'V12345678',
-        isPrimary: false,
+      expect(mockPartnerService.createPartner).toHaveBeenCalledWith(expect.objectContaining({
+        contacts: expect.arrayContaining([expect.objectContaining({
+          position: 'Dueño', fullName: 'Ana Perez', email: 'ana@vendor.com', phone: '555-0003',
+          identificationType: 'CI_VE', identificationNumber: 'V12345678', isPrimary: false,
+        })]),
+        addresses: [expect.objectContaining({
+          type: 'FISCAL', line1: 'Av. Principal', line2: 'Torre A', city: 'Caracas',
+          state: 'Miranda', country: 'VE', isPrimary: true,
+        })],
       }));
-      expect(mockPartnerRepository.addAddress).toHaveBeenCalledWith(expect.objectContaining({
-        type: 'FISCAL',
-        line1: 'Av. Principal',
-        line2: 'Torre A',
-        city: 'Caracas',
-        state: 'Miranda',
-        country: 'VE',
-        isPrimary: true,
-      }));
+      expect(mockPartnerRepository.addContact).not.toHaveBeenCalled();
+      expect(mockPartnerRepository.addAddress).not.toHaveBeenCalled();
     });
 
     it('keeps the owner as the primary contact when requested', async () => {
@@ -266,27 +264,24 @@ describe('PartnerCompatibilityAdapter', () => {
         contacts: [{ fullName: 'Luis', position: 'Ventas', isPrimary: true }],
       });
 
-      expect(mockPartnerRepository.addContact).toHaveBeenCalledWith(expect.objectContaining({
-        position: 'Dueño',
-        fullName: 'Ana Perez',
-        isPrimary: true,
-      }));
-      expect(mockPartnerRepository.addContact).toHaveBeenCalledWith(expect.objectContaining({
-        position: 'Ventas',
-        fullName: 'Luis',
-        isPrimary: false,
+      expect(mockPartnerService.createPartner).toHaveBeenCalledWith(expect.objectContaining({
+        contacts: [
+          expect.objectContaining({ position: 'Dueño', fullName: 'Ana Perez', isPrimary: true }),
+          expect.objectContaining({ position: 'Ventas', fullName: 'Luis', isPrimary: false }),
+        ],
       }));
     });
   });
 
   describe('findAllVendors', () => {
     it('should return vendors from partners with SUPPLIER role', async () => {
-      (mockPartnerService.findPartnersByRole as jest.Mock).mockResolvedValue([
-        { id: 'p2', legalName: 'B Vendor', status: 'ACTIVE', roles: ['SUPPLIER'] },
-      ]);
+      (mockPartnerService.findPartnersByRole as jest.Mock).mockResolvedValue({
+        data: [{ id: 'p2', legalName: 'B Vendor', status: 'ACTIVE', roles: ['SUPPLIER'] }],
+        total: 1, page: 1, pageSize: 100,
+      });
       const result = await adapter.findAllVendors('t1');
       expect(result).toHaveLength(1);
-      expect(mockPartnerService.findPartnersByRole).toHaveBeenCalledWith('t1', 'SUPPLIER', {});
+      expect(mockPartnerService.findPartnersByRole).toHaveBeenCalledWith('t1', 'SUPPLIER', { search: undefined, page: 1, pageSize: 100 });
     });
   });
 

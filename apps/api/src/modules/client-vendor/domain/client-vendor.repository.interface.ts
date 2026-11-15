@@ -1,10 +1,27 @@
 import { Client } from './client.entity';
 import { Vendor } from './vendor.entity';
 
-export type UpdateClientData = Partial<Omit<Client, 'id' | 'tenantId' | 'createdAt'>> & {
+export type UpdateClientData = Partial<Omit<Client, 'id' | 'tenantId' | 'createdAt' | 'email' | 'phone'>> & {
   tenantId?: string;
   updatedById?: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: VendorAddressInput | null;
 };
+
+export interface PartnerListFilter {
+  isActive?: boolean;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PartnerListPage<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 export interface VendorAddressInput {
   country: string;
@@ -18,7 +35,7 @@ export type UpdateVendorData = Partial<Omit<Vendor, 'id' | 'tenantId' | 'created
   tenantId?: string;
   updatedById?: string;
   contacts?: UpdateVendorContactData[];
-  address?: VendorAddressInput;
+  address?: VendorAddressInput | null;
   ownerIsPrimary?: boolean;
 };
 
@@ -37,21 +54,30 @@ export interface CreateClientData {
   phone?: string;
   addressId?: string;
   contributorType?: string;
+  address?: VendorAddressInput;
 }
 
 export interface CreateVendorContactData {
   fullName: string;
-  position?: string;
-  email?: string;
-  phone?: string;
-  mobile?: string;
-  identificationType?: string;
-  identificationNumber?: string;
+  position?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  identificationType?: string | null;
+  identificationNumber?: string | null;
   isPrimary?: boolean;
 }
 
-export interface UpdateVendorContactData extends CreateVendorContactData {
+export interface UpdateVendorContactData {
   id?: string;
+  fullName: string;
+  position?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  identificationType?: string | null;
+  identificationNumber?: string | null;
+  isPrimary?: boolean;
 }
 
 export interface CreateVendorData {
@@ -94,6 +120,8 @@ export interface CreateVendorData {
 }
 
 export interface ClientVendorRepository {
+  findClientsPage?(tenantId: string, filter: PartnerListFilter): Promise<PartnerListPage<Client>>;
+  findVendorsPage?(tenantId: string, filter: PartnerListFilter): Promise<PartnerListPage<Vendor>>;
   createClient(data: CreateClientData): Promise<Client>;
   findAllClients(tenantId: string, filter?: { isActive?: boolean; search?: string }): Promise<Client[]>;
   findClientById(id: string): Promise<Client | null>;

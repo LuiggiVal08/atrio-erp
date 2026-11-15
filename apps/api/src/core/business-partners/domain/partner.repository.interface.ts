@@ -27,6 +27,9 @@ export interface CreatePartnerData {
   roles?: PartnerRoleType[];
   tags?: string[];
   categoryIds?: string[];
+  contacts?: Omit<CreateContactData, 'partnerId'>[];
+  addresses?: Omit<CreateAddressData, 'partnerId'>[];
+  clientIdentity?: Record<string, string | null>;
 }
 
 export interface UpdatePartnerData {
@@ -121,6 +124,7 @@ export interface UpdateAddressData {
 export const PARTNER_REPOSITORY = 'PARTNER_REPOSITORY';
 
 export interface PartnerRepository {
+  withTransaction<T>(work: (repository: PartnerRepository) => Promise<T>): Promise<T>;
   create(data: CreatePartnerData): Promise<Partner>;
   findById(id: string): Promise<PartnerWithRelations | null>;
   findMany(filters: PartnerFilters): Promise<PaginatedResult<PartnerSummary>>;

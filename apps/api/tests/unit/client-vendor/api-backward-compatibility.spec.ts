@@ -260,10 +260,13 @@ describe('API Backward Compatibility (contract)', () => {
     it('should sort clients by legalName ascending', async () => {
       const p1 = { ...basePartner, id: 'p1', legalName: 'B Corp' };
       const p2 = { ...basePartner, id: 'p2', legalName: 'A Corp' };
-      (mockPartnerService.findPartnersByRole as jest.Mock).mockResolvedValue([
-        { id: 'p1', legalName: 'B Corp', status: 'ACTIVE', roles: ['CUSTOMER'] },
-        { id: 'p2', legalName: 'A Corp', status: 'ACTIVE', roles: ['CUSTOMER'] },
-      ]);
+      (mockPartnerService.findPartnersByRole as jest.Mock).mockResolvedValue({
+        data: [
+          { id: 'p1', legalName: 'B Corp', status: 'ACTIVE', roles: ['CUSTOMER'] },
+          { id: 'p2', legalName: 'A Corp', status: 'ACTIVE', roles: ['CUSTOMER'] },
+        ],
+        total: 2, page: 1, pageSize: 100,
+      });
       mockPartnerRepository.findById.mockImplementation(async (id: string) => {
         return id === 'p1' ? p1 : p2;
       });
@@ -300,10 +303,12 @@ describe('API Backward Compatibility (contract)', () => {
     });
 
     it('should soft delete client → findAllClients excludes deleted partners', async () => {
-      jest.spyOn(mockPartnerService, 'findPartnersByRole').mockResolvedValue([
-        { id: 'active-p', type: 'COMPANY', legalName: 'Active', status: 'ACTIVE', roles: ['CUSTOMER'], tags: [], createdAt: new Date() },
-        { id: 'deleted-p', type: 'COMPANY', legalName: 'Deleted', status: 'ARCHIVED', roles: ['CUSTOMER'], tags: [], createdAt: new Date() },
-      ]);
+      jest.spyOn(mockPartnerService, 'findPartnersByRole').mockResolvedValue({
+        data: [
+          { id: 'active-p', type: 'COMPANY', legalName: 'Active', status: 'ACTIVE', roles: ['CUSTOMER'], tags: [], createdAt: new Date() },
+          { id: 'deleted-p', type: 'COMPANY', legalName: 'Deleted', status: 'ARCHIVED', roles: ['CUSTOMER'], tags: [], createdAt: new Date() },
+        ], total: 2, page: 1, pageSize: 25,
+      });
       (mockPartnerRepository.findById as jest.Mock).mockImplementation(async (id: string) => {
         if (id === 'deleted-p') return { ...basePartner, id: 'deleted-p', deletedAt: new Date() };
         return { ...basePartner, id: 'active-p' };

@@ -18,21 +18,26 @@ export class ClientService {
     return this.repo.findAllClients(tenantId, filter);
   }
 
-  async findById(id: string) {
+  async findPage(tenantId: string, filter: import('../domain/client-vendor.repository.interface').PartnerListFilter) {
+    if (!this.repo.findClientsPage) throw new Error('Partner pagination is unavailable');
+    return this.repo.findClientsPage(tenantId, filter);
+  }
+
+  async findById(id: string, tenantId?: string) {
     const client = await this.repo.findClientById(id);
-    if (!client) throw new NotFoundException('Client not found');
+    if (!client || (tenantId !== undefined && client.tenantId !== tenantId)) throw new NotFoundException('Client not found');
     return client;
   }
 
   async update(id: string, data: UpdateClientData) {
     const existing = await this.repo.findClientById(id);
-    if (!existing) throw new NotFoundException('Client not found');
+    if (!existing || (data.tenantId !== undefined && existing.tenantId !== data.tenantId)) throw new NotFoundException('Client not found');
     return this.repo.updateClient(id, data);
   }
 
-  async softDelete(id: string, deletedById?: string) {
+  async softDelete(id: string, deletedById?: string, tenantId?: string) {
     const existing = await this.repo.findClientById(id);
-    if (!existing) throw new NotFoundException('Client not found');
+    if (!existing || (tenantId !== undefined && existing.tenantId !== tenantId)) throw new NotFoundException('Client not found');
     return this.repo.softDeleteClient(id, deletedById);
   }
 }

@@ -9,7 +9,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { ClientService } from '../application/client.service';
 import { VendorService } from '../application/vendor.service';
-import { CreateClientDto, UpdateClientDto, CreateVendorDto, UpdateVendorDto } from './dto/client-vendor.dto';
+import { CreateClientDto, UpdateClientDto, CreateVendorDto, UpdateVendorDto, PartnerListDto } from './dto/client-vendor.dto';
 import { LegacyApiInterceptor } from './legacy-api.interceptor';
 import { COMPATIBILITY_METRICS_REPOSITORY } from './compatibility-metrics.repository.interface';
 import type { CompatibilityMetricsRepository } from './compatibility-metrics.repository.interface';
@@ -37,15 +37,16 @@ export class ClientVendorController {
   @Get('clients')
   @RequirePermission('client-vendor:client:read')
   @ApiOperation({ summary: 'List clients' })
-  async listClients(@CurrentUser() user: any, @Query('search') search?: string) {
-    return this.clientService.findAll(user.effectiveTenantId, { search });
+  async listClients(@CurrentUser() user: any, @Query() filters: PartnerListDto) {
+    if (filters.page !== undefined || filters.pageSize !== undefined) return this.clientService.findPage(user.effectiveTenantId, { ...filters, page: filters.page ?? 1, pageSize: filters.pageSize ?? 25 });
+    return this.clientService.findAll(user.effectiveTenantId, { search: filters.search });
   }
 
   @Get('clients/:id')
   @RequirePermission('client-vendor:client:read')
   @ApiOperation({ summary: 'Get client by ID' })
-  async getClient(@Param('id') id: string) {
-    return this.clientService.findById(id);
+  async getClient(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.clientService.findById(id, user.effectiveTenantId);
   }
 
   @Patch('clients/:id')
@@ -59,7 +60,7 @@ export class ClientVendorController {
   @RequirePermission('client-vendor:client:delete')
   @ApiOperation({ summary: 'Soft-delete client' })
   async deleteClient(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.clientService.softDelete(id, user.id);
+    return this.clientService.softDelete(id, user.id, user.effectiveTenantId);
   }
 
   @Post('vendors')
@@ -72,8 +73,9 @@ export class ClientVendorController {
   @Get('vendors')
   @RequirePermission('client-vendor:vendor:read')
   @ApiOperation({ summary: 'List vendors' })
-  async listVendors(@CurrentUser() user: any, @Query('search') search?: string) {
-    return this.vendorService.findAll(user.effectiveTenantId, { search });
+  async listVendors(@CurrentUser() user: any, @Query() filters: PartnerListDto) {
+    if (filters.page !== undefined || filters.pageSize !== undefined) return this.vendorService.findPage(user.effectiveTenantId, { ...filters, page: filters.page ?? 1, pageSize: filters.pageSize ?? 25 });
+    return this.vendorService.findAll(user.effectiveTenantId, { search: filters.search });
   }
 
   @Get('vendors/suggestions')
@@ -103,8 +105,8 @@ export class ClientVendorController {
   @Get('vendors/:id')
   @RequirePermission('client-vendor:vendor:read')
   @ApiOperation({ summary: 'Get vendor by ID' })
-  async getVendor(@Param('id') id: string) {
-    return this.vendorService.findById(id);
+  async getVendor(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.vendorService.findById(id, user.effectiveTenantId);
   }
 
   @Patch('vendors/:id')
@@ -118,7 +120,7 @@ export class ClientVendorController {
   @RequirePermission('client-vendor:vendor:delete')
   @ApiOperation({ summary: 'Soft-delete vendor' })
   async deleteVendor(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.vendorService.softDelete(id, user.id);
+    return this.vendorService.softDelete(id, user.id, user.effectiveTenantId);
   }
 
   @Get('compatibility-metrics')
