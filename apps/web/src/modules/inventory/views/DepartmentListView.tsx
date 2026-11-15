@@ -13,7 +13,7 @@ import { usePagination } from '@/shared/hooks/usePagination';
 import { RotateCw } from 'lucide-react';
 import type { Department } from '../hooks/useDepartments';
 
-const defaultValues: DepartmentFormValues = { name: '', code: '' };
+const defaultValues: DepartmentFormValues = { name: '' };
 
 export function DepartmentListView() {
   const { t } = useTranslation();
@@ -27,7 +27,7 @@ export function DepartmentListView() {
     onSubmit: async ({ value }) => {
       setServerError('');
       try {
-        await createDept.mutateAsync({ name: value.name.trim(), code: value.code.trim() });
+        await createDept.mutateAsync({ name: value.name.trim() });
         form.reset();
       } catch (error) {
         const result = applyServerErrors(form, error);
@@ -40,7 +40,6 @@ export function DepartmentListView() {
 
   const columns: GridColumn<Department>[] = [
     { key: 'name', label: t('hr.department.name'), sortable: true },
-    { key: 'code', label: t('hr.department.code'), width: 120 },
     {
       key: 'isActive',
       label: t('hr.employee.status'),
@@ -87,12 +86,6 @@ export function DepartmentListView() {
                 name="name"
                 placeholder={t('hr.department.name')}
                 className="flex-1"
-              />
-              <FormInput
-                form={form}
-                name="code"
-                placeholder={t('hr.department.code')}
-                className="w-32"
               />
               <button
                 type="submit"

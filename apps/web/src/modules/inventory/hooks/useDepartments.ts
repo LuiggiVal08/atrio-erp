@@ -5,7 +5,6 @@ import { useTenantStore } from '@/core/tenant/store';
 export interface Department {
   id: string;
   name: string;
-  code: string;
   isActive: boolean;
 }
 
@@ -29,7 +28,7 @@ export function useCreateDepartment() {
   const qc = useQueryClient();
   const tenantId = useTenantId();
   return useMutation({
-    mutationFn: async (data: { name: string; code: string }) => {
+    mutationFn: async (data: { name: string }) => {
       const res = await api.post(`/tenants/${tenantId}/departments`, data);
       return res.data;
     },
@@ -40,7 +39,7 @@ export function useCreateDepartment() {
 export function useUpdateDepartment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name?: string; code?: string; isActive?: boolean }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; isActive?: boolean }) => {
       const res = await api.patch(`/departments/${id}`, data);
       return res.data;
     },

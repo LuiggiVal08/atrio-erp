@@ -12,18 +12,35 @@ export function FiscalConfigView() {
   const [name, setName] = useState('');
   const [rate, setRate] = useState('');
   const [type, setType] = useState<'percentage' | 'fixed'>('percentage');
+  const [formError, setFormError] = useState('');
 
-  const handleAdd = () => {
-    if (!name.trim() || !rate) return;
-    createTax.mutate({ name: name.trim(), rate: Number(rate) / 100, type });
-    setName('');
-    setRate('');
-    setType('percentage');
+  const handleAdd = async () => {
+    const value = Number(rate);
+    if (!name.trim() || !rate || !Number.isFinite(value) || value <= 0) return;
+    setFormError('');
+    try {
+      await createTax.mutateAsync({
+        name: name.trim(),
+        rate: type === 'percentage' ? value / 100 : value,
+        type,
+      });
+      setName('');
+      setRate('');
+      setType('percentage');
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      setFormError(typeof message === 'string' ? message : t('common.saveUnconfirmed'));
+    }
   };
 
   const columns: GridColumn<Tax>[] = [
     { key: 'name', label: t('localization.tax.name'), sortable: true },
-    { key: 'rate', label: t('localization.tax.rate'), width: 100, align: 'right', render: (v) => `${(Number(v) * 100).toFixed(2)}%` },
+    {
+      key: 'rate', label: t('localization.tax.rate'), width: 120, align: 'right',
+      render: (v, row) => row.type === 'fixed'
+        ? Number(v).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+        : `${(Number(v) * 100).toFixed(2)}%`,
+    },
     { key: 'type', label: 'Tipo', width: 120 },
     {
       key: 'isActive', label: 'Activo', width: 80,
@@ -47,6 +64,7 @@ export function FiscalConfigView() {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            aria-label={t('localization.tax.name')}
             placeholder={t('localization.tax.name')}
             className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
           />
@@ -54,11 +72,13 @@ export function FiscalConfigView() {
             type="number"
             value={rate}
             onChange={(e) => setRate(e.target.value)}
+            aria-label={t('localization.tax.rate')}
             placeholder={t('localization.tax.rate')}
             className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
           />
           <select
             value={type}
+            aria-label="Tipo"
             onChange={(e) => setType(e.target.value as 'percentage' | 'fixed')}
             className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
           >
@@ -73,6 +93,9 @@ export function FiscalConfigView() {
             {t('common.create')}
           </button>
         </div>
+        {formError && (
+          <p role="alert" className="mt-3 text-xs text-red-500">{formError}</p>
+        )}
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-4">
