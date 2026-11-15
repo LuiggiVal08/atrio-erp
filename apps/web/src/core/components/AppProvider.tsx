@@ -1,27 +1,11 @@
 import { useEffect } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/core/lib/query-client';
 import { Toaster } from 'sileo';
 import { useThemeStore } from '@/core/store/theme-store';
 import { useAuthStore } from '@/core/auth/store';
 import api, { refreshAccessToken } from '@/shared/lib/api/client';
 import axios from 'axios';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      retry: (failureCount, error) => {
-        const status = (error as { response?: { status?: number } })?.response?.status;
-        return failureCount < 1 && (status === undefined || status >= 500);
-      },
-      retryDelay: 1000,
-      refetchOnWindowFocus: false,
-    },
-    mutations: {
-      retry: 0,
-    },
-  },
-});
 
 interface AppProviderProps {
   children: React.ReactNode;

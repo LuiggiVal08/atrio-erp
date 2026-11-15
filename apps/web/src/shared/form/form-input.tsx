@@ -52,7 +52,8 @@ export function FormInput({
           {multiline ? (
             <textarea
               id={inputId}
-              aria-label={ariaLabel}
+              aria-label={ariaLabel ?? label}
+              aria-required={required}
               value={field.state.value ?? ''}
               onChange={(event) => field.handleChange(event.target.value)}
               onBlur={field.handleBlur}
@@ -64,7 +65,8 @@ export function FormInput({
           ) : (
             <input
               id={inputId}
-              aria-label={ariaLabel}
+              aria-label={ariaLabel ?? label}
+              aria-required={required}
               type={type}
               value={field.state.value ?? ''}
               onChange={(event) => {

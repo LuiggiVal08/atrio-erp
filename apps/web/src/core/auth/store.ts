@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
+import { queryClient } from '@/core/lib/query-client';
 
 export type AuthUser = {
   id: string;
@@ -43,8 +45,13 @@ export const useAuthStore = create<AuthState>()(
       tenants: [],
 
       setAuth: (token, user) => {
+        if (get().user?.id !== user.id || get().user?.tenantId !== user.tenantId) {
+          void queryClient.cancelQueries();
+          queryClient.clear();
+        }
         localStorage.setItem('x-tenant-id', user.tenantId);
         set({ token, user });
+        useTenantStore.getState().setActiveTenant(user.tenantId);
       },
 
       setToken: (token) => set({ token }),
@@ -55,15 +62,20 @@ export const useAuthStore = create<AuthState>()(
       setTenants: (tenants) => set({ tenants }),
 
       switchTenant: async (tenantId: string) => {
-        const { tenants } = get();
+        const token = get().token;
         const res = await api.post('/auth/switch-tenant', { tenantId });
+        if (get().token !== token) return;
         const data = res.data;
-        localStorage.setItem('x-tenant-id', tenantId);
+        await queryClient.cancelQueries();
+        if (get().token !== token) return;
+        queryClient.clear();
+        localStorage.setItem('x-tenant-id', data.user.tenantId);
         set({
           token: data.accessToken,
           user: data.user,
-          tenants: tenants.map((t) => ({ ...t, isHome: t.id === tenantId })),
+          tenants: get().tenants.map((t) => ({ ...t, isHome: t.id === data.user.tenantId })),
         });
+        useTenantStore.getState().setActiveTenant(data.user.tenantId);
       },
 
       fetchTenants: async () => {
@@ -85,10 +97,25 @@ export const useAuthStore = create<AuthState>()(
             console.error('[Auth] Server logout failed', error);
           });
         }
+        void queryClient.cancelQueries();
+        queryClient.clear();
         localStorage.removeItem('x-tenant-id');
         set({ token: null, user: null, tenants: [] });
+        useTenantStore.getState().clearTenant();
       },
     }),
-    { name: 'atrio-auth', partialize: (state) => ({ token: state.token, user: state.user }) },
+    {
+      name: 'atrio-auth',
+      partialize: (state) => ({ token: state.token, user: state.user }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.token && state.user) {
+          localStorage.setItem('x-tenant-id', state.user.tenantId);
+          useTenantStore.getState().setActiveTenant(state.user.tenantId);
+        } else {
+          localStorage.removeItem('x-tenant-id');
+          useTenantStore.getState().clearTenant();
+        }
+      },
+    },
   ),
 );

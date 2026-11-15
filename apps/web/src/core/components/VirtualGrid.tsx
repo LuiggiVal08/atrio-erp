@@ -72,7 +72,7 @@ export function VirtualGrid<T extends Record<string, any>>({
 
   const renderSortIcon = useCallback(
     (col: GridColumn<T>) => {
-      if (!col.sortable) return null;
+      if (!col.sortable || !onSort) return null;
       if (sortColumn !== col.key)
         return <ChevronsUpDown size={12} className="text-text-secondary" />;
       return sortDirection === 'asc' ? (
@@ -81,7 +81,7 @@ export function VirtualGrid<T extends Record<string, any>>({
         <ChevronDown size={12} className="text-accent" />
       );
     },
-    [sortColumn, sortDirection],
+    [onSort, sortColumn, sortDirection],
   );
 
   if (loading) {
@@ -153,22 +153,21 @@ export function VirtualGrid<T extends Record<string, any>>({
             {columns.map((col) => (
               <th
                 key={String(col.key)}
-                onClick={() =>
-                  col.sortable &&
-                  onSort?.(
-                    col.key,
-                    sortColumn === col.key && sortDirection === 'asc' ? 'desc' : 'asc',
-                  )
-                }
-                className={`border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-secondary ${
-                  col.sortable ? 'cursor-pointer hover:text-text-primary' : ''
-                } ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
+                scope="col"
+                aria-sort={col.sortable && onSort ? (sortColumn === col.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none') : undefined}
+                className={`border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-secondary ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
                 style={{ width: col.width, minWidth: col.minWidth }}
               >
-                <div className="flex items-center gap-1">
-                  <span>{col.label}</span>
-                  {renderSortIcon(col)}
-                </div>
+                {col.sortable && onSort ? (
+                  <button
+                    type="button"
+                    onClick={() => onSort(col.key, sortColumn === col.key && sortDirection === 'asc' ? 'desc' : 'asc')}
+                    className="inline-flex items-center gap-1 rounded-sm hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <span>{col.label}</span>
+                    {renderSortIcon(col)}
+                  </button>
+                ) : col.label}
               </th>
             ))}
           </tr>
@@ -193,7 +192,7 @@ export function VirtualGrid<T extends Record<string, any>>({
                       className="group relative flex border-b border-border hover:bg-surface-hover cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       onClick={() => onRowClick?.(row)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') onRowClick?.(row);
+                        if (e.target === e.currentTarget && e.key === 'Enter') onRowClick?.(row);
                       }}
                       tabIndex={0}
                       role="row"
@@ -231,7 +230,7 @@ export function VirtualGrid<T extends Record<string, any>>({
                 className="group relative border-b border-border cursor-pointer transition-all hover:bg-surface-hover hover:shadow-[inset_2px_0_0_0_var(--accent-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={() => onRowClick?.(row)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') onRowClick?.(row);
+                  if (e.target === e.currentTarget && e.key === 'Enter') onRowClick?.(row);
                 }}
                 tabIndex={0}
                 role="row"

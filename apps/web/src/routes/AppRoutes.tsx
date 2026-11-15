@@ -78,7 +78,7 @@ export function AppRoutes() {
       clients: ['clients', 'client-vendor'],
       vendors: ['vendors', 'client-vendor'],
       localization: ['localization'],
-      employees: ['hr'],
+      employees: ['hr', 'employees'],
       rbac: ['rbac'],
       users: ['users'],
     };

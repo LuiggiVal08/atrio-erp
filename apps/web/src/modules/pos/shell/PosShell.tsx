@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/core/auth/store';
+import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useCashRegisters } from '@/modules/cash/hooks/useCashRegisters';
+import { useDefaultWarehouse } from '@/modules/inventory/hooks/useWarehouses';
 import { usePosSessions } from '@/modules/sales/hooks/usePosSessions';
 import { usePosStore, usePosTotals } from '../store/pos-store';
 import { FocusTargets, focusManager } from '../focus/focus-manager';
@@ -39,6 +41,8 @@ export function PosShell() {
   const closeSession = usePosStore((s) => s.closeSession);
 
   const { user } = useAuthStore();
+  const { t } = useTranslation();
+  const { data: defaultWarehouse } = useDefaultWarehouse();
   const { data: sessions, isLoading: sessionsLoading } = usePosSessions(!!user);
   const { data: registers, isLoading: registersLoading } = useCashRegisters();
 
@@ -146,6 +150,10 @@ export function PosShell() {
       const state = usePosStore.getState();
       if (state.payment.status === 'PROCESSING') return;
       if (allocations.length === 0 || !state.session) return;
+      if (!defaultWarehouse?.id) {
+        setPaymentStatus('ERROR', t('inventory.warehouseView.noWarehouse'));
+        return;
+      }
 
       setPaymentStatus('PROCESSING');
 
@@ -163,7 +171,7 @@ export function PosShell() {
             productId: l.productId,
             quantity: l.quantity,
             unitPrice: l.price,
-            warehouseId: 'default-warehouse',
+            warehouseId: defaultWarehouse.id,
           })),
         });
 
@@ -202,7 +210,7 @@ export function PosShell() {
         }
       }
     },
-    [checkoutMutation, total, user?.tenantId, completeSale, setPaymentStatus],
+    [checkoutMutation, total, user?.tenantId, completeSale, setPaymentStatus, defaultWarehouse?.id, t],
   );
 
   const handleCloseResult = useCallback(() => {

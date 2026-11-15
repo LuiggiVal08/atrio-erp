@@ -17,6 +17,7 @@ export function FormCombobox({
   disabled,
   className,
   id,
+  ariaLabel,
   options,
   placeholder,
 }: FormComboboxProps) {
@@ -42,7 +43,7 @@ export function FormCombobox({
               options={options}
               placeholder={placeholder}
               disabled={disabled}
-              aria-label={label ?? name}
+              aria-label={ariaLabel ?? label ?? name}
             />
           </div>
         </FormField>

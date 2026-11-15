@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+
+afterEach(cleanup);
 import { VirtualGrid } from '@/core/components/VirtualGrid';
 
 vi.mock('@/shared/hooks/useTranslation', () => ({
@@ -78,8 +80,34 @@ describe('VirtualGrid', () => {
       <VirtualGrid data={data} columns={columns} onSort={onSort} />,
     );
     const nameHeader = container.querySelector('th:nth-child(2)');
-    nameHeader?.click();
+    const sortButton = nameHeader?.querySelector('button');
+    expect(sortButton).not.toBeNull();
+    sortButton?.click();
     expect(onSort).toHaveBeenCalledWith('name', 'asc');
+  });
+
+  it('exposes a focusable sort action and announces the direction', () => {
+    const onSort = vi.fn();
+    render(<VirtualGrid data={generateRows(2)} columns={columns} onSort={onSort} sortColumn="name" sortDirection="asc" />);
+    const button = screen.getByRole('button', { name: 'Name' });
+    button.focus();
+    expect(document.activeElement).toBe(button);
+    expect(button.closest('th')?.getAttribute('aria-sort')).toBe('ascending');
+    fireEvent.click(button);
+    expect(onSort).toHaveBeenCalledWith('name', 'desc');
+  });
+
+  it('does not advertise sorting without a sort handler', () => {
+    const { container } = render(<VirtualGrid data={generateRows(2)} columns={columns} />);
+    expect(container.querySelector('thead button')).toBeNull();
+    expect(container.querySelector('thead svg')).toBeNull();
+  });
+
+  it('does not activate a row when Enter originates in a nested control', () => {
+    const onRowClick = vi.fn();
+    render(<VirtualGrid data={[{ id: 1 }]} columns={[{ key: 'id', label: 'ID', render: () => <button>Action</button> }]} onRowClick={onRowClick} />);
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Action' }), { key: 'Enter' });
+    expect(onRowClick).not.toHaveBeenCalled();
   });
 
   it('renders sort icons on active sort column', () => {
@@ -90,6 +118,7 @@ describe('VirtualGrid', () => {
         columns={columns}
         sortColumn="name"
         sortDirection="asc"
+        onSort={vi.fn()}
       />,
     );
     const svgs = container.querySelectorAll('svg');

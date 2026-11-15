@@ -2,6 +2,10 @@
 @import "tailwindcss";
 @import "@heroui/react/styles";
 
+/* Playwright artifacts contain class-like strings and asset URLs that break the CSS build */
+@source not "../../playwright-report";
+@source not "../../test-results";
+
 @theme {
   --color-canvas: var(--bg-canvas, #0D0F14);
   --color-canvas-elevated: var(--bg-overlay, #161A24);
