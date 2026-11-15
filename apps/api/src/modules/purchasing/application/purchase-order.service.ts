@@ -1,6 +1,7 @@
-import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { PurchasingRepository, OrderLineInfo } from '../domain/purchasing.repository.interface';
+import { randomUUID } from 'node:crypto';
+import { PurchasingRepository, ReceiptContext, ReceiptLine } from '../domain/purchasing.repository.interface';
 import { CreateDocumentUseCase } from '@/modules/document-engine/application/create-document.use-case';
 import { DocumentType } from '@/modules/document-engine/domain/document.entity';
 
@@ -70,31 +71,34 @@ export class PurchaseOrderService {
     return this.repo.findOrdersByTenant(tenantId);
   }
 
-  async findById(id: string) {
+  async findById(id: string, tenantId?: string) {
     const order = await this.repo.findOrderById(id);
-    if (!order) throw new NotFoundException('Purchase order not found');
-    return order;
+    if (!order || (tenantId && order.tenantId !== tenantId)) throw new NotFoundException('Purchase order not found');
+    return { ...order, lines: await this.repo.findOrderLines(id) };
   }
 
-  async update(id: string, data: Partial<{ vendorId: string; subtotal: number; taxAmount: number; total: number; currency: string; notes: string; expectedDate: string; status: string }>) {
+  async update(id: string, data: Partial<{ vendorId: string; subtotal: number; taxAmount: number; total: number; currency: string; notes: string; expectedDate: string; status: string }>, tenantId?: string) {
     const order = await this.repo.findOrderById(id);
     if (!order) throw new NotFoundException('Purchase order not found');
 
+    if (tenantId && order.tenantId !== tenantId) throw new NotFoundException('Purchase order not found');
+    if (data.status && data.status !== order.status) throw new BadRequestException('Use purchase order lifecycle actions to change status');
     const updateData: any = { ...data };
     if (data.expectedDate) updateData.expectedDate = new Date(data.expectedDate);
 
     return this.repo.updateOrder(id, updateData);
   }
 
-  async delete(id: string) {
+  async delete(id: string, tenantId?: string) {
     const order = await this.repo.findOrderById(id);
-    if (!order) throw new NotFoundException('Purchase order not found');
+    if (!order || (tenantId && order.tenantId !== tenantId)) throw new NotFoundException('Purchase order not found');
+    if (['partial', 'received'].includes(order.status)) throw new BadRequestException('Received orders cannot be deleted');
     await this.repo.deleteOrder(id);
   }
 
-  async approve(id: string) {
+  async approve(id: string, tenantId?: string) {
     const order = await this.repo.findOrderById(id);
-    if (!order) throw new NotFoundException('Purchase order not found');
+    if (!order || (tenantId && order.tenantId !== tenantId)) throw new NotFoundException('Purchase order not found');
     if (order.status !== 'pending') throw new BadRequestException('Only pending purchase orders can be approved');
     return this.repo.updateOrderStatus(id, 'approved');
   }
@@ -104,11 +108,12 @@ export class PurchaseOrderService {
     subtotal: number; taxAmount: number; total: number;
     lines: Array<{ productId: string; warehouseId: string; quantity: number; unitPrice: number }>;
     userId?: string;
-  }) {
+  }, tenantId?: string) {
     const order = await this.repo.findOrderById(id);
-    if (!order) throw new NotFoundException('Purchase order not found');
+    if (!order || (tenantId && order.tenantId !== tenantId)) throw new NotFoundException('Purchase order not found');
     if (order.status !== 'received') throw new BadRequestException('Only received purchase orders can be returned');
 
+    await this.repo.validateReturnLines(order.tenantId, data.lines);
     const ret = await this.repo.createReturn({
       tenantId: order.tenantId,
       purchaseOrderId: id,
@@ -124,125 +129,37 @@ export class PurchaseOrderService {
       total: data.total,
     });
 
-    this.eventEmitter.emit('document.returned', {
-      eventType: 'document.returned',
-      tenantId: order.tenantId,
-      documentId: id,
-      documentType: 'purchase_return',
-      timestamp: new Date().toISOString(),
-      triggeredBy: data.userId ?? null,
-      metadata: {
-        lines: data.lines,
-        reasonCode: data.reasonCode,
-        resolution: data.resolution ?? 'supplier_credit',
-        supplierCreditNo: data.supplierCreditNo,
-      },
-    });
-
     return ret;
   }
 
-  private buildLinesForEvent(lines: OrderLineInfo[], receivedMap: Map<string, number>): Array<{ productId: string; warehouseId: string; quantity: number }> {
-    const result: Array<{ productId: string; warehouseId: string; quantity: number }> = [];
-    for (const line of lines) {
-      const qty = receivedMap.get(line.lineId) ?? (line.quantity - (line.receivedQuantity ?? 0));
-      if (qty > 0 && line.productId && line.warehouseId) {
-        result.push({ productId: line.productId, warehouseId: line.warehouseId, quantity: qty });
+  async receive(id: string, dto?: { operationId?: string; lines: ReceiptLine[] }, context?: ReceiptContext) {
+    if (!dto?.lines?.length) throw new BadRequestException('At least one received line is required');
+    const seen = new Set<string>();
+    for (const line of dto.lines) {
+      if (!line.lineId || seen.has(line.lineId) || !Number.isFinite(line.quantity) || line.quantity <= 0 ||
+        Math.abs(line.quantity * 10000 - Math.round(line.quantity * 10000)) > 1e-7) {
+        throw new BadRequestException('Receipt lines must be unique and quantities positive with at most four decimals');
       }
+      seen.add(line.lineId);
     }
-    return result;
+    if (!context) throw new BadRequestException('Receipt tenant and actor are required');
+    const result = await this.repo.receiveOrder(id, { operationId: dto.operationId ?? randomUUID(), lines: dto.lines }, context);
+    await this.dispatchReceipt(result.event);
+    return result.order;
   }
 
-  private async determineReceiveStatus(orderId: string, lines: OrderLineInfo[], receivedMap: Map<string, number>): Promise<'partial' | 'received'> {
-    let allFullyReceived = true;
-    for (const line of lines) {
-      const received = receivedMap.get(line.lineId) ?? (line.receivedQuantity ?? 0) + 0;
-      if (received < line.quantity) {
-        allFullyReceived = false;
-        break;
-      }
-    }
-    return allFullyReceived ? 'received' : 'partial';
+  async completeReceive(id: string, dto: { operationId?: string } = {}, context?: ReceiptContext) {
+    if (!context) throw new BadRequestException('Receipt tenant and actor are required');
+    const result = await this.repo.receiveOrder(id, { operationId: dto.operationId ?? randomUUID(), complete: true }, context);
+    await this.dispatchReceipt(result.event);
+    return result.order;
   }
 
-  async receive(id: string, dto?: { lines: Array<{ lineId: string; quantity: number }> }) {
-    const order = await this.repo.findOrderById(id);
-    if (!order) throw new NotFoundException('Purchase order not found');
-    if (order.status === 'received') throw new Error('Purchase order already received');
-
-    if (dto && dto.lines.length > 0) {
-      const orderLines = await this.repo.findOrderLines(id);
-      const lineMap = new Map(orderLines.map(l => [l.lineId, l]));
-
-      const receivedMap = new Map<string, number>();
-      for (const incoming of dto.lines) {
-        const line = lineMap.get(incoming.lineId);
-        if (!line) throw new NotFoundException(`Line ${incoming.lineId} not found on order ${id}`);
-        const alreadyReceived = line.receivedQuantity ?? 0;
-        const newReceived = alreadyReceived + incoming.quantity;
-        if (newReceived > line.quantity) throw new BadRequestException(`Quantity ${newReceived} exceeds ordered ${line.quantity} for line ${incoming.lineId}`);
-        await this.repo.updateLineReceivedQuantity(incoming.lineId, newReceived);
-        receivedMap.set(incoming.lineId, newReceived);
-      }
-
-      const status = await this.determineReceiveStatus(id, orderLines, receivedMap);
-      const updated = await this.repo.updateOrder(id, { status, receivedAt: status === 'received' ? new Date() : undefined });
-
-      this.eventEmitter.emit('document.received', {
-        eventType: 'document.received',
-        tenantId: order.tenantId,
-        documentId: id,
-        documentType: 'purchase_order',
-        timestamp: new Date().toISOString(),
-        triggeredBy: null,
-        metadata: { lines: this.buildLinesForEvent(orderLines, receivedMap) },
-      });
-
-      return updated;
+  private async dispatchReceipt(event: unknown) {
+    try {
+      await this.eventEmitter.emitAsync('document.received', event);
+    } catch {
+      throw new ServiceUnavailableException('Receipt persisted but stock dispatch failed; retry the same operation');
     }
-
-    const updated = await this.repo.updateOrder(id, { status: 'received', receivedAt: new Date() });
-
-    this.eventEmitter.emit('document.received', {
-      eventType: 'document.received',
-      tenantId: order.tenantId,
-      documentId: id,
-      documentType: 'purchase_order',
-      timestamp: new Date().toISOString(),
-      triggeredBy: null,
-      metadata: { lines: [] },
-    });
-
-    return updated;
-  }
-
-  async completeReceive(id: string) {
-    const order = await this.repo.findOrderById(id);
-    if (!order) throw new NotFoundException('Purchase order not found');
-    if (order.status !== 'partial') throw new BadRequestException('Only partially received orders can be completed');
-    const updated = await this.repo.updateOrder(id, { status: 'received', receivedAt: new Date() });
-
-    const orderLines = await this.repo.findOrderLines(id);
-    const remainingLines = orderLines.filter(l => (l.receivedQuantity ?? 0) < l.quantity && l.productId && l.warehouseId);
-
-    if (remainingLines.length > 0) {
-      this.eventEmitter.emit('document.received', {
-        eventType: 'document.received',
-        tenantId: order.tenantId,
-        documentId: id,
-        documentType: 'purchase_order',
-        timestamp: new Date().toISOString(),
-        triggeredBy: null,
-        metadata: {
-          lines: remainingLines.map(l => ({
-            productId: l.productId,
-            warehouseId: l.warehouseId,
-            quantity: l.quantity - (l.receivedQuantity ?? 0),
-          })),
-        },
-      });
-    }
-
-    return updated;
   }
 }

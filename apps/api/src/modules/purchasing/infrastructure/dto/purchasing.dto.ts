@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsDateString, Min, IsArray, ValidateNested, ArrayMinSize, IsUUID } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, Min, IsArray, ValidateNested, ArrayMinSize, IsUUID, IsPositive } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePurchaseOrderDto {
@@ -13,9 +13,9 @@ export class CreatePurchaseOrderDto {
 }
 
 export class ReturnLineDto {
-  @IsString() productId!: string;
-  @IsString() warehouseId!: string;
-  @IsNumber() @Min(0) quantity!: number;
+  @IsUUID() productId!: string;
+  @IsUUID() warehouseId!: string;
+  @IsNumber({ maxDecimalPlaces: 4 }) @IsPositive() quantity!: number;
   @IsNumber() @Min(0) unitPrice!: number;
 }
 
@@ -41,11 +41,17 @@ export class UpdatePurchaseOrderStatusDto {
 }
 
 export class ReceiveLineDto {
-  @IsString() lineId!: string;
-  @IsNumber() @Min(0) quantity!: number;
+  @IsUUID() lineId!: string;
+  @IsOptional() @IsUUID() productId?: string;
+  @IsOptional() @IsUUID() warehouseId?: string;
+  @IsNumber({ maxDecimalPlaces: 4 }) @IsPositive() quantity!: number;
 }
 
-export class ReceiveOrderDto {
+export class CompleteReceiveOrderDto {
+  @IsOptional() @IsUUID() operationId?: string;
+}
+
+export class ReceiveOrderDto extends CompleteReceiveOrderDto {
   @IsArray() @ValidateNested({ each: true }) @ArrayMinSize(1) @Type(() => ReceiveLineDto)
   lines!: ReceiveLineDto[];
 }

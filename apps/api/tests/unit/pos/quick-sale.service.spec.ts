@@ -31,10 +31,16 @@ describe('QuickSaleService', () => {
       findOpenSession: jest.fn().mockResolvedValue({ id: 'session-1' }),
     };
     prisma = {
+      $transaction: jest.fn(async (callback: (tx: unknown) => unknown) => callback(prisma)),
       salesOrder: { create: jest.fn().mockResolvedValue({ id: 'order-1' }) },
       cashRegister: { update: jest.fn().mockResolvedValue({}) },
       cashMovement: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
       client: { upsert: jest.fn().mockResolvedValue({ id: 'walk-in-1' }) },
+      stock: {
+        findUnique: jest.fn().mockResolvedValue({ quantity: 10 }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      stockMovement: { create: jest.fn().mockResolvedValue({}) },
     };
     eventEmitter = { emit: jest.fn() };
     service = new QuickSaleService(posRepo as any, prisma as any, eventEmitter as any);
@@ -217,6 +223,43 @@ describe('QuickSaleService', () => {
         data: expect.objectContaining({ clientId: 'walk-in-1' }),
       }),
     );
+  });
+
+  it('deducts stock for every sold item', async () => {
+    await service.execute(
+      makeInput({
+        items: [{ productId: 'product-1', warehouseId: 'warehouse-1', quantity: 3, unitPrice: 100 }],
+      }),
+    );
+
+    expect(prisma.stock.update).toHaveBeenCalledWith({
+      where: { productId_warehouseId: { productId: 'product-1', warehouseId: 'warehouse-1' } },
+      data: { quantity: { decrement: 3 } },
+    });
+    expect(prisma.stockMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        productId: 'product-1',
+        warehouseId: 'warehouse-1',
+        type: 'out',
+        quantity: 3,
+        referenceType: 'sales_order',
+        referenceId: 'order-1',
+      }),
+    });
+  });
+
+  it('rejects the sale when stock is insufficient', async () => {
+    prisma.stock.findUnique.mockResolvedValue({ quantity: 0 });
+
+    await expect(service.execute(makeInput())).rejects.toThrow('Stock insuficiente');
+    expect(prisma.stock.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversell when a concurrent sale wins the conditional decrement', async () => {
+    prisma.stock.updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    await expect(service.execute(makeInput())).rejects.toThrow('Stock insuficiente');
+    expect(prisma.stockMovement.create).not.toHaveBeenCalled();
+    expect(eventEmitter.emit).not.toHaveBeenCalled();
   });
 
   it('returns the sale total, paid amount and change', async () => {

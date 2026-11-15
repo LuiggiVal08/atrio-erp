@@ -9,7 +9,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PurchaseOrderService } from '../application/purchase-order.service';
 import { PurchaseReturnService } from '../application/purchase-return.service';
 import { PurchasingMetricsService } from '../application/purchasing-metrics.service';
-import { CreatePurchaseOrderDto, UpdatePurchaseOrderDto, UpdatePurchaseOrderStatusDto, CreatePurchaseReturnDto, UpdatePurchaseReturnStatusDto, ReceiveOrderDto } from './dto/purchasing.dto';
+import { CreatePurchaseOrderDto, UpdatePurchaseOrderDto, UpdatePurchaseOrderStatusDto, CreatePurchaseReturnDto, UpdatePurchaseReturnStatusDto, ReceiveOrderDto, CompleteReceiveOrderDto } from './dto/purchasing.dto';
 
 @ApiTags('Purchasing')
 @Controller('purchasing')
@@ -84,57 +84,57 @@ export class PurchasingController {
   @Get('orders/:id')
   @RequirePermission('purchasing:order:read')
   @ApiOperation({ summary: 'Get purchase order by ID' })
-  async getOrder(@Param('id') id: string) {
-    return this.orderService.findById(id);
+  async getOrder(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.orderService.findById(id, user.effectiveTenantId);
   }
 
   @Patch('orders/:id')
   @RequirePermission('purchasing:order:update')
   @ApiOperation({ summary: 'Update purchase order' })
-  async updateOrder(@Param('id') id: string, @Body() dto: UpdatePurchaseOrderDto) {
-    return this.orderService.update(id, dto);
+  async updateOrder(@Param('id') id: string, @Body() dto: UpdatePurchaseOrderDto, @CurrentUser() user: any) {
+    return this.orderService.update(id, dto, user.effectiveTenantId);
   }
 
   @Delete('orders/:id')
   @RequirePermission('purchasing:order:delete')
   @ApiOperation({ summary: 'Delete purchase order' })
-  async deleteOrder(@Param('id') id: string) {
-    return this.orderService.delete(id);
+  async deleteOrder(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.orderService.delete(id, user.effectiveTenantId);
   }
 
   @Patch('orders/:id/approve')
   @RequirePermission('purchasing:order:approve')
   @ApiOperation({ summary: 'Approve purchase order' })
-  async approveOrder(@Param('id') id: string) {
-    return this.orderService.approve(id);
+  async approveOrder(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.orderService.approve(id, user.effectiveTenantId);
   }
 
   @Post('orders/:id/return')
   @RequirePermission('purchasing:order:return')
   @ApiOperation({ summary: 'Return items from a received purchase order' })
   async returnOrder(@Param('id') id: string, @Body() dto: CreatePurchaseReturnDto, @CurrentUser() user: any) {
-    return this.orderService.returnOrder(id, { ...dto, userId: user.id });
+    return this.orderService.returnOrder(id, { ...dto, userId: user.id }, user.effectiveTenantId);
   }
 
   @Patch('orders/:id/receive')
   @RequirePermission('purchasing:order:receive')
   @ApiOperation({ summary: 'Receive purchase order (partial or full)' })
-  async receiveOrder(@Param('id') id: string, @Body() dto?: ReceiveOrderDto) {
-    return this.orderService.receive(id, dto);
+  async receiveOrder(@Param('id') id: string, @Body() dto: ReceiveOrderDto, @CurrentUser() user: any) {
+    return this.orderService.receive(id, dto, { tenantId: user.effectiveTenantId, userId: user.id });
   }
 
   @Patch('orders/:id/receive/complete')
   @RequirePermission('purchasing:order:receive')
   @ApiOperation({ summary: 'Complete partial receive' })
-  async completeReceive(@Param('id') id: string) {
-    return this.orderService.completeReceive(id);
+  async completeReceive(@Param('id') id: string, @Body() dto: CompleteReceiveOrderDto, @CurrentUser() user: any) {
+    return this.orderService.completeReceive(id, dto, { tenantId: user.effectiveTenantId, userId: user.id });
   }
 
   @Patch('orders/:id/status')
   @RequirePermission('purchasing:order:update')
   @ApiOperation({ summary: 'Update purchase order status' })
-  async updateOrderStatus(@Param('id') id: string, @Body() dto: UpdatePurchaseOrderStatusDto) {
-    return this.orderService.update(id, { status: dto.status });
+  async updateOrderStatus(@Param('id') id: string, @Body() dto: UpdatePurchaseOrderStatusDto, @CurrentUser() user: any) {
+    return this.orderService.update(id, { status: dto.status }, user.effectiveTenantId);
   }
 
   @Get('returns')
@@ -147,21 +147,21 @@ export class PurchasingController {
   @Get('returns/:id')
   @RequirePermission('purchasing:return:read')
   @ApiOperation({ summary: 'Get purchase return by ID' })
-  async getReturn(@Param('id') id: string) {
-    return this.returnService.findById(id);
+  async getReturn(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.returnService.findById(id, user.effectiveTenantId);
   }
 
   @Patch('returns/:id/status')
   @RequirePermission('purchasing:return:update')
   @ApiOperation({ summary: 'Update purchase return status' })
-  async updateReturnStatus(@Param('id') id: string, @Body() dto: UpdatePurchaseReturnStatusDto) {
-    return this.returnService.updateStatus(id, dto.status);
+  async updateReturnStatus(@Param('id') id: string, @Body() dto: UpdatePurchaseReturnStatusDto, @CurrentUser() user: any) {
+    return this.returnService.updateStatus(id, dto.status, user.effectiveTenantId, user.id);
   }
 
   @Delete('returns/:id')
   @RequirePermission('purchasing:return:delete')
   @ApiOperation({ summary: 'Delete purchase return' })
-  async deleteReturn(@Param('id') id: string) {
-    return this.returnService.delete(id);
+  async deleteReturn(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.returnService.delete(id, user.effectiveTenantId);
   }
 }

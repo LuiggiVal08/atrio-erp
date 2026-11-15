@@ -7,6 +7,7 @@ import {
   ArrayMinSize,
   Min,
   IsIn,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -34,8 +35,8 @@ export class CloseSessionDto {
 }
 
 export class QuickSaleItemDto {
-  @IsString() productId!: string;
-  @IsString() warehouseId!: string;
+  @IsUUID() productId!: string;
+  @IsUUID() warehouseId!: string;
   @IsNumber() @Min(1) quantity!: number;
   @IsNumber() @Min(0) unitPrice!: number;
 }

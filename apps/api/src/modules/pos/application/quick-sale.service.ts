@@ -44,6 +44,8 @@ export class QuickSaleService {
     items: Array<{ productId: string; warehouseId: string; quantity: number; unitPrice: number }>;
     userId: string;
   }) {
+    if (!data.tenantId) throw new BadRequestException('Tenant context is required');
+    if (!data.items.length || data.items.some(item => !Number.isFinite(item.quantity) || item.quantity <= 0)) throw new BadRequestException('Item quantity must be positive and finite');
     const session = await this.posRepo.findOpenSession(data.tenantId, data.cashRegisterId);
     if (!session) throw new BadRequestException('No open session for this register. Open a session first.');
 
@@ -54,47 +56,105 @@ export class QuickSaleService {
         : await this.ensureWalkInClient(data.tenantId);
     const documentId = crypto.randomUUID();
 
-    const order = await this.prisma.salesOrder.create({
-      data: {
-        tenantId: data.tenantId,
-        documentId,
-        clientId,
-        status: 'approved',
-        subtotal: data.subtotal,
-        taxAmount: data.taxAmount,
-        total: data.total,
-        currency: data.currency,
-        notes: data.notes ?? null,
-        type: 'pos',
-      },
-    });
-
     const cashAmount = allocations
       .filter((allocation) => allocation.method === 'cash')
       .reduce((sum, allocation) => sum + allocation.amount * allocation.exchangeRate, 0);
 
-    if (cashAmount > 0) {
-      await this.prisma.cashRegister.update({
-        where: { id: data.cashRegisterId },
-        data: { balance: { increment: round2(cashAmount) } },
+    const order = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.salesOrder.create({
+        data: {
+          tenantId: data.tenantId,
+          documentId,
+          clientId,
+          status: 'approved',
+          subtotal: data.subtotal,
+          taxAmount: data.taxAmount,
+          total: data.total,
+          currency: data.currency,
+          notes: data.notes ?? null,
+          type: 'pos',
+        },
       });
-    }
 
-    await this.prisma.cashMovement.createMany({
-      data: allocations.map((allocation) => ({
-        registerId: data.cashRegisterId,
-        type: 'in',
-        amount: allocation.amount,
-        currency: allocation.currency,
-        exchangeRate: allocation.exchangeRate,
-        baseAmount: round2(allocation.amount * allocation.exchangeRate),
-        paymentMethod: allocation.method,
-        sessionId: session.id,
-        referenceType: 'sales_order',
-        referenceId: order.id,
-        description: `POS sale ${documentId}`,
-        userId: data.userId,
-      })),
+      if (cashAmount > 0) {
+        await tx.cashRegister.update({
+          where: { id: data.cashRegisterId },
+          data: { balance: { increment: round2(cashAmount) } },
+        });
+      }
+
+      await tx.cashMovement.createMany({
+        data: allocations.map((allocation) => ({
+          registerId: data.cashRegisterId,
+          type: 'in',
+          amount: allocation.amount,
+          currency: allocation.currency,
+          exchangeRate: allocation.exchangeRate,
+          baseAmount: round2(allocation.amount * allocation.exchangeRate),
+          paymentMethod: allocation.method,
+          sessionId: session.id,
+          referenceType: 'sales_order',
+          referenceId: created.id,
+          description: `POS sale ${documentId}`,
+          userId: data.userId,
+        })),
+      });
+
+      for (const item of data.items) {
+        const stockClient = (tx as any).stock;
+        const conditionalDecrement = typeof stockClient?.updateMany === 'function';
+        if (conditionalDecrement) {
+          const updated = await stockClient.updateMany({
+            where: {
+              productId: item.productId, warehouseId: item.warehouseId, quantity: { gte: item.quantity },
+              product: { tenantId: data.tenantId, isActive: true, deletedAt: null, isService: false },
+              warehouse: { tenantId: data.tenantId, isActive: true, OR: [{ branchId: null }, { branch: { tenantId: data.tenantId, isActive: true } }] },
+            },
+            data: { quantity: { decrement: item.quantity } },
+          });
+          if (updated.count !== 1) throw new BadRequestException(`Stock insuficiente para el producto ${item.productId}`);
+        } else {
+          const current = await stockClient.findUnique({
+            where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } },
+            select: { quantity: true },
+          });
+          if (!current || current.quantity < item.quantity) {
+            throw new BadRequestException(`Stock insuficiente para el producto ${item.productId}`);
+          }
+          await stockClient.update({
+            where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } },
+            data: { quantity: { decrement: item.quantity } },
+          });
+        }
+
+        const stockAfter = typeof stockClient?.findUniqueOrThrow === 'function'
+          ? await stockClient.findUniqueOrThrow({ where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } } })
+          : await stockClient.findUnique({ where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } } });
+
+        const stockLotClient = (tx as any).stockLot;
+        if (stockLotClient && typeof stockLotClient.findMany === 'function') {
+          const lots = await stockLotClient.findMany({ where: { tenantId: data.tenantId, productId: item.productId, warehouseId: item.warehouseId, quantity: { gt: 0 } }, select: { quantity: true } });
+          if (lots.reduce((sum: number, lot: { quantity: number }) => sum + lot.quantity, 0) > stockAfter.quantity) {
+            throw new BadRequestException('Select a lot through inventory: unallocated stock is insufficient');
+          }
+        }
+
+        await tx.stockMovement.create({
+          data: {
+            productId: item.productId,
+            warehouseId: item.warehouseId,
+            type: 'out',
+            quantity: item.quantity,
+            referenceType: 'sales_order',
+            referenceId: created.id,
+            userId: data.userId,
+            balanceBefore: stockAfter.quantity + item.quantity,
+            balanceAfter: stockAfter.quantity,
+          },
+        });
+      }
+
+      return created;
     });
 
     this.eventEmitter.emit('document.created', {

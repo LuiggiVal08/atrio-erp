@@ -19,8 +19,11 @@ describe('PurchaseOrderService', () => {
     deleteReturn: jest.fn(),
     findOrderLines: jest.fn(),
     updateLineReceivedQuantity: jest.fn(),
+    receiveOrder: jest.fn(),
+    transitionReturnStatus: jest.fn(),
+    validateReturnLines: jest.fn(),
   };
-  const mockEventEmitter = { emit: jest.fn() };
+  const mockEventEmitter = { emit: jest.fn(), emitAsync: jest.fn().mockResolvedValue([]) };
   const mockCreateDocument = { execute: jest.fn() };
 
   beforeEach(() => {
@@ -123,35 +126,40 @@ describe('PurchaseOrderService', () => {
     });
   });
 
-  describe('receive', () => {
-    it('should fully receive an order without lines', async () => {
-      (mockRepo.findOrderById as jest.Mock).mockResolvedValue({ id: 'po-1', tenantId: 't1', status: 'approved' });
-      (mockRepo.updateOrder as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'received' });
+  describe('receive contract', () => {
+    const context = { tenantId: 't1', userId: 'u1' };
+    const operationId = 'a7619b42-c607-4bfd-8de7-c2045aa5f61a';
 
-      const result = await service.receive('po-1');
-
-      expect(result).toHaveProperty('status', 'received');
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith('document.received', expect.objectContaining({
-        documentType: 'purchase_order',
-      }));
+    it.each([undefined, { lines: [] }, { lines: [{ lineId: 'l1', quantity: 0 }] },
+      { lines: [{ lineId: 'l1', quantity: -1 }] },
+      { lines: [{ lineId: 'l1', quantity: 1 }, { lineId: 'l1', quantity: 2 }] }])('rejects invalid batches before writing', async (dto) => {
+      await expect(service.receive('po-1', dto, context)).rejects.toThrow();
+      expect(mockRepo.receiveOrder).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emitAsync).not.toHaveBeenCalled();
     });
 
-    it('should partially receive an order', async () => {
-      (mockRepo.findOrderById as jest.Mock).mockResolvedValue({ id: 'po-1', tenantId: 't1', status: 'approved' });
-      (mockRepo.findOrderLines as jest.Mock).mockResolvedValue([
-        { lineId: 'l1', productId: 'p1', warehouseId: 'w1', quantity: 10, receivedQuantity: 0 },
-      ]);
-      (mockRepo.updateOrder as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'partial' });
-
-      const result = await service.receive('po-1', { lines: [{ lineId: 'l1', quantity: 5 }] });
-
-      expect(result).toHaveProperty('status', 'partial');
-      expect(mockRepo.updateLineReceivedQuantity).toHaveBeenCalledWith('l1', 5);
+    it('delegates deltas and emits the persisted batch, never omitted or accumulated lines', async () => {
+      const event = { tenantId: 't1', documentId: 'po-1', triggeredBy: 'u1',
+        metadata: { operationId, lines: [{ lineId: 'l1', productId: 'p1', warehouseId: 'w1', quantity: 3 }] } };
+      (mockRepo.receiveOrder as jest.Mock).mockResolvedValue({ order: { id: 'po-1', status: 'partial' }, event });
+      await service.receive('po-1', { operationId, lines: [{ lineId: 'l1', quantity: 3 }] }, context);
+      expect(mockRepo.receiveOrder).toHaveBeenCalledWith('po-1', expect.objectContaining({ operationId, lines: [{ lineId: 'l1', quantity: 3 }] }), context);
+      expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith('document.received', event);
+      event.metadata.lines[0].quantity = 2;
+      await service.receive('po-1', { operationId: 'b7619b42-c607-4bfd-8de7-c2045aa5f61a', lines: [{ lineId: 'l1', quantity: 2 }] }, context);
+      expect(mockEventEmitter.emitAsync.mock.calls[1][1].metadata.lines[0].quantity).toBe(2);
     });
 
-    it('should throw for already received order', async () => {
-      (mockRepo.findOrderById as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'received' });
-      await expect(service.receive('po-1')).rejects.toThrow('Purchase order already received');
+    it('does not emit after a transaction fails', async () => {
+      (mockRepo.receiveOrder as jest.Mock).mockRejectedValue(new Error('conflict'));
+      await expect(service.receive('po-1', { operationId, lines: [{ lineId: 'l1', quantity: 3 }] }, context)).rejects.toThrow('conflict');
+      expect(mockEventEmitter.emitAsync).not.toHaveBeenCalled();
+    });
+
+    it('completes remaining quantities through the same atomic operation', async () => {
+      (mockRepo.receiveOrder as jest.Mock).mockResolvedValue({ order: { status: 'received' }, event: { metadata: { operationId, lines: [] } } });
+      await service.completeReceive('po-1', { operationId }, context);
+      expect(mockRepo.receiveOrder).toHaveBeenCalledWith('po-1', { operationId, complete: true }, context);
     });
   });
 
@@ -166,7 +174,8 @@ describe('PurchaseOrderService', () => {
       });
 
       expect(result).toHaveProperty('id', 'ret-1');
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith('document.returned', expect.any(Object));
+      expect(mockEventEmitter.emitAsync).not.toHaveBeenCalled();
+      expect(mockRepo.validateReturnLines).toHaveBeenCalledWith('t1', expect.any(Array));
     });
 
     it('should throw if order not received', async () => {
@@ -175,23 +184,18 @@ describe('PurchaseOrderService', () => {
     });
   });
 
-  describe('completeReceive', () => {
-    it('should complete partial receive', async () => {
-      (mockRepo.findOrderById as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'partial' });
-      (mockRepo.findOrderLines as jest.Mock).mockResolvedValue([
-        { lineId: 'l1', productId: 'p1', warehouseId: 'w1', quantity: 10, receivedQuantity: 7 },
-      ]);
-      (mockRepo.updateOrder as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'received' });
+  it('rejects tenant-mismatched order lookups and writes', async () => {
+    (mockRepo.findOrderById as jest.Mock).mockResolvedValue({ id: 'po-1', tenantId: 'other', status: 'pending' });
+    await expect(service.findById('po-1', 't1')).rejects.toThrow('not found');
+    await expect(service.approve('po-1', 't1')).rejects.toThrow('not found');
+    await expect(service.update('po-1', { total: 1 }, 't1')).rejects.toThrow('not found');
+    await expect(service.delete('po-1', 't1')).rejects.toThrow('not found');
+    expect(mockRepo.updateOrder).not.toHaveBeenCalled();
+  });
 
-      const result = await service.completeReceive('po-1');
-
-      expect(result).toHaveProperty('status', 'received');
-      expect(mockEventEmitter.emit).toHaveBeenCalled();
-    });
-
-    it('should throw if not partial', async () => {
-      (mockRepo.findOrderById as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'pending' });
-      await expect(service.completeReceive('po-1')).rejects.toThrow('Only partially received orders can be completed');
-    });
+  it('rejects status bypass into received', async () => {
+    (mockRepo.findOrderById as jest.Mock).mockResolvedValue({ id: 'po-1', status: 'approved' });
+    await expect(service.update('po-1', { status: 'received' })).rejects.toThrow('lifecycle');
+    expect(mockRepo.updateOrder).not.toHaveBeenCalled();
   });
 });
