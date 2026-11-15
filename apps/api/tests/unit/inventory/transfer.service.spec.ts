@@ -2,149 +2,93 @@ import { TransferService } from '../../../src/modules/inventory/application/tran
 import { InventoryRepository } from '../../../src/modules/inventory/domain/inventory.repository.interface';
 
 describe('TransferService', () => {
-  let service: TransferService;
-  const mockRepo: InventoryRepository = {
-    createCategory: jest.fn(),
-    findAllCategories: jest.fn(),
-    updateCategory: jest.fn(),
-    deleteCategory: jest.fn(),
-    createProduct: jest.fn(),
-    findAllProducts: jest.fn(),
-    findProductById: jest.fn(),
-    generateProductBarcode: jest.fn(),
-    updateProduct: jest.fn(),
-    softDeleteProduct: jest.fn(),
-    createWarehouse: jest.fn(),
-    findAllWarehouses: jest.fn(),
-    updateWarehouse: jest.fn(),
-    softDeleteWarehouse: jest.fn(),
-    createBranch: jest.fn(),
-    findAllBranches: jest.fn(),
-    updateBranch: jest.fn(),
-    softDeleteBranch: jest.fn(),
-    getStock: jest.fn(),
-    adjustStock: jest.fn(),
-    createMovement: jest.fn(),
-    findMovements: jest.fn(),
-    createTransfer: jest.fn(),
-    findTransfersByTenant: jest.fn(),
-    findTransferById: jest.fn(),
-    completeTransfer: jest.fn(),
-    cancelTransfer: jest.fn(),
-    setReorderPoint: jest.fn(),
-    findReorderPointsByTenant: jest.fn(),
-    findReorderPoint: jest.fn(),
-    updateReorderPoint: jest.fn(),
-    deleteReorderPoint: jest.fn(),
-    countProductsByCategory: jest.fn(),
-    countChildCategories: jest.fn(),
-    findLowStock: jest.fn(),
+  const transfer = { id: 'tr-1', tenantId: 't1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2', productId: 'prod-1', quantity: 10, status: 'pending' };
+  const repo = {
+    findProductById: jest.fn(), findWarehouseById: jest.fn(), getStock: jest.fn(),
+    createTransfer: jest.fn(), findTransfersByTenant: jest.fn(), findTransferById: jest.fn(),
+    completeTransfer: jest.fn(), cancelTransfer: jest.fn(),
   };
+  const service = new TransferService(repo as unknown as InventoryRepository);
 
   beforeEach(() => {
-    service = new TransferService(mockRepo);
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    repo.findProductById.mockResolvedValue({ id: 'prod-1', tenantId: 't1', isActive: true, isService: false });
+    repo.findWarehouseById.mockResolvedValue({ tenantId: 't1', isActive: true });
+    repo.getStock.mockResolvedValue({ quantity: 20 });
+    repo.findTransferById.mockResolvedValue(transfer);
+    repo.createTransfer.mockResolvedValue(transfer);
   });
 
-  describe('create', () => {
-    it('should create a transfer when stock is sufficient', async () => {
-      (mockRepo.getStock as jest.Mock).mockResolvedValue({ quantity: 20 });
-      (mockRepo.createTransfer as jest.Mock).mockResolvedValue({
-        id: 'tr-1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2',
-        productId: 'prod-1', quantity: 10, status: 'pending',
-      });
-      const dto = { tenantId: 't1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2', productId: 'prod-1', quantity: 10 };
-      const result = await service.create(dto);
-      expect(result).toHaveProperty('status', 'pending');
-      expect(mockRepo.createTransfer).toHaveBeenCalledWith(dto);
-    });
-
-    it('should reject transfer to same warehouse', async () => {
-      await expect(service.create({
-        tenantId: 't1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-1',
-        productId: 'prod-1', quantity: 10,
-      })).rejects.toThrow('Source and destination warehouses must be different');
-    });
-
-    it('should reject zero quantity', async () => {
-      await expect(service.create({
-        tenantId: 't1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2',
-        productId: 'prod-1', quantity: 0,
-      })).rejects.toThrow('Quantity must be positive');
-    });
-
-    it('should reject when insufficient stock', async () => {
-      (mockRepo.getStock as jest.Mock).mockResolvedValue({ quantity: 3 });
-      await expect(service.create({
-        tenantId: 't1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2',
-        productId: 'prod-1', quantity: 10,
-      })).rejects.toThrow('Insufficient stock in source warehouse');
-    });
+  it('creates a transfer with sufficient stock', async () => {
+    expect(await service.create(transfer)).toMatchObject({ status: 'pending' });
+    expect(repo.createTransfer).toHaveBeenCalledWith(transfer);
+    expect(repo.getStock).toHaveBeenCalledWith('prod-1', 'wh-1', 't1');
   });
 
-  describe('findAll', () => {
-    it('should return all transfers for tenant', async () => {
-      (mockRepo.findTransfersByTenant as jest.Mock).mockResolvedValue([{ id: 'tr-1' }]);
-      const result = await service.findAll('t1');
-      expect(result).toHaveLength(1);
-    });
+  it('rejects transfers to the same warehouse', async () => {
+    await expect(service.create({ ...transfer, toWarehouseId: transfer.fromWarehouseId })).rejects.toThrow('Source and destination warehouses must be different');
   });
 
-  describe('findById', () => {
-    it('should return transfer by id', async () => {
-      (mockRepo.findTransferById as jest.Mock).mockResolvedValue({ id: 'tr-1' });
-      const result = await service.findById('tr-1');
-      expect(result).toHaveProperty('id', 'tr-1');
-    });
-
-    it('should throw when not found', async () => {
-      (mockRepo.findTransferById as jest.Mock).mockResolvedValue(null);
-      await expect(service.findById('missing')).rejects.toThrow('Transfer not found');
-    });
+  it.each([0, -1, NaN, Infinity])('rejects invalid quantity %s', async (quantity) => {
+    await expect(service.create({ ...transfer, quantity })).rejects.toThrow('Quantity must be positive');
+    expect(repo.createTransfer).not.toHaveBeenCalled();
   });
 
-  describe('complete', () => {
-    it('should complete a pending transfer and move stock', async () => {
-      (mockRepo.findTransferById as jest.Mock).mockResolvedValue({
-        id: 'tr-1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2',
-        productId: 'prod-1', quantity: 10, status: 'pending',
-      });
-      (mockRepo.getStock as jest.Mock).mockResolvedValue({ quantity: 20 });
-      (mockRepo.completeTransfer as jest.Mock).mockResolvedValue({ id: 'tr-1', status: 'completed' });
-
-      const result = await service.complete('tr-1');
-      expect(result).toHaveProperty('status', 'completed');
-      expect(mockRepo.completeTransfer).toHaveBeenCalledWith('tr-1');
-    });
-
-    it('should reject completion when source stock is insufficient', async () => {
-      (mockRepo.findTransferById as jest.Mock).mockResolvedValue({
-        id: 'tr-1', fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2',
-        productId: 'prod-1', quantity: 10, status: 'pending',
-      });
-      (mockRepo.getStock as jest.Mock).mockResolvedValue({ quantity: 5 });
-
-      await expect(service.complete('tr-1')).rejects.toThrow('Insufficient stock in source warehouse');
-      expect(mockRepo.completeTransfer).not.toHaveBeenCalled();
-    });
-
-    it('should throw if already completed', async () => {
-      (mockRepo.findTransferById as jest.Mock).mockResolvedValue({ id: 'tr-1', status: 'completed' });
-      await expect(service.complete('tr-1')).rejects.toThrow('Only pending transfers can be completed');
-    });
+  it('rejects insufficient stock on creation', async () => {
+    repo.getStock.mockResolvedValue({ quantity: 3 });
+    await expect(service.create(transfer)).rejects.toThrow('Insufficient stock in source warehouse');
   });
 
-  describe('cancel', () => {
-    it('should cancel a pending transfer', async () => {
-      (mockRepo.findTransferById as jest.Mock).mockResolvedValue({ id: 'tr-1', status: 'pending' });
-      (mockRepo.cancelTransfer as jest.Mock).mockResolvedValue({ id: 'tr-1', status: 'cancelled' });
-      const result = await service.cancel('tr-1');
-      expect(result).toHaveProperty('status', 'cancelled');
-    });
+  it('rejects an inactive or foreign warehouse', async () => {
+    repo.findWarehouseById.mockResolvedValueOnce({ tenantId: 'other', isActive: true });
+    await expect(service.create(transfer)).rejects.toThrow('Active transfer resources not found');
+    repo.findWarehouseById.mockResolvedValueOnce({ tenantId: 't1', isActive: false });
+    await expect(service.create(transfer)).rejects.toThrow('Active transfer resources not found');
+    expect(repo.createTransfer).not.toHaveBeenCalled();
+  });
 
-    it('should throw if already completed', async () => {
-      (mockRepo.findTransferById as jest.Mock).mockResolvedValue({ id: 'tr-1', status: 'completed' });
-      await expect(service.cancel('tr-1')).rejects.toThrow('Only pending transfers can be cancelled');
-    });
+  it('lists transfers for the tenant', async () => {
+    repo.findTransfersByTenant.mockResolvedValue([transfer]);
+    expect(await service.findAll('t1')).toEqual([transfer]);
+    expect(repo.findTransfersByTenant).toHaveBeenCalledWith('t1');
+  });
+
+  it('finds the transfer using tenant-first service arguments', async () => {
+    expect(await service.findById('t1', 'tr-1')).toEqual(transfer);
+    expect(repo.findTransferById).toHaveBeenCalledWith('tr-1');
+  });
+
+  it('rejects missing and foreign transfers', async () => {
+    repo.findTransferById.mockResolvedValueOnce(null);
+    await expect(service.findById('t1', 'missing')).rejects.toThrow('Transfer not found');
+    await expect(service.findById('other', 'tr-1')).rejects.toThrow('Transfer not found');
+    await expect(service.complete('other', 'tr-1')).rejects.toThrow('Transfer not found');
+    await expect(service.cancel('other', 'tr-1')).rejects.toThrow('Transfer not found');
+    expect(repo.completeTransfer).not.toHaveBeenCalled();
+    expect(repo.cancelTransfer).not.toHaveBeenCalled();
+  });
+
+  it('completes a pending transfer with tenant and actor', async () => {
+    repo.completeTransfer.mockResolvedValue({ ...transfer, status: 'completed' });
+    expect(await service.complete('t1', 'tr-1', 'actor')).toMatchObject({ status: 'completed' });
+    expect(repo.completeTransfer).toHaveBeenCalledWith('tr-1', 't1', 'actor');
+  });
+
+  it('rejects completion with insufficient stock', async () => {
+    repo.getStock.mockResolvedValue({ quantity: 5 });
+    await expect(service.complete('t1', 'tr-1')).rejects.toThrow('Insufficient stock in source warehouse');
+    expect(repo.completeTransfer).not.toHaveBeenCalled();
+  });
+
+  it('rejects completion and cancellation of completed transfers', async () => {
+    repo.findTransferById.mockResolvedValue({ ...transfer, status: 'completed' });
+    await expect(service.complete('t1', 'tr-1')).rejects.toThrow('Only pending transfers can be completed');
+    await expect(service.cancel('t1', 'tr-1')).rejects.toThrow('Only pending transfers can be cancelled');
+  });
+
+  it('cancels a pending transfer in its tenant', async () => {
+    repo.cancelTransfer.mockResolvedValue({ ...transfer, status: 'cancelled' });
+    expect(await service.cancel('t1', 'tr-1')).toMatchObject({ status: 'cancelled' });
+    expect(repo.cancelTransfer).toHaveBeenCalledWith('tr-1', 't1');
   });
 });

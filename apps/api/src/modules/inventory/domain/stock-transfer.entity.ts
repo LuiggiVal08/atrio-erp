@@ -10,5 +10,6 @@ export class StockTransfer {
     public readonly notes: string | null,
     public readonly createdAt: Date,
     public readonly completedAt: Date | null,
+    public readonly lotNumber: string | null = null,
   ) {}
 }

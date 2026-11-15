@@ -7,6 +7,7 @@ import { PrismaInventoryRepository } from './infrastructure/prisma-inventory.rep
 import { ProductCategoryService } from './application/product-category.service';
 import { ProductService } from './application/product.service';
 import { WarehouseService } from './application/warehouse.service';
+import { StorageLocationService } from './application/storage-location.service';
 import { BranchService } from './application/branch.service';
 import { StockService } from './application/stock.service';
 import { StockEventHandler } from './application/stock-event-handler';
@@ -23,6 +24,7 @@ import { ProductBrandService } from './application/product-brand.service';
     ProductCategoryService,
     ProductService,
     WarehouseService,
+    StorageLocationService,
     BranchService,
     StockService,
     StockEventHandler,

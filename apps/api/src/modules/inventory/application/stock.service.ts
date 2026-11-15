@@ -1,68 +1,46 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InventoryRepository } from '../domain/inventory.repository.interface';
+import { InventoryRepository, MovementFilter, StockAdjustmentInput } from '../domain/inventory.repository.interface';
 
 @Injectable()
 export class StockService {
   constructor(@Inject('InventoryRepository') private readonly repo: InventoryRepository) {}
 
-  async getBalance(productId: string, warehouseId: string) {
-    const stock = await this.repo.getStock(productId, warehouseId);
-    return stock ? { productId, warehouseId, quantity: stock.quantity } : { productId, warehouseId, quantity: 0 };
+  async getBalance(tenantId: string, productId: string, warehouseId: string) {
+    await this.ensureResources(tenantId, productId, warehouseId);
+    const stock = await this.repo.getStock(productId, warehouseId, tenantId);
+    return { productId, warehouseId, quantity: stock?.quantity ?? 0 };
   }
 
-  async adjust(data: {
-    tenantId?: string;
-    productId: string; warehouseId: string; type: 'in' | 'out';
-    quantity: number; reason?: string; userId?: string;
-    lotNumber?: string; serialNumber?: string; expirationDate?: string;
-  }) {
-    if (data.quantity <= 0) throw new BadRequestException('Quantity must be positive');
-    if (data.type === 'out') {
-      const current = await this.repo.getStock(data.productId, data.warehouseId);
-      if (!current || current.quantity < data.quantity) {
-        throw new BadRequestException('Insufficient stock');
-      }
-    }
-    const delta = data.type === 'in' ? data.quantity : -data.quantity;
-    const before = await this.repo.getStock(data.productId, data.warehouseId);
-    const stock = await this.repo.adjustStock(data.productId, data.warehouseId, delta);
-    let lotId: string | undefined;
-    if (data.tenantId && this.repo.upsertStockLot && (data.lotNumber || data.serialNumber || data.expirationDate)) {
-      const lot = await this.repo.upsertStockLot({
-        tenantId: data.tenantId,
-        productId: data.productId,
-        warehouseId: data.warehouseId,
-        lotNumber: data.lotNumber,
-        serialNumber: data.serialNumber,
-        expirationDate: data.expirationDate,
-        delta,
-      });
-      lotId = lot.id;
-    }
-    await this.repo.createMovement({
-      productId: data.productId,
-      warehouseId: data.warehouseId,
-      type: data.type,
-      quantity: data.quantity,
-      referenceType: 'adjustment',
-      referenceId: data.reason,
-      userId: data.userId,
-      balanceBefore: before?.quantity ?? 0,
-      balanceAfter: stock.quantity,
-      lotId,
-    });
-    return stock;
+  async adjust(data: StockAdjustmentInput) {
+    if (!data.tenantId) throw new BadRequestException('Tenant context is required');
+    if (!Number.isFinite(data.quantity) || data.quantity <= 0) throw new BadRequestException('Quantity must be positive and finite');
+    if (!['in', 'out'].includes(data.type)) throw new BadRequestException('Invalid adjustment type');
+    if (data.expirationDate !== undefined && (!data.expirationDate || !Number.isFinite(Date.parse(data.expirationDate)))) throw new BadRequestException('Invalid expiration date');
+    if (data.expectedQuantity !== undefined && (!Number.isFinite(data.expectedQuantity) || data.expectedQuantity < 0)) throw new BadRequestException('Expected quantity must be nonnegative and finite');
+    if (data.operationId !== undefined && !data.operationId.trim()) throw new BadRequestException('Operation ID cannot be blank');
+    // No legacy fallback: separate balance/lot/movement writes are unsafe.
+    return this.repo.adjustStockAtomic(data);
   }
 
-  async getMovements(productId: string, warehouseId: string) {
-    return this.repo.findMovements(productId, warehouseId);
+  async getMovements(tenantId: string, productId: string, warehouseId: string) {
+    await this.ensureResources(tenantId, productId, warehouseId);
+    return this.repo.findMovements(productId, warehouseId, tenantId);
   }
 
   async getBalances(tenantId: string) {
-    return this.repo.findStockBalances ? this.repo.findStockBalances(tenantId) : [];
+    if (!tenantId) throw new BadRequestException('Tenant context is required');
+    return this.repo.findStockBalances(tenantId);
   }
 
-  async getAllMovements(tenantId: string) {
-    return this.repo.findAllMovements ? this.repo.findAllMovements(tenantId) : [];
+  async getAllMovements(tenantId: string, filter?: MovementFilter) {
+    if (!tenantId) throw new BadRequestException('Tenant context is required');
+    return this.repo.findAllMovements(tenantId, filter);
+  }
+
+  private async ensureResources(tenantId: string, productId: string, warehouseId: string) {
+    if (!tenantId) throw new BadRequestException('Tenant context is required');
+    const [product, warehouse] = await Promise.all([this.repo.findProductById(productId, tenantId), this.repo.findWarehouseById(warehouseId)]);
+    if (!product || product.tenantId !== tenantId) throw new NotFoundException('Product not found');
+    if (!warehouse || warehouse.tenantId !== tenantId) throw new NotFoundException('Warehouse not found');
   }
 }

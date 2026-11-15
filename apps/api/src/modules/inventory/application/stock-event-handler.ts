@@ -125,12 +125,20 @@ export class StockEventHandler {
     documentId: string;
     documentType: string;
     metadata?: any;
+    triggeredBy?: string;
   }) {
     if (payload.documentType !== 'purchase_order') return;
 
+    const operationId = payload.metadata?.operationId;
     const lines = payload.metadata?.lines || [];
+    if (!operationId || typeof operationId !== 'string') {
+      throw new Error(`Purchase receipt ${payload.documentId} requires a stable operationId`);
+    }
     for (const line of lines) {
       if (!line.productId || !line.warehouseId) continue;
+      if (!line.lineId || typeof line.lineId !== 'string') {
+        throw new Error(`Purchase receipt ${payload.documentId} requires a stable lineId for every line`);
+      }
       await this.withRetry(() =>
         this.stockService.adjust({
           tenantId: payload.tenantId,
@@ -138,7 +146,10 @@ export class StockEventHandler {
           warehouseId: line.warehouseId,
           type: 'in',
           quantity: line.quantity || 0,
-          userId: payload.metadata?.triggeredBy,
+          userId: payload.triggeredBy ?? payload.metadata?.triggeredBy,
+          operationId: JSON.stringify(['purchase-receipt', operationId, line.lineId]),
+          referenceType: 'purchase_order',
+          referenceId: payload.documentId,
         }),
         `Stock receipt for product ${line.productId} (doc ${payload.documentId})`,
       );

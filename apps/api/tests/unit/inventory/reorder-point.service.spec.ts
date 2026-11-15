@@ -2,121 +2,86 @@ import { ReorderPointService } from '../../../src/modules/inventory/application/
 import { InventoryRepository } from '../../../src/modules/inventory/domain/inventory.repository.interface';
 
 describe('ReorderPointService', () => {
-  let service: ReorderPointService;
-  const mockRepo: InventoryRepository = {
-    createCategory: jest.fn(),
-    findAllCategories: jest.fn(),
-    updateCategory: jest.fn(),
-    deleteCategory: jest.fn(),
-    createProduct: jest.fn(),
-    findAllProducts: jest.fn(),
-    findProductById: jest.fn(),
-    generateProductBarcode: jest.fn(),
-    updateProduct: jest.fn(),
-    softDeleteProduct: jest.fn(),
-    createWarehouse: jest.fn(),
-    findAllWarehouses: jest.fn(),
-    updateWarehouse: jest.fn(),
-    softDeleteWarehouse: jest.fn(),
-    createBranch: jest.fn(),
-    findAllBranches: jest.fn(),
-    updateBranch: jest.fn(),
-    softDeleteBranch: jest.fn(),
-    getStock: jest.fn(),
-    adjustStock: jest.fn(),
-    createMovement: jest.fn(),
-    findMovements: jest.fn(),
-    createTransfer: jest.fn(),
-    findTransfersByTenant: jest.fn(),
-    findTransferById: jest.fn(),
-    completeTransfer: jest.fn(),
-    cancelTransfer: jest.fn(),
-    setReorderPoint: jest.fn(),
-    findReorderPointsByTenant: jest.fn(),
-    findReorderPoint: jest.fn(),
-    updateReorderPoint: jest.fn(),
-    deleteReorderPoint: jest.fn(),
-    countProductsByCategory: jest.fn(),
-    countChildCategories: jest.fn(),
-    findLowStock: jest.fn(),
+  const point = { id: 'rp-1', tenantId: 't1', productId: 'prod-1', warehouseId: 'wh-1', minQuantity: 5, maxQuantity: 20, isActive: true };
+  const repo = {
+    findProductById: jest.fn(), findWarehouseById: jest.fn(), setReorderPoint: jest.fn(),
+    findReorderPointsByTenant: jest.fn(), findReorderPoint: jest.fn(), findReorderPointById: jest.fn(),
+    updateReorderPoint: jest.fn(), deleteReorderPoint: jest.fn(), findLowStock: jest.fn(),
   };
+  const service = new ReorderPointService(repo as unknown as InventoryRepository);
 
   beforeEach(() => {
-    service = new ReorderPointService(mockRepo);
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    repo.findProductById.mockResolvedValue({ id: 'prod-1', tenantId: 't1', isActive: true, isService: false });
+    repo.findWarehouseById.mockResolvedValue({ id: 'wh-1', tenantId: 't1', isActive: true });
+    repo.findReorderPointById.mockResolvedValue(point);
+    repo.findReorderPoint.mockResolvedValue(point);
+    repo.setReorderPoint.mockResolvedValue(point);
   });
 
-  describe('set', () => {
-    it('should set a reorder point', async () => {
-      (mockRepo.setReorderPoint as jest.Mock).mockResolvedValue({
-        id: 'rp-1', productId: 'prod-1', warehouseId: 'wh-1', minQuantity: 5, maxQuantity: 20, isActive: true,
-      });
-      const dto = { tenantId: 't1', productId: 'prod-1', warehouseId: 'wh-1', minQuantity: 5, maxQuantity: 20 };
-      const result = await service.set(dto);
-      expect(result).toHaveProperty('minQuantity', 5);
-      expect(mockRepo.setReorderPoint).toHaveBeenCalledWith(dto);
-    });
-
-    it('should reject when max <= min', async () => {
-      await expect(service.set({
-        tenantId: 't1', productId: 'prod-1', warehouseId: 'wh-1',
-        minQuantity: 20, maxQuantity: 5,
-      })).rejects.toThrow('Maximum quantity must be greater than minimum');
-    });
-
-    it('should reject negative min', async () => {
-      await expect(service.set({
-        tenantId: 't1', productId: 'prod-1', warehouseId: 'wh-1',
-        minQuantity: -1, maxQuantity: 5,
-      })).rejects.toThrow('Minimum quantity must be >= 0');
-    });
+  it('sets a reorder point for active resources in its tenant', async () => {
+    const dto = { tenantId: 't1', productId: 'prod-1', warehouseId: 'wh-1', minQuantity: 5, maxQuantity: 20 };
+    expect(await service.set(dto)).toMatchObject({ minQuantity: 5 });
+    expect(repo.setReorderPoint).toHaveBeenCalledWith(dto);
   });
 
-  describe('findAll', () => {
-    it('should return all reorder points for tenant', async () => {
-      (mockRepo.findReorderPointsByTenant as jest.Mock).mockResolvedValue([{ id: 'rp-1' }]);
-      const result = await service.findAll('t1');
-      expect(result).toHaveLength(1);
-    });
+  it.each([[20, 5], [5, 5], [5, NaN]])('rejects invalid maximum %s/%s', async (minQuantity, maxQuantity) => {
+    await expect(service.set({ ...point, minQuantity, maxQuantity })).rejects.toThrow('Maximum quantity must be greater than minimum');
   });
 
-  describe('findOne', () => {
-    it('should return reorder point for product+warehouse', async () => {
-      (mockRepo.findReorderPoint as jest.Mock).mockResolvedValue({ id: 'rp-1', minQuantity: 5 });
-      const result = await service.findOne('prod-1', 'wh-1');
-      expect(result).toHaveProperty('minQuantity', 5);
-    });
-
-    it('should throw when not found', async () => {
-      (mockRepo.findReorderPoint as jest.Mock).mockResolvedValue(null);
-      await expect(service.findOne('prod-1', 'wh-2')).rejects.toThrow('Reorder point not found');
-    });
+  it.each([-1, Infinity, NaN])('rejects invalid minimum %s', async (minQuantity) => {
+    await expect(service.set({ ...point, minQuantity })).rejects.toThrow('Minimum quantity must be >= 0');
   });
 
-  describe('update', () => {
-    it('should update a reorder point', async () => {
-      (mockRepo.updateReorderPoint as jest.Mock).mockResolvedValue({ id: 'rp-1', minQuantity: 10, maxQuantity: 30 });
-      const result = await service.update('rp-1', { minQuantity: 10, maxQuantity: 30 });
-      expect(result).toHaveProperty('minQuantity', 10);
-    });
+  it('does not create a point for another tenant warehouse', async () => {
+    repo.findWarehouseById.mockResolvedValue({ tenantId: 'other', isActive: true });
+    await expect(service.set(point)).rejects.toThrow('Active stock resources not found');
+    expect(repo.setReorderPoint).not.toHaveBeenCalled();
   });
 
-  describe('delete', () => {
-    it('should delete a reorder point', async () => {
-      (mockRepo.deleteReorderPoint as jest.Mock).mockResolvedValue(undefined);
-      await service.delete('rp-1');
-      expect(mockRepo.deleteReorderPoint).toHaveBeenCalledWith('rp-1');
-    });
+  it('lists tenant reorder points', async () => {
+    repo.findReorderPointsByTenant.mockResolvedValue([point]);
+    expect(await service.findAll('t1')).toEqual([point]);
+    expect(repo.findReorderPointsByTenant).toHaveBeenCalledWith('t1');
   });
 
-  describe('findLowStock', () => {
-    it('should return items below reorder point', async () => {
-      (mockRepo.findLowStock as jest.Mock).mockResolvedValue([
-        { productId: 'prod-1', warehouseId: 'wh-1', currentQuantity: 3, minQuantity: 5 },
-      ]);
-      const result = await service.findLowStock('t1');
-      expect(result).toHaveLength(1);
-      expect(result[0]).toHaveProperty('currentQuantity', 3);
-    });
+  it('finds a point by product and warehouse', async () => {
+    expect(await service.findOne('t1', 'prod-1', 'wh-1')).toEqual(point);
+  });
+
+  it('rejects missing and foreign points', async () => {
+    repo.findReorderPoint.mockResolvedValueOnce(null).mockResolvedValueOnce({ ...point, tenantId: 'other' });
+    await expect(service.findOne('t1', 'prod-1', 'wh-1')).rejects.toThrow('Reorder point not found');
+    await expect(service.findOne('t1', 'prod-1', 'wh-1')).rejects.toThrow('Reorder point not found');
+  });
+
+  it('updates within tenant scope', async () => {
+    const data = { minQuantity: 10, maxQuantity: 30 };
+    repo.updateReorderPoint.mockResolvedValue({ ...point, ...data });
+    expect(await service.update('t1', point.id, data)).toMatchObject(data);
+    expect(repo.updateReorderPoint).toHaveBeenCalledWith(point.id, data, 't1');
+  });
+
+  it.each([{ minQuantity: 25 }, { maxQuantity: 3 }])('validates partial updates against the stored range', async (data) => {
+    await expect(service.update('t1', point.id, data)).rejects.toThrow('Maximum quantity must be greater than minimum');
+    expect(repo.updateReorderPoint).not.toHaveBeenCalled();
+  });
+
+  it('rejects update and delete outside tenant scope', async () => {
+    repo.findReorderPointById.mockResolvedValue(null);
+    await expect(service.update('other', point.id, { minQuantity: 1 })).rejects.toThrow('Reorder point not found');
+    await expect(service.delete('other', point.id)).rejects.toThrow('Reorder point not found');
+    expect(repo.updateReorderPoint).not.toHaveBeenCalled();
+    expect(repo.deleteReorderPoint).not.toHaveBeenCalled();
+  });
+
+  it('deletes only within tenant scope', async () => {
+    await service.delete('t1', point.id);
+    expect(repo.deleteReorderPoint).toHaveBeenCalledWith(point.id, 't1');
+  });
+
+  it('returns low stock quantities', async () => {
+    repo.findLowStock.mockResolvedValue([{ productId: 'prod-1', warehouseId: 'wh-1', currentQuantity: 3, minQuantity: 5 }]);
+    expect(await service.findLowStock('t1')).toEqual([expect.objectContaining({ currentQuantity: 3 })]);
   });
 });

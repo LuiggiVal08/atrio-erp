@@ -1,4 +1,5 @@
 import { InventorySummaryService } from '@/modules/inventory/application/inventory-summary.service';
+import { PrismaInventoryRepository } from '@/modules/inventory/infrastructure/prisma-inventory.repository';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -151,6 +152,18 @@ describe('InventorySummaryService', () => {
       valuation: { currency: 'VED', totalValue: 0, categories: [] },
       coverage: { periodDays: 30, medianDays: null, under7: 0, from7to30: 0, over30: 0, noSales: 0 },
     });
+  });
+
+  it('preserves fractional quantities in the warehouse total and category breakdown', async () => {
+    prisma.warehouse = { findFirst: jest.fn().mockResolvedValue({ id: 'w1' }) };
+    prisma.product.findMany.mockResolvedValue([
+      product({ stock: [{ quantity: 640.125001 }] }),
+      product({ id: 'p2', stock: [{ quantity: 1202.25 }] }),
+    ]);
+    const result = await new PrismaInventoryRepository(prisma).getWarehouseSummary('tenant-1', 'w1');
+    expect(result.totalUnits).toBe(1842.375001);
+    expect(result.categories[0].units).toBe(1842.375001);
+    expect(result.totalValue).toBe(18423.75);
   });
 
   it('treats sold-out products as zero days of cover', async () => {

@@ -5,7 +5,10 @@ export class Branch {
     public readonly name: string,
     public readonly code: string | null,
     public readonly address: string | null,
+    public readonly city: string | null,
+    public readonly state: string | null,
     public readonly phone: string | null,
+    public readonly managerEmployeeId: string | null,
     public readonly isActive: boolean,
     public readonly createdAt: Date,
   ) {}

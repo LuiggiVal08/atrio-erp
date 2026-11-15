@@ -100,9 +100,10 @@ describe('StockEventHandler', () => {
       tenantId: 'tenant-1',
       documentId: 'doc-4',
       documentType: 'purchase_order',
+      triggeredBy: 'user-1',
       metadata: {
-        lines: [{ productId: 'prod-1', warehouseId: 'wh-1', quantity: 10 }],
-        triggeredBy: 'user-1',
+        operationId: 'receipt-1',
+        lines: [{ lineId: 'line-1', productId: 'prod-1', warehouseId: 'wh-1', quantity: 10 }],
       },
     };
 
@@ -115,6 +116,19 @@ describe('StockEventHandler', () => {
       type: 'in',
       quantity: 10,
       userId: 'user-1',
+      operationId: JSON.stringify(['purchase-receipt', 'receipt-1', 'line-1']),
+      referenceType: 'purchase_order',
+      referenceId: 'doc-4',
     });
+    await handler.handleDocumentReceived(payload);
+    expect((mockStockService.adjust as jest.Mock).mock.calls[1][0]).toEqual((mockStockService.adjust as jest.Mock).mock.calls[0][0]);
+  });
+
+  it('rejects receipt events without stable batch and line identities before any stock write', async () => {
+    const payload = { eventType: 'document.received', tenantId: 't1', documentId: 'po1', documentType: 'purchase_order',
+      metadata: { lines: [{ productId: 'p1', warehouseId: 'w1', quantity: 1 }] } };
+    await expect(handler.handleDocumentReceived(payload)).rejects.toThrow();
+    await expect(handler.handleDocumentReceived({ ...payload, metadata: { ...payload.metadata, operationId: 'op1' } })).rejects.toThrow();
+    expect(mockStockService.adjust).not.toHaveBeenCalled();
   });
 });

@@ -18,14 +18,33 @@ describe('ProductService', () => {
     findAllWarehouses: jest.fn(),
     updateWarehouse: jest.fn(),
     softDeleteWarehouse: jest.fn(),
+    findWarehouseById: jest.fn(),
+    setDefaultWarehouse: jest.fn(),
+    getDefaultWarehouse: jest.fn(),
+    getWarehouseSummary: jest.fn(),
+    createStorageLocation: jest.fn(),
+    findStorageLocationById: jest.fn(),
+    findStorageLocationByPath: jest.fn(),
+    findStorageLocationsByWarehouse: jest.fn(),
+    findStorageLocationSiblings: jest.fn(),
+    findStorageLocationChildren: jest.fn(),
+    updateStorageLocation: jest.fn(),
+    softDeleteStorageLocation: jest.fn(),
     createBranch: jest.fn(),
     findAllBranches: jest.fn(),
     updateBranch: jest.fn(),
     softDeleteBranch: jest.fn(),
+    findBranchById: jest.fn(),
+    countActiveWarehousesByBranch: jest.fn(),
+    employeeBelongsToTenant: jest.fn(),
     getStock: jest.fn(),
-    adjustStock: jest.fn(),
-    createMovement: jest.fn(),
+    adjustStockAtomic: jest.fn(),
+    generateStorageLocations: jest.fn(),
+    rewriteStorageLocation: jest.fn(),
+    findReorderPointById: jest.fn(),
     findMovements: jest.fn(),
+    findAllMovements: jest.fn(),
+    findStockBalances: jest.fn(),
     createTransfer: jest.fn(),
     findTransfersByTenant: jest.fn(),
     findTransferById: jest.fn(),
@@ -80,11 +99,11 @@ describe('ProductService', () => {
   });
 
   it('should reject negative unit price', async () => {
-    await expect(service.create({ ...validProduct, unitPrice: -1 })).rejects.toThrow('Unit price must be >= 0');
+    await expect(service.create({ ...validProduct, unitPrice: -1 })).rejects.toThrow('unitPrice must be >= 0');
   });
 
   it('should reject negative cost price', async () => {
-    await expect(service.create({ ...validProduct, costPrice: -1 })).rejects.toThrow('Cost price must be >= 0');
+    await expect(service.create({ ...validProduct, costPrice: -1 })).rejects.toThrow('costPrice must be >= 0');
   });
 
   it('should return all products for tenant', async () => {
@@ -94,25 +113,25 @@ describe('ProductService', () => {
   });
 
   it('should find product by id', async () => {
-    (mockRepo.findProductById as jest.Mock).mockResolvedValue({ id: 'prod-1', name: 'Test' });
-    const result = await service.findById('prod-1');
+    (mockRepo.findProductById as jest.Mock).mockResolvedValue({ id: 'prod-1', tenantId: 'tenant-1', name: 'Test' });
+    const result = await service.findById('tenant-1', 'prod-1');
     expect(result).toHaveProperty('id', 'prod-1');
   });
 
   it('should throw when product not found by id', async () => {
     (mockRepo.findProductById as jest.Mock).mockResolvedValue(null);
-    await expect(service.findById('missing')).rejects.toThrow('Product not found');
+    await expect(service.findById('tenant-1', 'missing')).rejects.toThrow('Product not found');
   });
 
   it('should throw when updating non-existent product', async () => {
     (mockRepo.findProductById as jest.Mock).mockResolvedValue(null);
-    await expect(service.update('missing', { name: 'New' })).rejects.toThrow('Product not found');
+    await expect(service.update('tenant-1', 'missing', { name: 'New' })).rejects.toThrow('Product not found');
   });
 
   it('should soft delete product', async () => {
-    (mockRepo.findProductById as jest.Mock).mockResolvedValue({ id: 'prod-1' });
+    (mockRepo.findProductById as jest.Mock).mockResolvedValue({ id: 'prod-1', tenantId: 'tenant-1' });
     (mockRepo.softDeleteProduct as jest.Mock).mockResolvedValue(undefined);
-    await service.softDelete('prod-1');
-    expect(mockRepo.softDeleteProduct).toHaveBeenCalledWith('prod-1');
+    await service.softDelete('tenant-1', 'prod-1');
+    expect(mockRepo.softDeleteProduct).toHaveBeenCalledWith('prod-1', 'tenant-1');
   });
 });

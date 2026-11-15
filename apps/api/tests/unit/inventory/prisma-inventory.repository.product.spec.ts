@@ -64,7 +64,11 @@ function createRepository(found = true) {
         return { ...stored };
       }),
       create: jest.fn().mockImplementation(async ({ data }) => ({ ...record, ...data })),
-      update: jest.fn().mockImplementation(async () => ({ ...stored })),
+      update: jest.fn().mockImplementation(async ({ data }) => {
+        if (!stored) return null;
+        stored = { ...stored, ...data };
+        return { ...stored };
+      }),
       updateMany: jest.fn().mockImplementation(async ({ where, data }) => {
         if (!stored || where.tenantId !== stored.tenantId || where.barcode !== stored.barcode) return { count: 0 };
         stored = { ...stored, ...data };
@@ -75,7 +79,9 @@ function createRepository(found = true) {
       create: jest.fn().mockResolvedValue({}),
     },
     $queryRaw: jest.fn().mockResolvedValue([{ nextval: 1n }]),
+    $transaction: jest.fn(),
   } as unknown as PrismaService;
+  (prisma.$transaction as jest.Mock).mockImplementation((operation) => operation(prisma));
   return { repository: new PrismaInventoryRepository(prisma), prisma };
 }
 
@@ -83,10 +89,10 @@ describe('PrismaInventoryRepository findProductById', () => {
   it('finds product by id with brand/category/tax included', async () => {
     const { repository, prisma } = createRepository();
 
-    const product = await repository.findProductById('product-1');
+    const product = await repository.findProductById('product-1', 'tenant-1');
 
     expect(prisma.product.findFirst).toHaveBeenCalledWith({
-      where: { id: 'product-1', deletedAt: null },
+      where: { id: 'product-1', tenantId: 'tenant-1', deletedAt: null },
       include,
     });
     expect(product).toMatchObject({
@@ -97,7 +103,7 @@ describe('PrismaInventoryRepository findProductById', () => {
 
   it('returns null for missing or soft-deleted products', async () => {
     const { repository } = createRepository(false);
-    await expect(repository.findProductById('missing')).resolves.toBeNull();
+    await expect(repository.findProductById('missing', 'tenant-1')).resolves.toBeNull();
   });
 });
 
@@ -105,10 +111,10 @@ describe('PrismaInventoryRepository updateProduct', () => {
   it('returns the same extended shape as findProductById', async () => {
     const { repository, prisma } = createRepository();
 
-    const product = await repository.updateProduct('product-1', { minStock: 7, brandId: null });
+    const product = await repository.updateProduct('product-1', { minStock: 7, brandId: null }, 'tenant-1');
 
     expect(prisma.product.update).toHaveBeenCalledWith({
-      where: { id: 'product-1' },
+      where: { id: 'product-1', tenantId: 'tenant-1' },
       data: { minStock: 7, brandId: null },
       include,
     });
@@ -118,12 +124,12 @@ describe('PrismaInventoryRepository updateProduct', () => {
   it('records cost history only when costPrice is sent', async () => {
     const { repository, prisma } = createRepository();
 
-    await repository.updateProduct('product-1', { name: 'Otro nombre' });
+    await repository.updateProduct('product-1', { name: 'Otro nombre' }, 'tenant-1');
     expect(prisma.productCostHistory.create).not.toHaveBeenCalled();
 
-    await repository.updateProduct('product-1', { costPrice: 12 });
+    await repository.updateProduct('product-1', { costPrice: 12 }, 'tenant-1');
     expect(prisma.productCostHistory.create).toHaveBeenCalledWith({
-      data: { tenantId: 'tenant-1', productId: 'product-1', unitCost: 10, supplierId: null },
+      data: { tenantId: 'tenant-1', productId: 'product-1', unitCost: 12, supplierId: null, createdById: null },
     });
   });
 });
