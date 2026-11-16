@@ -17,7 +17,7 @@ export class CurrencyRateService {
     if (Number.isNaN(data.date.getTime())) {
       throw new BadRequestException('La fecha de la tasa no es válida');
     }
-    return this.repo.createCurrencyRate({ ...data, fromCurrency, toCurrency });
+    return this.repo.createCurrencyRate({ ...data, fromCurrency, toCurrency, source: 'manual', provider: null });
   }
 
   async findAll(tenantId: string, fromCurrency?: string, toCurrency?: string) {

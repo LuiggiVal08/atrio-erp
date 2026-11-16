@@ -93,6 +93,12 @@ export function CurrencyRateListView() {
     { key: 'toCurrency', label: t('localization.currencyRate.to'), width: 100 },
     { key: 'rate', label: t('localization.currencyRate.rate'), width: 120, align: 'right' },
     { key: 'date', label: t('localization.currencyRate.date'), width: 140, sortable: true },
+    {
+      key: 'provider',
+      label: t('localization.currencyRate.provider'),
+      width: 160,
+      render: (_value, rate) => rate.provider ?? t('localization.currencyRate.manual'),
+    },
   ];
 
   if (isLoading) {
@@ -240,8 +246,8 @@ export function CurrencyRateListView() {
 
         <div className="rounded-xl border border-border bg-surface p-4">
           <p className="mb-3 text-xs text-text-secondary">
-            Las tasas se guardan por moneda y fecha. La lista no conserva el proveedor de origen de
-            cada fila; la confirmación de sincronización indica el proveedor que respondió.
+            Las tasas se guardan por moneda y fecha. Cada fila conserva su procedencia: manual o el
+            proveedor que respondió a la sincronización.
           </p>
           <VirtualGrid
             columns={columns}

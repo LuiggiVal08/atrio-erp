@@ -46,6 +46,8 @@ describe('ExchangeRateSyncService', () => {
       fromCurrency: 'USD',
       toCurrency: 'VES',
       rate: 36.5,
+      source: 'sync',
+      provider: 'frankfurter',
     }));
   });
 

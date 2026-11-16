@@ -100,6 +100,8 @@ export class ExchangeRateSyncService {
           toCurrency: quote.toCurrency,
           rate: quote.rate,
           date,
+          source: 'sync',
+          provider: provider.id,
         });
         return {
           provider: provider.id,

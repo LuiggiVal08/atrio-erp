@@ -24,6 +24,10 @@ describe('CurrencyRateService', () => {
     (mockRepo.createCurrencyRate as jest.Mock).mockResolvedValue({ id: 'rate-1', rate: 89.5 });
     const result = await service.create({ tenantId: 't1', fromCurrency: 'USD', toCurrency: 'VES', rate: 89.5, date: new Date() });
     expect(result).toHaveProperty('id', 'rate-1');
+    expect(mockRepo.createCurrencyRate).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'manual',
+      provider: null,
+    }));
   });
 
   it('should reject the same source and target currency', async () => {

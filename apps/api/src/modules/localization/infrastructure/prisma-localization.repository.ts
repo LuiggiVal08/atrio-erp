@@ -33,12 +33,12 @@ export class PrismaLocalizationRepository implements LocalizationRepository {
     await this.prisma.localizationTax.delete({ where: { id } });
   }
 
-  async createCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date }): Promise<CurrencyRate> {
-    const r = await this.prisma.currencyRate.create({ data });
-    return new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt);
+  async createCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date; source?: string; provider?: string | null }): Promise<CurrencyRate> {
+    const r = await this.prisma.currencyRate.create({ data: { ...data, source: data.source ?? 'manual', provider: data.provider ?? null } });
+    return new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt, r.source, r.provider);
   }
 
-  async upsertCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date }): Promise<CurrencyRate> {
+  async upsertCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date; source?: string; provider?: string | null }): Promise<CurrencyRate> {
     const r = await this.prisma.currencyRate.upsert({
       where: {
         tenantId_fromCurrency_toCurrency_date: {
@@ -48,10 +48,10 @@ export class PrismaLocalizationRepository implements LocalizationRepository {
           date: data.date,
         },
       },
-      create: data,
-      update: { rate: data.rate },
+      create: { ...data, source: data.source ?? 'manual', provider: data.provider ?? null },
+      update: { rate: data.rate, source: data.source ?? 'manual', provider: data.provider ?? null },
     });
-    return new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt);
+    return new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt, r.source, r.provider);
   }
 
   async findRates(tenantId: string, fromCurrency?: string, toCurrency?: string): Promise<CurrencyRate[]> {
@@ -63,7 +63,7 @@ export class PrismaLocalizationRepository implements LocalizationRepository {
       },
       orderBy: { date: 'desc' },
     });
-    return records.map(r => new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt));
+    return records.map(r => new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt, r.source, r.provider));
   }
 
   async findRateAtDate(tenantId: string, fromCurrency: string, toCurrency: string, date: Date): Promise<CurrencyRate | null> {
@@ -75,6 +75,6 @@ export class PrismaLocalizationRepository implements LocalizationRepository {
       orderBy: { date: 'desc' },
     });
     if (!r) return null;
-    return new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt);
+    return new CurrencyRate(r.id, r.tenantId, r.fromCurrency, r.toCurrency, r.rate, r.date, r.createdAt, r.source, r.provider);
   }
 }

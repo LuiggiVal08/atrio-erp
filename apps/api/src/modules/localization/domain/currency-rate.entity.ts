@@ -7,5 +7,7 @@ export class CurrencyRate {
     public readonly rate: number,
     public readonly date: Date,
     public readonly createdAt: Date,
+    public readonly source: string = 'manual',
+    public readonly provider: string | null = null,
   ) {}
 }

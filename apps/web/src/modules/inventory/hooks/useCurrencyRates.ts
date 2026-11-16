@@ -8,6 +8,8 @@ export interface CurrencyRate {
   toCurrency: string;
   rate: number;
   date: string;
+  source: 'manual' | 'sync' | string;
+  provider: string | null;
 }
 
 export function useCurrencyRates(from?: string, to?: string) {

@@ -8,8 +8,8 @@ export interface LocalizationRepository {
   updateTax(id: string, data: Partial<Omit<LocalizationTax, 'id' | 'tenantId' | 'createdAt'>>): Promise<LocalizationTax>;
   deleteTax(id: string): Promise<void>;
 
-  createCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date }): Promise<CurrencyRate>;
-  upsertCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date }): Promise<CurrencyRate>;
+  createCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date; source?: string; provider?: string | null }): Promise<CurrencyRate>;
+  upsertCurrencyRate(data: { tenantId: string; fromCurrency: string; toCurrency: string; rate: number; date: Date; source?: string; provider?: string | null }): Promise<CurrencyRate>;
   findRates(tenantId: string, fromCurrency?: string, toCurrency?: string, date?: Date): Promise<CurrencyRate[]>;
   findRateAtDate(tenantId: string, fromCurrency: string, toCurrency: string, date: Date): Promise<CurrencyRate | null>;
 }
