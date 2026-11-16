@@ -3,6 +3,32 @@ import * as request from 'supertest';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service';
 import { createTestApp, seedTestData, cleanupTestData, TestSeed } from '../../helpers/test-setup';
 
+async function waitForStockQuantity(
+  app: INestApplication,
+  token: string,
+  productId: string,
+  warehouseId: string,
+  expected: number,
+  timeoutMs = 5000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastQuantity: number | undefined;
+
+  while (Date.now() < deadline) {
+    const response = await request(app.getHttpServer())
+      .get(`/api/v1/inventory/stock/${productId}/${warehouseId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    lastQuantity = response.body.quantity;
+    if (lastQuantity === expected) return;
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  expect(lastQuantity).toBe(expected);
+}
+
 describe('Stock Events (integration)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -97,12 +123,7 @@ describe('Stock Events (integration)', () => {
     });
 
     it('should have deducted stock after approval', async () => {
-      const stockRes = await request(app.getHttpServer())
-        .get(`/api/v1/inventory/stock/${productId}/${warehouseId}`)
-        .set('Authorization', `Bearer ${seed.token}`)
-        .expect(200);
-
-      expect(stockRes.body.quantity).toBe(90);
+      await waitForStockQuantity(app, seed.token, productId, warehouseId, 90);
     });
   });
 
@@ -193,12 +214,7 @@ describe('Stock Events (integration)', () => {
     });
 
     it('should have incremented stock after deliver', async () => {
-      const stockRes = await request(app.getHttpServer())
-        .get(`/api/v1/inventory/stock/${productId}/${warehouseId}`)
-        .set('Authorization', `Bearer ${seed.token}`)
-        .expect(200);
-
-      expect(stockRes.body.quantity).toBe(70);
+      await waitForStockQuantity(app, seed.token, productId, warehouseId, 70);
     });
   });
 
@@ -282,12 +298,7 @@ describe('Stock Events (integration)', () => {
         .set('Authorization', `Bearer ${seed.token}`)
         .expect(200);
 
-      const stockRes1 = await request(app.getHttpServer())
-        .get(`/api/v1/inventory/stock/${productId}/${warehouseId}`)
-        .set('Authorization', `Bearer ${seed.token}`)
-        .expect(200);
-
-      expect(stockRes1.body.quantity).toBe(70);
+      await waitForStockQuantity(app, seed.token, productId, warehouseId, 70);
     });
 
     it('should create and deliver a purchase order, incrementing stock', async () => {
@@ -326,12 +337,7 @@ describe('Stock Events (integration)', () => {
         .send({ targetStatus: 'delivered' })
         .expect(200);
 
-      const stockRes2 = await request(app.getHttpServer())
-        .get(`/api/v1/inventory/stock/${productId}/${warehouseId}`)
-        .set('Authorization', `Bearer ${seed.token}`)
-        .expect(200);
-
-      expect(stockRes2.body.quantity).toBe(120);
+      await waitForStockQuantity(app, seed.token, productId, warehouseId, 120);
     });
   });
 });
