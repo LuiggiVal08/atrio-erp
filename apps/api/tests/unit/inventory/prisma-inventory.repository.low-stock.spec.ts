@@ -1,5 +1,5 @@
 import { PrismaInventoryRepository } from '../../../src/modules/inventory/infrastructure/prisma-inventory.repository';
-import type { PrismaService } from '../../../src/core/database/prisma.service';
+import type { PrismaService } from '@/infrastructure/database/prisma.service';
 
 function makePrisma() {
   return {
@@ -9,6 +9,23 @@ function makePrisma() {
 }
 
 describe('PrismaInventoryRepository.findLowStock', () => {
+  it('includes stock exactly at the reorder threshold', async () => {
+    const prisma = makePrisma();
+    (prisma.reorderPoint.findMany as jest.Mock).mockResolvedValue([
+      {
+        productId: 'p1', warehouseId: 'w1', minQuantity: 5, maxQuantity: 10,
+        product: { name: 'Cemento', sku: 'CEM-001' }, warehouse: { name: 'Central' },
+      },
+    ]);
+    (prisma.stock.findUnique as jest.Mock).mockResolvedValue({ quantity: 5 });
+    const repository = new PrismaInventoryRepository(prisma);
+
+    const result = await repository.findLowStock('tenant-1');
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ currentQuantity: 5, minQuantity: 5, suggestedQuantity: 5 });
+  });
+
   it('enriches shortages with product, warehouse and suggested quantity', async () => {
     const prisma = makePrisma();
     (prisma.reorderPoint.findMany as jest.Mock).mockResolvedValue([

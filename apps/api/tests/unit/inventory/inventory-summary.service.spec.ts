@@ -13,6 +13,7 @@ function product(overrides: Record<string, any> = {}) {
     reorderPoint: 0,
     category: { name: 'Tools' },
     stock: [{ quantity: 50 }],
+    reorderPoints: [],
     ...overrides,
   };
 }
@@ -164,6 +165,35 @@ describe('InventorySummaryService', () => {
     expect(result.totalUnits).toBe(1842.375001);
     expect(result.categories[0].units).toBe(1842.375001);
     expect(result.totalValue).toBe(18423.75);
+  });
+
+  it('uses the warehouse reorder point to override product limits in warehouse summaries', async () => {
+    prisma.warehouse = { findFirst: jest.fn().mockResolvedValue({ id: 'w1' }) };
+    prisma.product.findMany.mockResolvedValue([
+      product({
+        id: 'local-low',
+        minStock: 5,
+        maxStock: 100,
+        stock: [{ quantity: 50 }],
+        reorderPoints: [{ minQuantity: 60, maxQuantity: 80 }],
+      }),
+      product({
+        id: 'local-over',
+        stock: [{ quantity: 50 }],
+        reorderPoints: [{ minQuantity: 10, maxQuantity: 40 }],
+      }),
+    ]);
+
+    const result = await new PrismaInventoryRepository(prisma).getWarehouseSummary('tenant-1', 'w1');
+
+    expect(result.health).toEqual({ healthy: 0, low: 1, out: 0, overstock: 1 });
+    expect(prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        reorderPoints: expect.objectContaining({
+          where: { warehouseId: 'w1', isActive: true },
+        }),
+      }),
+    }));
   });
 
   it('treats sold-out products as zero days of cover', async () => {

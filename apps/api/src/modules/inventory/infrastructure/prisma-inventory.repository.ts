@@ -311,6 +311,10 @@ export class PrismaInventoryRepository implements InventoryRepository {
           minStock: true, maxStock: true, reorderPoint: true,
           category: { select: { name: true } },
           stock: { where: { warehouseId }, select: { quantity: true } },
+          reorderPoints: {
+            where: { warehouseId, isActive: true },
+            select: { minQuantity: true, maxQuantity: true },
+          },
         },
       }),
     ]);
@@ -327,9 +331,13 @@ export class PrismaInventoryRepository implements InventoryRepository {
       if (product.stock.length === 0) continue;
       const quantity = Math.max(0, product.stock.reduce((sum, s) => sum + s.quantity, 0));
 
+      const local = product.reorderPoints[0];
+      const minThreshold = local ? local.minQuantity : Math.max(product.minStock, product.reorderPoint);
+      const maxThreshold = local ? local.maxQuantity : product.maxStock;
+
       if (quantity <= 0) health.out += 1;
-      else if (product.maxStock !== null && quantity > product.maxStock) health.overstock += 1;
-      else if (quantity <= Math.max(product.minStock, product.reorderPoint)) health.low += 1;
+      else if (maxThreshold !== null && quantity > maxThreshold) health.overstock += 1;
+      else if (quantity <= minThreshold) health.low += 1;
       else health.healthy += 1;
 
       const value = quantity * product.costPrice;
@@ -960,7 +968,7 @@ export class PrismaInventoryRepository implements InventoryRepository {
         where: { productId_warehouseId: { productId: rp.productId, warehouseId: rp.warehouseId } },
       });
       const currentQuantity = stock ? stock.quantity : 0;
-      if (currentQuantity < rp.minQuantity) {
+      if (currentQuantity <= rp.minQuantity) {
         result.push({
           productId: rp.productId,
           warehouseId: rp.warehouseId,

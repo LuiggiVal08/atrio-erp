@@ -83,6 +83,8 @@ export class InventorySummaryService {
       // Negative balances are treated as out of stock and excluded from valuation.
       const quantity = Math.max(0, product.stock.reduce((sum, s) => sum + s.quantity, 0));
 
+      // Global health intentionally uses product-level limits. A warehouse-specific
+      // reorder point, when present, overrides them in the warehouse summary.
       if (quantity <= 0) stockHealth.out += 1;
       else if (product.maxStock !== null && quantity > product.maxStock) stockHealth.overstock += 1;
       else if (quantity <= Math.max(product.minStock, product.reorderPoint)) stockHealth.low += 1;
