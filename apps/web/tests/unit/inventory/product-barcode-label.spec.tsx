@@ -20,6 +20,11 @@ function svgTexts(container: HTMLElement) {
 }
 
 describe('ProductBarcodeLabel', () => {
+  it('renders the price in the tenant base currency', () => {
+    render(<ProductBarcodeLabel {...props} barcode="SKU-001" currency="USD" />);
+    expect(screen.getByText(/10,00\s*US\$/)).toBeTruthy();
+  });
+
   it('reports unsupported characters without crashing the product', () => {
     render(<ProductBarcodeLabel {...props} barcode="código" />);
     expect(screen.getByRole('alert')).toBeDefined();

@@ -79,6 +79,9 @@ function createRepository(found = true) {
     productCostHistory: {
       create: jest.fn().mockResolvedValue({}),
     },
+    partner: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'supplier-1' }),
+    },
     $queryRaw: jest.fn().mockResolvedValue([{ nextval: 1n }]),
     $transaction: jest.fn(),
   } as unknown as PrismaService;
@@ -124,6 +127,18 @@ describe('PrismaInventoryRepository updateProduct', () => {
       id: 'product-1', brand: 'Truper', category: 'Herramientas',
       imageUrl: 'https://cdn.example.com/product-1.jpg',
     });
+  });
+
+  it('rejects an inactive, foreign or missing primary supplier before updating', async () => {
+    const { repository, prisma } = createRepository();
+    (prisma.partner.findFirst as jest.Mock).mockResolvedValueOnce(null);
+
+    await expect(repository.updateProduct('product-1', { primarySupplierId: 'foreign-supplier' }, 'tenant-1'))
+      .rejects.toThrow('Supplier must be active and belong to tenant');
+    expect(prisma.product.update).not.toHaveBeenCalled();
+    expect(prisma.partner.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'foreign-supplier', tenantId: 'tenant-1', status: 'ACTIVE', deletedAt: null }),
+    }));
   });
 
   it('records cost history only when costPrice is sent', async () => {

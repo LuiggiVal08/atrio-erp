@@ -41,6 +41,7 @@ vi.mock('@/shared/lib/api/client', () => ({
             maxStock: 50,
             reorderPoint: 5,
             supplierSku: 'TR-500',
+            primarySupplierId: '11111111-1111-4111-8111-111111111111',
           },
         });
       }
@@ -52,6 +53,12 @@ vi.mock('@/shared/lib/api/client', () => ({
       }
       if (url === '/localization/taxes') {
         return Promise.resolve({ data: [{ id: 'tax-1', name: 'IVA', rate: 0.16 }] });
+      }
+      if (url === '/client-vendor/vendors') {
+        return Promise.resolve({ data: [{ id: '11111111-1111-4111-8111-111111111111', legalName: 'Ferretería Central' }] });
+      }
+      if (url === '/inventory/stock') {
+        return Promise.resolve({ data: [{ id: 'balance-1', productId: 'p-1', warehouseId: 'wh-1', quantity: 5, warehouse: { name: 'Depósito principal' } }] });
       }
       return Promise.resolve({ data: [] });
     }),
@@ -98,6 +105,15 @@ describe('product detail and edit', () => {
     expect(screen.getByText('Herramientas')).toBeDefined();
     expect(screen.getByText('TR-500')).toBeDefined();
     expect(screen.getByText('caja')).toBeDefined();
+  });
+
+  it('shows stock by warehouse, the primary supplier and unit context', async () => {
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Taladro percutor' });
+    expect(await screen.findByText('Depósito principal')).toBeTruthy();
+    expect(screen.getByText('5 unidad')).toBeTruthy();
+    expect(await screen.findByText('Ferretería Central')).toBeTruthy();
+    expect(screen.getByText('caja')).toBeTruthy();
   });
 
   it('shows the brand logo beside the description in read mode', async () => {
