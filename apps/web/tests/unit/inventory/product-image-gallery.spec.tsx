@@ -4,6 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import api from '@/shared/lib/api/client';
 import { ProductImageGallery } from '@/modules/inventory/components/ProductImageGallery';
 
+const toastError = vi.hoisted(() => vi.fn());
+
+vi.mock('@/core/services/toast-service', () => ({
+  toastService: { error: toastError, success: vi.fn() },
+}));
+
 const stored = vi.hoisted(() => ({
   images: [] as { id: string; url: string; originalName: string }[],
 }));
@@ -201,6 +207,18 @@ describe('ProductImageGallery in edit mode', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Guardar fotos' })).toBeNull());
     expect(screen.getByText('3/3')).toBeDefined();
     expect(screen.getByAltText('Taladro 1').getAttribute('src')).toBe('https://cdn.test/a.png');
+  });
+
+  it('keeps pending photos and reports an upload failure', async () => {
+    const { container } = renderGallery(true);
+    vi.mocked(api.post).mockRejectedValueOnce(new Error('upload failed'));
+
+    fireEvent.change(getFileInput(container), { target: { files: [imageFile('a.png')] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar fotos' }));
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('El producto se creó, pero no se pudieron guardar sus fotos. Inténtalo desde el detalle del producto.'));
+    expect(screen.getByRole('button', { name: 'Guardar fotos' })).toBeDefined();
+    expect(screen.getByText('1/3')).toBeDefined();
   });
 
   it('keeps the save button when stored photos plus a pending one fill every slot', async () => {

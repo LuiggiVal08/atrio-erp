@@ -5,9 +5,12 @@ import {
   useDeleteProductImageById,
   useProductImages,
   useUploadProductImages,
+  PRODUCT_IMAGE_ACCEPT,
+  isSupportedProductImage,
   type ProductImage,
 } from '../hooks/useProductImage';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { toastService } from '@/core/services/toast-service';
 
 const MAX_IMAGES = 3;
 
@@ -40,6 +43,7 @@ export function ProductImageGallery({
   const [isDragging, setIsDragging] = useState(false);
   const [requestedIndex, setRequestedIndex] = useState(0);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [rejected, setRejected] = useState(0);
   const { data: images = [], isLoading } = useProductImages(productId);
   const uploadImages = useUploadProductImages();
   const deleteImage = useDeleteProductImageById();
@@ -66,7 +70,8 @@ export function ProductImageGallery({
   };
 
   const addFiles = (files: File[]) => {
-    const validFiles = files.filter((file) => file.type.startsWith('image/'));
+    const validFiles = files.filter(isSupportedProductImage);
+    setRejected(files.length - validFiles.length);
     if (!validFiles.length || remainingSlots <= 0) return;
     setPendingImages((currentPending) => [
       ...currentPending,
@@ -98,13 +103,17 @@ export function ProductImageGallery({
   const handleUpload = async () => {
     if (!pendingImages.length) return;
     const firstUploadedIndex = storedImages.length;
-    await uploadImages.mutateAsync({
-      id: productId,
-      files: pendingImages.map(({ file }) => file),
-    });
-    pendingImages.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
-    setPendingImages([]);
-    setRequestedIndex(firstUploadedIndex);
+    try {
+      await uploadImages.mutateAsync({
+        id: productId,
+        files: pendingImages.map(({ file }) => file),
+      });
+      pendingImages.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
+      setPendingImages([]);
+      setRequestedIndex(firstUploadedIndex);
+    } catch {
+      toastService.error(t('inventory.product.imageUploadError'));
+    }
   };
 
   const handleDeleteCurrent = async () => {
@@ -113,11 +122,15 @@ export function ProductImageGallery({
       removePending(current.image.previewUrl);
       return;
     }
-    if (current.image.id === 'legacy-image') {
-      await deleteLegacyImage.mutateAsync(productId);
-      return;
+    try {
+      if (current.image.id === 'legacy-image') {
+        await deleteLegacyImage.mutateAsync(productId);
+      } else {
+        await deleteImage.mutateAsync({ id: productId, fileId: current.image.id });
+      }
+    } catch {
+      toastService.error(t('inventory.product.imageDeleteError'));
     }
-    await deleteImage.mutateAsync({ id: productId, fileId: current.image.id });
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -144,6 +157,12 @@ export function ProductImageGallery({
           </span>
         )}
       </div>
+
+      {rejected > 0 && (
+        <p role="alert" className="mb-2 text-xs text-error">
+          {t('inventory.product.unsupportedImages').replace('{count}', String(rejected))}
+        </p>
+      )}
 
       <div
         role="group"
@@ -336,7 +355,7 @@ export function ProductImageGallery({
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept={PRODUCT_IMAGE_ACCEPT}
           multiple
           onChange={handleFileChange}
           className="hidden"

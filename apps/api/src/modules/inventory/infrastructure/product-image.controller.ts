@@ -111,38 +111,72 @@ export class ProductImageController {
     if (!product) throw new NotFoundException('Product not found');
     if (!files?.length) throw new BadRequestException('No images provided');
 
-    const existing = await this.prisma.productFile.count({
+    const prepared = files.map((file) => ({
+      file,
+      checksum: crypto.createHash('sha256').update(file.buffer).digest('hex'),
+      storageKey: `products/${uuid()}${extname(file.originalname)}`,
+    }));
+    const unique = [...new Map(prepared.map((item) => [item.checksum, item])).values()];
+
+    const existingLinks = await this.prisma.productFile.findMany({
+      where: {
+        productId: id,
+        tenantId: user.tenantId,
+        file: { deletedAt: null, checksumSha256: { in: unique.map((item) => item.checksum) } },
+      },
+      include: { file: true },
+    });
+    const existingByChecksum = new Map(existingLinks.map((link) => [link.file.checksumSha256, link.file]));
+    const toUpload = unique.filter((item) => !existingByChecksum.has(item.checksum));
+
+    const existingCount = await this.prisma.productFile.count({
       where: { productId: id, tenantId: user.tenantId, file: { deletedAt: null } },
     });
-    if (existing + files.length > MAX_PRODUCT_IMAGES) {
+    if (existingCount + toUpload.length > MAX_PRODUCT_IMAGES) {
       throw new BadRequestException(`A product can have at most ${MAX_PRODUCT_IMAGES} images`);
     }
 
-    const created: Array<{ id: string; url: string; originalName: string }> = [];
-    for (const file of files) {
-      const filename = `${uuid()}${extname(file.originalname)}`;
-      const storageKey = `products/${filename}`;
-      const checksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
-      await this.storage.uploadAsset(user.tenantId, storageKey, file.buffer, { 'Content-Type': file.mimetype });
-      const record = await this.prisma.file.create({
-        data: {
-          tenantId: user.tenantId,
-          originalName: file.originalname,
-          storageKey,
-          mimeType: file.mimetype,
-          sizeBytes: BigInt(file.size),
-          checksumSha256: checksum,
-          uploadedById: user.id,
-          productFile: { create: { productId: id } },
-        },
-      });
-      created.push({
-        id: record.id,
-        url: await this.storage.getSignedUrl(user.tenantId, storageKey),
-        originalName: record.originalName,
-      });
+    const uploadedKeys: string[] = [];
+    try {
+      for (const item of toUpload) {
+        await this.storage.uploadAsset(user.tenantId, item.storageKey, item.file.buffer, {
+          'Content-Type': item.file.mimetype,
+        });
+        uploadedKeys.push(item.storageKey);
+      }
+
+      const records = toUpload.length
+        ? await this.prisma.$transaction(
+          toUpload.map((item) => this.prisma.file.create({
+            data: {
+              tenantId: user.tenantId,
+              originalName: item.file.originalname,
+              storageKey: item.storageKey,
+              mimeType: item.file.mimetype,
+              sizeBytes: BigInt(item.file.size),
+              checksumSha256: item.checksum,
+              uploadedById: user.id,
+              productFile: { create: { productId: id } },
+            },
+          })),
+        )
+        : [];
+
+      const created = await Promise.all(toUpload.map(async (item, index) => ({
+        id: records[index].id,
+        url: await this.storage.getSignedUrl(user.tenantId, item.storageKey),
+        originalName: records[index].originalName,
+      })));
+      const existing = await Promise.all(existingLinks.map(async ({ file }) => ({
+        id: file.id,
+        url: await this.storage.getSignedUrl(user.tenantId, file.storageKey),
+        originalName: file.originalName,
+      })));
+      return [...existing, ...created];
+    } catch (error) {
+      await Promise.allSettled(uploadedKeys.map((key) => this.storage.deleteAsset(user.tenantId, key)));
+      throw error;
     }
-    return created;
   }
 
   @Get(':id/images')

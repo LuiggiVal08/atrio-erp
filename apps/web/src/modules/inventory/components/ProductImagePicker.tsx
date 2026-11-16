@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, Upload, X } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { PRODUCT_IMAGE_ACCEPT, isSupportedProductImage } from '../hooks/useProductImage';
 
 const MAX_IMAGES = 3;
 
@@ -13,6 +14,7 @@ export function ProductImagePicker({ files, onChange }: ProductImagePickerProps)
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [rejected, setRejected] = useState(0);
   const previews = useMemo(
     () => files.map((file) => ({ file, url: URL.createObjectURL(file) })),
     [files],
@@ -21,8 +23,9 @@ export function ProductImagePicker({ files, onChange }: ProductImagePickerProps)
   useEffect(() => () => previews.forEach(({ url }) => URL.revokeObjectURL(url)), [previews]);
 
   const addFiles = (selectedFiles: File[]) => {
-    const images = selectedFiles.filter((file) => file.type.startsWith('image/'));
-    onChange([...files, ...images].slice(0, MAX_IMAGES));
+    const images = selectedFiles.filter(isSupportedProductImage);
+    setRejected(selectedFiles.length - images.length);
+    if (images.length) onChange([...files, ...images].slice(0, MAX_IMAGES));
   };
 
   return (
@@ -34,6 +37,11 @@ export function ProductImagePicker({ files, onChange }: ProductImagePickerProps)
         </div>
         <span className="font-mono text-xs text-text-secondary">{files.length}/{MAX_IMAGES}</span>
       </div>
+      {rejected > 0 && (
+        <p role="alert" className="mb-3 text-xs text-error">
+          {t('inventory.product.unsupportedImages').replace('{count}', String(rejected))}
+        </p>
+      )}
       <div className="grid grid-cols-3 gap-2">
         {[0, 1, 2].map((index) => {
           const preview = previews[index];
@@ -88,7 +96,7 @@ export function ProductImagePicker({ files, onChange }: ProductImagePickerProps)
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept={PRODUCT_IMAGE_ACCEPT}
             multiple
             className="hidden"
             onChange={(event) => {
