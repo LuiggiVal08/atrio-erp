@@ -134,15 +134,12 @@ export class PrismaInventoryRepository implements InventoryRepository {
       sku: 'sku', name: 'name', unitPrice: 'unitPrice',
       costPrice: 'costPrice', averageCost: 'costPrice',
     };
-    const orderBy: any = {};
+    const orderBy: any[] = [];
     const sf = filter?.sortBy;
     const sd = filter?.sortDir;
     const mapped = sf ? sortMap[sf] : null;
-    if (mapped) {
-      orderBy[mapped] = (sd === 'desc' ? 'desc' : 'asc');
-    } else {
-      orderBy.name = 'asc';
-    }
+    orderBy.push(mapped ? { [mapped]: sd === 'desc' ? 'desc' : 'asc' } : { name: 'asc' });
+    orderBy.push({ id: 'asc' });
     const [records, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,

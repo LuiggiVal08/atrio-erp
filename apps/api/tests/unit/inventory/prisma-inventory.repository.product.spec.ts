@@ -112,6 +112,34 @@ describe('PrismaInventoryRepository findProductById', () => {
   });
 });
 
+describe('PrismaInventoryRepository findAllProducts', () => {
+  it('maps supported sorts and adds a stable id tie-breaker', async () => {
+    const prisma = {
+      product: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $transaction: jest.fn().mockImplementation(async (operations) => Promise.all(operations)),
+    } as unknown as PrismaService;
+    const repository = new PrismaInventoryRepository(prisma);
+
+    await repository.findAllProducts('tenant-1', { sortBy: 'stock', sortDir: 'desc' });
+    expect(prisma.product.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    }));
+
+    await repository.findAllProducts('tenant-1', { sortBy: 'unitPrice', sortDir: 'desc' });
+    expect(prisma.product.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      orderBy: [{ unitPrice: 'desc' }, { id: 'asc' }],
+    }));
+
+    await repository.findAllProducts('tenant-1', { sortBy: 'costPrice', sortDir: 'asc' });
+    expect(prisma.product.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      orderBy: [{ costPrice: 'asc' }, { id: 'asc' }],
+    }));
+  });
+});
+
 describe('PrismaInventoryRepository updateProduct', () => {
   it('returns the same extended shape as findProductById', async () => {
     const { repository, prisma } = createRepository();
@@ -145,6 +173,9 @@ describe('PrismaInventoryRepository updateProduct', () => {
     const { repository, prisma } = createRepository();
 
     await repository.updateProduct('product-1', { name: 'Otro nombre' }, 'tenant-1');
+    expect(prisma.productCostHistory.create).not.toHaveBeenCalled();
+
+    await repository.updateProduct('product-1', { costPrice: 10 }, 'tenant-1');
     expect(prisma.productCostHistory.create).not.toHaveBeenCalled();
 
     await repository.updateProduct('product-1', { costPrice: 12 }, 'tenant-1');
