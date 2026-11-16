@@ -58,8 +58,9 @@ export interface EmployeePaymentDetails {
 }
 
 export function useEmployeePaymentDetails(employeeId: string) {
+  const tenantId = useTenantId();
   return useQuery<EmployeePaymentDetails | null>({
-    queryKey: ['employee-payment-details', employeeId],
+    queryKey: ['employee-payment-details', employeeId, tenantId],
     queryFn: async () => (await api.get(`/employees/${employeeId}/payment-details`)).data,
     enabled: !!employeeId,
     retry: false,
@@ -105,8 +106,9 @@ export function useEmployees() {
 }
 
 export function useEmployee(id: string) {
+  const tenantId = useTenantId();
   return useQuery<Employee>({
-    queryKey: ['employee', id],
+    queryKey: ['employee', id, tenantId],
     queryFn: async () => {
       const res = await api.get(`/employees/${id}`);
       return res.data;
@@ -215,8 +217,9 @@ export interface EmploymentRelationshipSummary {
 }
 
 export function useEmployeeEmploymentRelationships(employeeId: string) {
+  const tenantId = useTenantId();
   return useQuery<EmploymentRelationshipSummary[]>({
-    queryKey: ['employee-employment-relationships', employeeId],
+    queryKey: ['employee-employment-relationships', employeeId, tenantId],
     queryFn: async () => {
       const res = await api.get(`/employees/${employeeId}/employment-relationships`);
       return res.data;
@@ -233,8 +236,9 @@ export interface CurrentCompensation {
 }
 
 export function useCurrentCompensation(relationshipId?: string) {
+  const tenantId = useTenantId();
   return useQuery<CurrentCompensation | null>({
-    queryKey: ['current-compensation', relationshipId],
+    queryKey: ['current-compensation', relationshipId, tenantId],
     queryFn: async () => {
       const res = await api.get(`/employment-relationships/${relationshipId}/compensation/current`);
       return res.data;

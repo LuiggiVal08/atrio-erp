@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
 
 export interface CurrencyRate {
   id: string;
@@ -10,13 +11,14 @@ export interface CurrencyRate {
 }
 
 export function useCurrencyRates(from?: string, to?: string) {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   const qs = params.toString();
 
   return useQuery({
-    queryKey: ['currency-rates', from, to],
+    queryKey: ['currency-rates', from, to, tenantId],
     queryFn: async () => {
       const res = await api.get(`/localization/currency-rates${qs ? `?${qs}` : ''}`);
       return res.data as CurrencyRate[];

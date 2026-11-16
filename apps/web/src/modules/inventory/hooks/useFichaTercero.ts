@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
 
 export type ThirdPartyKind = 'client' | 'vendor';
 
@@ -47,8 +48,9 @@ export interface ThirdPartyDetail {
 }
 
 export function useFichaTercero(id: string, kind: ThirdPartyKind) {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   return useQuery<ThirdPartyDetail>({
-    queryKey: ['fichaTercero', kind, id],
+    queryKey: ['fichaTercero', kind, id, tenantId],
     queryFn: async () => {
       const resource = kind === 'vendor' ? 'vendors' : 'clients';
       const res = await api.get(`/client-vendor/${resource}/${id}`);

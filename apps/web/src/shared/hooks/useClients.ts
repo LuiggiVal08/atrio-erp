@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
+import { useTenantStore } from '@/core/tenant/store';
 import { listQueryOptions, TRANSACTIONAL_STALE_TIME } from '@/core/lib/query-defaults';
 
 export interface Client {
@@ -19,8 +20,9 @@ export interface ClientPage {
 }
 
 export function useClients(search?: string) {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   return useQuery<Client[]>({
-    queryKey: ['clients', search],
+    queryKey: ['clients', search, tenantId],
     queryFn: async () => {
       const params = search ? `?search=${encodeURIComponent(search)}` : '';
       const res = await api.get(`/client-vendor/clients${params}`);
@@ -31,8 +33,9 @@ export function useClients(search?: string) {
 }
 
 export function useClientsPage(search: string | undefined, page: number, pageSize: number) {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   return useQuery<ClientPage>({
-    queryKey: ['clients', 'page', search, page, pageSize],
+    queryKey: ['clients', 'page', search, page, pageSize, tenantId],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (search) params.set('search', search);
@@ -44,8 +47,9 @@ export function useClientsPage(search: string | undefined, page: number, pageSiz
 }
 
 export function useClient(id: string) {
+  const tenantId = useTenantStore((state) => state.activeTenantId);
   return useQuery<Client>({
-    queryKey: ['clients', id],
+    queryKey: ['clients', id, tenantId],
     queryFn: async () => {
       const res = await api.get(`/client-vendor/clients/${id}`);
       return res.data;
