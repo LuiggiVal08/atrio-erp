@@ -1,6 +1,17 @@
 import { Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
-import { ShoppingCart, ShoppingBag, Wallet, Users, Truck, FileText, UserCog, BarChart3, Shield, Package } from 'lucide-react';
+import {
+  ShoppingCart,
+  ShoppingBag,
+  Wallet,
+  Users,
+  Truck,
+  FileText,
+  UserCog,
+  BarChart3,
+  Shield,
+  Package,
+} from 'lucide-react';
 import { useAuthStore } from '@/core/auth/store';
 import { useSidebarStore } from '@/core/store/sidebar-store';
 import { Layout } from '@/core/components/Layout';
@@ -56,17 +67,77 @@ export function AppRoutes() {
     if (!token) return;
     const enabled = (user?.enabledModules ?? []).filter(Boolean);
     const allModules = [
-      { id: 'pos', label: 'sidebar.sales.label', icon: ShoppingCart, route: '/pos', permissions: ['sales:read'] },
-      { id: 'reports', label: 'sidebar.reports.label', icon: BarChart3, route: '/reports/dashboard', permissions: ['reports:dashboard:view'] },
-      { id: 'purchasing', label: 'sidebar.purchasing.label', icon: ShoppingBag, route: '/purchasing', permissions: ['purchasing:read'] },
+      {
+        id: 'pos',
+        label: 'sidebar.sales.label',
+        icon: ShoppingCart,
+        route: '/pos',
+        permissions: ['sales:read'],
+      },
+      {
+        id: 'reports',
+        label: 'sidebar.reports.label',
+        icon: BarChart3,
+        route: '/reports/dashboard',
+        permissions: ['reports:dashboard:view'],
+      },
+      {
+        id: 'purchasing',
+        label: 'sidebar.purchasing.label',
+        icon: ShoppingBag,
+        route: '/purchasing',
+        permissions: ['purchasing:read'],
+      },
       { id: 'inventory', label: 'Inventario', icon: Package, route: '/inventory', permissions: [] },
-      { id: 'cash', label: 'sidebar.cash.label', icon: Wallet, route: '/cash/registers', permissions: ['cash-payments:register:read'] },
-      { id: 'clients', label: 'sidebar.clients.label', icon: Users, route: '/clients', permissions: ['crm:read'] },
-      { id: 'vendors', label: 'sidebar.vendors.label', icon: Truck, route: '/vendors', permissions: ['crm:read'] },
-      { id: 'localization', label: 'sidebar.localization.label', icon: FileText, route: '/localization', permissions: ['localization:read'] },
-      { id: 'employees', label: 'sidebar.employees.label', icon: UserCog, route: '/employees', permissions: ['hr:read'] },
-      { id: 'rbac', label: 'sidebar.rbac.label', icon: Shield, route: '/rbac', permissions: ['role:read'] },
-      { id: 'users', label: 'sidebar.users.label', icon: Users, route: '/users', permissions: ['user:read'] },
+      {
+        id: 'cash',
+        label: 'sidebar.cash.label',
+        icon: Wallet,
+        route: '/cash/registers',
+        permissions: ['cash-payments:register:read'],
+      },
+      {
+        id: 'clients',
+        label: 'sidebar.clients.label',
+        icon: Users,
+        route: '/clients',
+        permissions: ['crm:read'],
+      },
+      {
+        id: 'vendors',
+        label: 'sidebar.vendors.label',
+        icon: Truck,
+        route: '/vendors',
+        permissions: ['crm:read'],
+      },
+      {
+        id: 'localization',
+        label: 'sidebar.localization.label',
+        icon: FileText,
+        route: '/localization',
+        permissions: ['localization:read'],
+      },
+      {
+        id: 'employees',
+        label: 'sidebar.employees.label',
+        icon: UserCog,
+        route: '/employees',
+        permissions: ['hr:read'],
+      },
+      {
+        id: 'rbac',
+        label: 'sidebar.rbac.label',
+        icon: Shield,
+        route: '/rbac',
+        permissions: ['role:read'],
+      },
+      {
+        id: 'users',
+        label: 'sidebar.users.label',
+        icon: Users,
+        route: '/users',
+        permissions: ['user:read'],
+      },
     ];
 
     const enabledByModule: Record<string, string[]> = {
@@ -82,11 +153,12 @@ export function AppRoutes() {
       rbac: ['rbac'],
       users: ['users'],
     };
-    const filtered = enabled.length > 0
-      ? allModules.filter((module) =>
-          (enabledByModule[module.id] ?? [module.id]).some((flag) => enabled.includes(flag)),
-        )
-      : allModules;
+    const filtered =
+      enabled.length > 0
+        ? allModules.filter((module) =>
+            (enabledByModule[module.id] ?? [module.id]).some((flag) => enabled.includes(flag)),
+          )
+        : allModules;
     setModules(filtered);
   }, [token, user?.enabledModules, setModules]);
 
@@ -103,91 +175,162 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/*" element={
-        <Layout>
-          <Suspense fallback={<ModuleSkeleton moduleName={moduleName} />}>
-            <Routes>
-              <Route
-                path="/inventory/clients/*"
-                element={<LegacyRouteRedirect from="/inventory/clients" to="/clients" />}
-              />
-              <Route
-                path="/inventory/vendors/*"
-                element={<LegacyRouteRedirect from="/inventory/vendors" to="/vendors" />}
-              />
-              <Route
-                path="/inventory/fiscal/*"
-                element={<LegacyRouteRedirect from="/inventory/fiscal" to="/localization/taxes" />}
-              />
-              <Route
-                path="/inventory/currency-rates/*"
-                element={<LegacyRouteRedirect from="/inventory/currency-rates" to="/localization/currency-rates" />}
-              />
-              <Route
-                path="/inventory/employees/*"
-                element={<LegacyRouteRedirect from="/inventory/employees" to="/employees" />}
-              />
-              <Route
-                path="/inventory/departments/*"
-                element={<LegacyRouteRedirect from="/inventory/departments" to="/employees/departments" />}
-              />
-              <Route
-                path="/clients/*"
-                element={
-                  <ErrorBoundary moduleName="Clients">
-                    <ClientsModule />
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/vendors/*"
-                element={
-                  <ErrorBoundary moduleName="Vendors">
-                    <VendorsModule />
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/localization/*"
-                element={
-                  <ErrorBoundary moduleName="Localization">
-                    <LocalizationModule />
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/employees/*"
-                element={
-                  <ErrorBoundary moduleName="HR">
-                    <HrModule />
-                  </ErrorBoundary>
-                }
-              />
-              <Route path="/inventory/*" element={<ErrorBoundary moduleName="Inventory"><InventoryModule /></ErrorBoundary>} />
-              <Route
-                path="/sales/*"
-                element={<LegacyRouteRedirect from="/sales" to="/pos" />}
-              />
-              <Route path="/pos/*" element={<ErrorBoundary moduleName="Ventas"><PosModule /></ErrorBoundary>} />
-              <Route path="/purchasing/*" element={<ErrorBoundary moduleName="Purchasing"><PurchasingModule /></ErrorBoundary>} />
-              <Route path="/cash/*" element={<ErrorBoundary moduleName="Cash"><CashModule /></ErrorBoundary>} />
-              <Route path="/reports/*" element={<ErrorBoundary moduleName="Reports"><ReportsModule /></ErrorBoundary>} />
-              <Route path="/rbac/*" element={<ErrorBoundary moduleName="RBAC"><RbacModule /></ErrorBoundary>} />
-              <Route path="/users/*" element={<ErrorBoundary moduleName="Users"><UsersModule /></ErrorBoundary>} />
-              <Route path="/payroll/:id" element={<LegacyPayrollPeriodRedirect />} />
-              <Route path="/payroll/*" element={<Navigate to="/employees/process" replace />} />
-              <Route path="/settings/*" element={<ErrorBoundary moduleName="Settings"><SettingsModule /></ErrorBoundary>} />
-              <Route path="/profile" element={<ProfileView />} />
-              <Route path="/" element={<Navigate to="/reports/dashboard" replace />} />
-              <Route path="*" element={
-                <div className="flex h-full items-center justify-center text-text-secondary">
-                  Module not available
-                </div>
-              } />
-            </Routes>
-          </Suspense>
-        </Layout>
-      } />
+      <Route
+        path="/*"
+        element={
+          <Layout>
+            <Suspense fallback={<ModuleSkeleton moduleName={moduleName} />}>
+              <Routes>
+                <Route
+                  path="/inventory/clients/*"
+                  element={<LegacyRouteRedirect from="/inventory/clients" to="/clients" />}
+                />
+                <Route
+                  path="/inventory/vendors/*"
+                  element={<LegacyRouteRedirect from="/inventory/vendors" to="/vendors" />}
+                />
+                <Route
+                  path="/inventory/fiscal/*"
+                  element={
+                    <LegacyRouteRedirect from="/inventory/fiscal" to="/localization/taxes" />
+                  }
+                />
+                <Route
+                  path="/inventory/currency-rates/*"
+                  element={
+                    <LegacyRouteRedirect
+                      from="/inventory/currency-rates"
+                      to="/localization/currency-rates"
+                    />
+                  }
+                />
+                <Route
+                  path="/inventory/employees/*"
+                  element={<LegacyRouteRedirect from="/inventory/employees" to="/employees" />}
+                />
+                <Route
+                  path="/inventory/departments/*"
+                  element={
+                    <LegacyRouteRedirect
+                      from="/inventory/departments"
+                      to="/employees/departments"
+                    />
+                  }
+                />
+                <Route
+                  path="/clients/*"
+                  element={
+                    <ErrorBoundary moduleName="Clients">
+                      <ClientsModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/vendors/*"
+                  element={
+                    <ErrorBoundary moduleName="Vendors">
+                      <VendorsModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/localization/*"
+                  element={
+                    <ErrorBoundary moduleName="Localization">
+                      <LocalizationModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/employees/*"
+                  element={
+                    <ErrorBoundary moduleName="HR">
+                      <HrModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/inventory/*"
+                  element={
+                    <ErrorBoundary moduleName="Inventory">
+                      <InventoryModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route path="/sales/*" element={<LegacyRouteRedirect from="/sales" to="/pos" />} />
+                <Route
+                  path="/pos/*"
+                  element={
+                    <ErrorBoundary moduleName="Ventas">
+                      <PosModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/purchasing/*"
+                  element={
+                    <ErrorBoundary moduleName="Purchasing">
+                      <PurchasingModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/cash/*"
+                  element={
+                    <ErrorBoundary moduleName="Cash">
+                      <CashModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/reports/*"
+                  element={
+                    <ErrorBoundary moduleName="Reports">
+                      <ReportsModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/rbac/*"
+                  element={
+                    <ErrorBoundary moduleName="RBAC">
+                      <RbacModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/users/*"
+                  element={
+                    <ErrorBoundary moduleName="Users">
+                      <UsersModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route path="/payroll/:id" element={<LegacyPayrollPeriodRedirect />} />
+                <Route path="/payroll/*" element={<Navigate to="/employees/process" replace />} />
+                <Route
+                  path="/settings/*"
+                  element={
+                    <ErrorBoundary moduleName="Settings">
+                      <SettingsModule />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route path="/profile" element={<ProfileView />} />
+                <Route path="/" element={<Navigate to="/reports/dashboard" replace />} />
+                <Route
+                  path="*"
+                  element={
+                    <div className="flex h-full items-center justify-center text-text-secondary">
+                      Module not available
+                    </div>
+                  }
+                />
+              </Routes>
+            </Suspense>
+          </Layout>
+        }
+      />
     </Routes>
   );
 }
