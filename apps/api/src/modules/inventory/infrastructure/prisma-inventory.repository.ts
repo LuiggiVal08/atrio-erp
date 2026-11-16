@@ -945,20 +945,35 @@ export class PrismaInventoryRepository implements InventoryRepository {
     await this.prisma.reorderPoint.deleteMany({ where: { id, tenantId } });
   }
 
-  async findLowStock(tenantId: string): Promise<Array<{ productId: string; warehouseId: string; currentQuantity: number; minQuantity: number }>> {
+  async findLowStock(tenantId: string): Promise<Array<{ productId: string; warehouseId: string; currentQuantity: number; minQuantity: number; maxQuantity: number; suggestedQuantity: number; productName: string; productSku: string | null; warehouseName: string }>> {
+    this.requireTenant(tenantId);
     const reorderPoints = await this.prisma.reorderPoint.findMany({
       where: { tenantId, isActive: true },
+      include: {
+        product: { select: { name: true, sku: true } },
+        warehouse: { select: { name: true } },
+      },
     });
-    const result: Array<{ productId: string; warehouseId: string; currentQuantity: number; minQuantity: number }> = [];
+    const result: Array<{ productId: string; warehouseId: string; currentQuantity: number; minQuantity: number; maxQuantity: number; suggestedQuantity: number; productName: string; productSku: string | null; warehouseName: string }> = [];
     for (const rp of reorderPoints) {
       const stock = await this.prisma.stock.findUnique({
         where: { productId_warehouseId: { productId: rp.productId, warehouseId: rp.warehouseId } },
       });
       const currentQuantity = stock ? stock.quantity : 0;
       if (currentQuantity < rp.minQuantity) {
-        result.push({ productId: rp.productId, warehouseId: rp.warehouseId, currentQuantity, minQuantity: rp.minQuantity });
+        result.push({
+          productId: rp.productId,
+          warehouseId: rp.warehouseId,
+          currentQuantity,
+          minQuantity: rp.minQuantity,
+          maxQuantity: rp.maxQuantity,
+          suggestedQuantity: Math.max(0, rp.maxQuantity - currentQuantity),
+          productName: rp.product.name,
+          productSku: rp.product.sku,
+          warehouseName: rp.warehouse.name,
+        });
       }
     }
-    return result;
+    return result.sort((a, b) => a.productName.localeCompare(b.productName) || a.warehouseName.localeCompare(b.warehouseName));
   }
 }

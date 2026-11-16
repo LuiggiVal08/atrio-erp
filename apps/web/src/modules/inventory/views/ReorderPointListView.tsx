@@ -219,6 +219,43 @@ export function ReorderPointListView() {
           </>
         }
       >
+        {!!lowStock.length && (
+          <section aria-labelledby="low-stock-title" className="mb-4 shrink-0 rounded-xl border border-warning/30 bg-warning/5">
+            <div className="flex items-center justify-between border-b border-warning/20 px-4 py-2">
+              <h2 id="low-stock-title" className="text-xs font-semibold uppercase tracking-wide text-warning">
+                {t('inventory.reorderPoint.lowStockTitle')}
+              </h2>
+              <span className="text-xs font-medium text-text-secondary">
+                {t('inventory.reorderPoint.lowStock')}
+              </span>
+            </div>
+            <ul className="divide-y divide-warning/10">
+              {lowStock.map((row) => {
+                const product = productMap.get(row.productId);
+                const warehouse = warehouseMap.get(row.warehouseId);
+                return (
+                  <li key={`${row.productId}:${row.warehouseId}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-xs">
+                    <span className="min-w-0 flex-1 font-medium text-text-primary">
+                      {row.productName ?? product?.name ?? row.productId}
+                      {row.productSku && <span className="ml-2 font-mono text-text-secondary">{row.productSku}</span>}
+                    </span>
+                    <span className="text-text-secondary">{row.warehouseName ?? warehouse?.name ?? row.warehouseId}</span>
+                    <span className="tabular-nums text-text-secondary">
+                      {t('inventory.reorderPoint.lowStockCurrent')}: <strong className="text-text-primary">{row.currentQuantity}</strong>
+                    </span>
+                    <span className="tabular-nums text-text-secondary">
+                      {t('inventory.reorderPoint.minimum')}: {row.minQuantity}
+                    </span>
+                    <span className="rounded-full bg-warning/10 px-2 py-0.5 font-semibold tabular-nums text-warning">
+                      {t('inventory.reorderPoint.lowStockSuggest')}: {row.suggestedQuantity ?? Math.max(0, (row.maxQuantity ?? 0) - row.currentQuantity)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         <VirtualGrid
           data={pagination.pageItems}
           columns={columns}

@@ -118,5 +118,5 @@ export interface InventoryRepository {
   findReorderPointById(id: string, tenantId: string): Promise<ReorderPoint | null>;
   updateReorderPoint(id: string, data: Partial<{ minQuantity: number; maxQuantity: number; isActive: boolean }>, tenantId: string): Promise<ReorderPoint>;
   deleteReorderPoint(id: string, tenantId: string): Promise<void>;
-  findLowStock(tenantId: string): Promise<Array<{ productId: string; warehouseId: string; currentQuantity: number; minQuantity: number }>>;
+  findLowStock(tenantId: string): Promise<Array<{ productId: string; warehouseId: string; currentQuantity: number; minQuantity: number; maxQuantity: number; suggestedQuantity: number; productName: string; productSku: string | null; warehouseName: string }>>;
 }
