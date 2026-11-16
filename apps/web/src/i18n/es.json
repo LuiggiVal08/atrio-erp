@@ -808,6 +808,7 @@
       "title": "Dashboard Ejecutivo",
       "subtitle": "Resumen del negocio en tiempo real",
       "kpis": "Indicadores Clave",
+      "calendar": "Calendario",
       "trend": "Tendencia de Ventas",
       "topProducts": "Top Productos",
       "lowStock": "Stock Bajo",
@@ -819,7 +820,15 @@
       "pendingOrders": "Órdenes Pendientes",
       "vsPrevious": "vs período anterior",
       "noData": "No hay datos para el período seleccionado",
-      "addWidget": "Widgets"
+      "addWidget": "Widgets",
+      "widgetMenuLabel": "Mostrar u ocultar widgets",
+      "widgetMenuHeading": "Mostrar / Ocultar",
+      "userFallback": "Usuario",
+      "greeting": {
+        "morning": "Buenos días",
+        "afternoon": "Buenas tardes",
+        "evening": "Buenas noches"
+      }
     },
     "history": {
       "title": "Historial de Reportes",
