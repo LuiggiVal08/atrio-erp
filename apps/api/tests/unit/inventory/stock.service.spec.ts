@@ -48,7 +48,8 @@ describe('StockService', () => {
     createTransfer: jest.fn(),
     findTransfersByTenant: jest.fn(),
     findTransferById: jest.fn(),
-    completeTransfer: jest.fn(),
+    dispatchTransfer: jest.fn(),
+    receiveTransfer: jest.fn(),
     cancelTransfer: jest.fn(),
     setReorderPoint: jest.fn(),
     findReorderPointsByTenant: jest.fn(),
@@ -100,16 +101,16 @@ describe('StockService', () => {
     expect(mockRepo.findStockBalances).toHaveBeenCalledWith('tenant-1');
   });
 
-  it('should return stock balance', async () => {
-    (mockRepo.getStock as jest.Mock).mockResolvedValue({ quantity: 10 });
+  it('should return physical, committed and available stock balance', async () => {
+    (mockRepo.getStock as jest.Mock).mockResolvedValue({ quantity: 10, committedQuantity: 4 });
     const result = await service.getBalance('tenant-1', 'prod-1', 'wh-1');
-    expect(result.quantity).toBe(10);
+    expect(result).toMatchObject({ quantity: 10, committedQuantity: 4, availableQuantity: 6 });
   });
 
   it('should return zero when no stock record', async () => {
     (mockRepo.getStock as jest.Mock).mockResolvedValue(null);
     const result = await service.getBalance('tenant-1', 'prod-1', 'wh-1');
-    expect(result.quantity).toBe(0);
+    expect(result).toMatchObject({ quantity: 0, committedQuantity: 0, availableQuantity: 0 });
   });
 
   it('adjusts stock through the atomic repository operation', async () => {

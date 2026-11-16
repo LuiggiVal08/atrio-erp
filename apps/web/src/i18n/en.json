@@ -206,16 +206,36 @@
       "cancelErrorTitle": "Could not cancel the transfer",
       "status": {
         "pending": "Pending",
-        "processing": "Processing",
         "completed": "Completed",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "in_transit": "In transit"
       },
       "statusLabel": "Status",
       "completeTitle": "Complete transfer",
       "cancelTitle": "Cancel transfer",
       "cancelAction": "Cancel transfer",
       "sameWarehouse": "Origin and destination must be different warehouses.",
-      "invalidQuantity": "Enter a quantity greater than zero."
+      "invalidQuantity": "Enter a quantity greater than zero.",
+      "dispatch": "Dispatch",
+      "dispatchTitle": "Dispatch transfer",
+      "dispatchConfirm": "Dispatch {quantity} units of {product}? Stock will leave the origin warehouse and remain in transit.",
+      "dispatchSuccessTitle": "Transfer dispatched",
+      "dispatchSuccessBody": "Stock left the origin and is now in transit.",
+      "dispatchErrorTitle": "Could not dispatch the transfer",
+      "dispatchErrorBody": "Check that the transfer is still pending and the origin has available stock.",
+      "receive": "Receive",
+      "receiveTitle": "Receive transfer",
+      "receiveConfirm": "Pending receipt: {quantity} units of {product}.",
+      "receiveQuantity": "Received quantity",
+      "closeShortage": "Close with shortage (the rest will not be received)",
+      "receiveInvalidQuantity": "Enter a quantity between 0 and the pending amount.",
+      "receivePositiveQuantity": "Enter a quantity greater than zero or mark close with shortage.",
+      "receiveSuccessTitle": "Transfer received",
+      "receiveSuccessBody": "Received stock was added to the destination warehouse.",
+      "receiveErrorTitle": "Could not receive the transfer",
+      "receiveErrorBody": "Check that the transfer is in transit and the pending quantity.",
+      "received": "Received",
+      "shortage": "Shortage"
     },
     "stock": "Stock",
     "stockView": {
@@ -269,7 +289,9 @@
       "unchangedCount": "The count matches the balance; there is no difference to reconcile.",
       "loadError": "Could not load stock or movements.",
       "fromDate": "From",
-      "toDate": "To"
+      "toDate": "To",
+      "committed": "Committed",
+      "available": "Available"
     },
     "summary": {
       "loading": "Loading inventory summary",
@@ -596,7 +618,9 @@
       "from": "From",
       "to": "To",
       "rate": "Rate",
-      "date": "Date"
+      "date": "Date",
+      "provider": "Provider",
+      "manual": "Manual"
     }
   },
   "crm": {

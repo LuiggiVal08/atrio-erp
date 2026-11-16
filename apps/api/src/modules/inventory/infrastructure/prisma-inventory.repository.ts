@@ -592,8 +592,8 @@ export class PrismaInventoryRepository implements InventoryRepository {
     if (!tenantId) throw new BadRequestException('Tenant context is required');
   }
 
-  private toStock(record: { id: string; productId: string; warehouseId: string; quantity: number; createdAt: Date; updatedAt: Date }): Stock {
-    return new Stock(record.id, record.productId, record.warehouseId, record.quantity, record.createdAt, record.updatedAt);
+  private toStock(record: { id: string; productId: string; warehouseId: string; quantity: number; committedQuantity?: number; createdAt: Date; updatedAt: Date }): Stock {
+    return new Stock(record.id, record.productId, record.warehouseId, record.quantity, record.createdAt, record.updatedAt, record.committedQuantity ?? 0);
   }
 
   private async assertStockResources(tx: Prisma.TransactionClient, tenantId: string, productId: string, warehouseId: string): Promise<void> {
@@ -639,17 +639,24 @@ export class PrismaInventoryRepository implements InventoryRepository {
         }
         const where = { productId: data.productId, warehouseId: data.warehouseId };
         await tx.stock.upsert({ where: { productId_warehouseId: where }, update: {}, create: { ...where, quantity: 0 } });
+        const current = await tx.stock.findUniqueOrThrow({ where: { productId_warehouseId: where } });
+        if (data.type === 'out' && data.expectedQuantity === undefined && current.quantity - current.committedQuantity < data.quantity) {
+          throw new BadRequestException('Insufficient available stock');
+        }
+        if (data.expectedQuantity !== undefined && data.expectedQuantity < current.committedQuantity) {
+          throw new ConflictException('Physical count cannot be lower than committed stock');
+        }
         const delta = data.type === 'in' ? data.quantity : -data.quantity;
         const updated = await tx.stock.updateMany({
-          where: { ...where, quantity: data.expectedQuantity !== undefined ? data.expectedQuantity : data.type === 'out' ? { gte: data.quantity } : undefined },
+          where: { ...where, quantity: data.expectedQuantity !== undefined ? data.expectedQuantity : data.type === 'out' ? { gte: data.quantity + current.committedQuantity } : undefined },
           data: { quantity: { increment: delta } },
         });
         if (updated.count !== 1) {
           if (data.expectedQuantity !== undefined) throw new ConflictException('Stock changed since physical count; reload and recount');
-          throw new BadRequestException('Insufficient stock');
+          throw new BadRequestException('Insufficient available stock');
         }
         const stock = await tx.stock.findUniqueOrThrow({ where: { productId_warehouseId: where } });
-        if (stock.quantity < 0) throw new BadRequestException('Insufficient stock');
+        if (stock.quantity < 0 || stock.quantity < stock.committedQuantity) throw new BadRequestException('Insufficient available stock');
         const lotId = await this.applyLotDelta(tx, data, delta, stock.quantity);
         await tx.stockMovement.create({ data: {
           ...where, type: data.type, quantity: data.quantity, operationKey,
@@ -796,121 +803,237 @@ export class PrismaInventoryRepository implements InventoryRepository {
 
   // Transfers
   async createTransfer(data: { tenantId: string; fromWarehouseId: string; toWarehouseId: string; productId: string; quantity: number; notes?: string; lotNumber?: string }): Promise<StockTransfer> {
-    const r = await this.prisma.stockTransfer.create({
-      data: { ...data, notes: data.notes ?? null },
+    this.requireTenant(data.tenantId);
+    return this.serialTransaction(async (tx) => {
+      await this.assertStockResources(tx, data.tenantId, data.productId, data.fromWarehouseId);
+      await this.assertStockResources(tx, data.tenantId, data.productId, data.toWarehouseId);
+
+      const source = await tx.stock.findUnique({
+        where: { productId_warehouseId: { productId: data.productId, warehouseId: data.fromWarehouseId } },
+      });
+      const committed = source?.committedQuantity ?? 0;
+      const available = (source?.quantity ?? 0) - committed;
+      if (!source || available < data.quantity) {
+        throw new BadRequestException('Insufficient stock in source warehouse');
+      }
+
+      const reservation = await tx.stock.updateMany({
+        where: {
+          productId: data.productId,
+          warehouseId: data.fromWarehouseId,
+          quantity: source.quantity,
+          committedQuantity: committed,
+        },
+        data: { committedQuantity: { increment: data.quantity } },
+      });
+      if (reservation.count !== 1) {
+        throw new ConflictException('Stock changed while reserving the transfer; try again');
+      }
+
+      const created = await tx.stockTransfer.create({
+        data: { ...data, notes: data.notes ?? null, reserved: true },
+      });
+      return this.toStockTransfer(created);
     });
-    return new StockTransfer(r.id, r.tenantId, r.fromWarehouseId, r.toWarehouseId, r.productId, r.quantity, r.status, r.notes, r.createdAt, r.completedAt, r.lotNumber);
   }
 
   async findTransfersByTenant(tenantId: string): Promise<StockTransfer[]> {
     const records = await this.prisma.stockTransfer.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
-    return records.map(r => new StockTransfer(r.id, r.tenantId, r.fromWarehouseId, r.toWarehouseId, r.productId, r.quantity, r.status, r.notes, r.createdAt, r.completedAt, r.lotNumber));
+    return records.map(r => this.toStockTransfer(r));
   }
 
   async findTransferById(id: string): Promise<StockTransfer | null> {
     const r = await this.prisma.stockTransfer.findUnique({ where: { id } });
-    if (!r) return null;
-    return new StockTransfer(r.id, r.tenantId, r.fromWarehouseId, r.toWarehouseId, r.productId, r.quantity, r.status, r.notes, r.createdAt, r.completedAt, r.lotNumber);
+    return r ? this.toStockTransfer(r) : null;
   }
 
-  async completeTransfer(id: string, tenantId: string, userId?: string): Promise<StockTransfer> {
+  async dispatchTransfer(id: string, tenantId: string, userId?: string): Promise<StockTransfer> {
     this.requireTenant(tenantId);
     return this.serialTransaction(async (tx) => {
       const transfer = await tx.stockTransfer.findFirst({ where: { id, tenantId } });
       if (!transfer) throw new NotFoundException('Transfer not found');
-      if (transfer.status !== 'pending') throw new BadRequestException('Only pending transfers can be completed');
+      if (transfer.status !== 'pending') throw new BadRequestException('Only pending transfers can be dispatched');
       await this.assertStockResources(tx, tenantId, transfer.productId, transfer.fromWarehouseId);
       await this.assertStockResources(tx, tenantId, transfer.productId, transfer.toWarehouseId);
 
-      const pendingClaim = await tx.stockTransfer.updateMany({
+      const claim = await tx.stockTransfer.updateMany({
         where: { id, tenantId, status: 'pending' },
-        data: { status: 'processing' },
+        data: { status: 'in_transit', dispatchedAt: new Date() },
       });
-      if (pendingClaim.count !== 1) {
-        throw new BadRequestException('Only pending transfers can be completed');
+      if (claim.count !== 1) {
+        throw new BadRequestException('Only pending transfers can be dispatched');
       }
 
+      const release = transfer.reserved ? transfer.quantity : 0;
       const sourceStockUpdate = await tx.stock.updateMany({
         where: {
           productId: transfer.productId,
           warehouseId: transfer.fromWarehouseId,
           quantity: { gte: transfer.quantity },
+          ...(release > 0 ? { committedQuantity: { gte: release } } : {}),
         },
-        data: { quantity: { decrement: transfer.quantity } },
+        data: {
+          quantity: { decrement: transfer.quantity },
+          ...(release > 0 ? { committedQuantity: { decrement: release } } : {}),
+        },
       });
       if (sourceStockUpdate.count !== 1) {
         throw new BadRequestException('Insufficient stock in source warehouse');
       }
+
       const source = await tx.stock.findUniqueOrThrow({ where: { productId_warehouseId: { productId: transfer.productId, warehouseId: transfer.fromWarehouseId } } });
-      const destination = await tx.stock.upsert({
-        where: { productId_warehouseId: { productId: transfer.productId, warehouseId: transfer.toWarehouseId } },
-        update: { quantity: { increment: transfer.quantity } },
-        create: { productId: transfer.productId, warehouseId: transfer.toWarehouseId, quantity: transfer.quantity },
-      });
       const sourceLotId = await this.applyLotDelta(tx, {
         tenantId, productId: transfer.productId, warehouseId: transfer.fromWarehouseId, type: 'out', quantity: transfer.quantity,
         lotNumber: transfer.lotNumber ?? undefined,
       }, -transfer.quantity, source.quantity);
       const sourceLot = sourceLotId ? await tx.stockLot.findUniqueOrThrow({ where: { id: sourceLotId } }) : null;
-      const destinationLotId = sourceLot ? await this.applyLotDelta(tx, {
-        tenantId, productId: transfer.productId, warehouseId: transfer.toWarehouseId, type: 'in', quantity: transfer.quantity,
-        lotNumber: sourceLot.lotNumber ?? undefined, serialNumber: sourceLot.serialNumber ?? undefined, expirationDate: sourceLot.expirationDate?.toISOString(),
-      }, transfer.quantity, destination.quantity) : null;
-      await tx.stockMovement.createMany({
-        data: [
-          {
-            productId: transfer.productId,
-            warehouseId: transfer.fromWarehouseId,
-            type: 'out',
-            quantity: transfer.quantity,
-            userId, lotId: sourceLotId, balanceBefore: source.quantity + transfer.quantity, balanceAfter: source.quantity,
-            referenceType: 'transfer',
-            referenceId: transfer.id,
-          },
-          {
+
+      await tx.stockMovement.create({
+        data: {
+          productId: transfer.productId,
+          warehouseId: transfer.fromWarehouseId,
+          type: 'out',
+          quantity: transfer.quantity,
+          userId: userId ?? null,
+          lotId: sourceLotId,
+          balanceBefore: source.quantity + transfer.quantity,
+          balanceAfter: source.quantity,
+          referenceType: 'transfer_dispatch',
+          referenceId: transfer.id,
+        },
+      });
+
+      const dispatched = await tx.stockTransfer.update({
+        where: { id },
+        data: {
+          status: 'in_transit',
+          dispatchedAt: new Date(),
+          lotSerialNumber: sourceLot?.serialNumber ?? transfer.lotSerialNumber,
+          lotExpirationDate: sourceLot?.expirationDate ?? transfer.lotExpirationDate,
+        },
+      });
+      return this.toStockTransfer(dispatched);
+    });
+  }
+
+  async receiveTransfer(id: string, tenantId: string, data: { quantity: number; closeShortage?: boolean; userId?: string }): Promise<StockTransfer> {
+    this.requireTenant(tenantId);
+    return this.serialTransaction(async (tx) => {
+      const transfer = await tx.stockTransfer.findFirst({ where: { id, tenantId } });
+      if (!transfer) throw new NotFoundException('Transfer not found');
+      if (transfer.status !== 'in_transit') throw new BadRequestException('Only in-transit transfers can be received');
+      await this.assertStockResources(tx, tenantId, transfer.productId, transfer.toWarehouseId);
+
+      const pendingQuantity = transfer.quantity - transfer.receivedQuantity - transfer.shortageQuantity;
+      if (!Number.isFinite(data.quantity) || data.quantity < 0 || data.quantity > pendingQuantity) {
+        throw new BadRequestException('Received quantity exceeds the pending transfer quantity');
+      }
+
+      const receivedQuantity = transfer.receivedQuantity + data.quantity;
+      const close = Boolean(data.closeShortage) || receivedQuantity + transfer.shortageQuantity >= transfer.quantity - 1e-9;
+      const shortageQuantity = close ? Math.max(0, transfer.quantity - receivedQuantity) : transfer.shortageQuantity;
+      const now = new Date();
+
+      if (data.quantity > 0) {
+        const destination = await tx.stock.upsert({
+          where: { productId_warehouseId: { productId: transfer.productId, warehouseId: transfer.toWarehouseId } },
+          update: { quantity: { increment: data.quantity } },
+          create: { productId: transfer.productId, warehouseId: transfer.toWarehouseId, quantity: data.quantity },
+        });
+        const destinationLotId = await this.applyLotDelta(tx, {
+          tenantId,
+          productId: transfer.productId,
+          warehouseId: transfer.toWarehouseId,
+          type: 'in',
+          quantity: data.quantity,
+          lotNumber: transfer.lotNumber ?? undefined,
+          serialNumber: transfer.lotSerialNumber ?? undefined,
+          expirationDate: transfer.lotExpirationDate?.toISOString(),
+        }, data.quantity, destination.quantity);
+        await tx.stockMovement.create({
+          data: {
             productId: transfer.productId,
             warehouseId: transfer.toWarehouseId,
             type: 'in',
-            quantity: transfer.quantity,
-            userId, lotId: destinationLotId, balanceBefore: destination.quantity - transfer.quantity, balanceAfter: destination.quantity,
-            referenceType: 'transfer',
+            quantity: data.quantity,
+            userId: data.userId ?? null,
+            lotId: destinationLotId,
+            balanceBefore: destination.quantity - data.quantity,
+            balanceAfter: destination.quantity,
+            referenceType: 'transfer_receipt',
             referenceId: transfer.id,
           },
-        ],
-      });
-      const completed = await tx.stockTransfer.update({
+        });
+      }
+
+      const received = await tx.stockTransfer.update({
         where: { id },
-        data: { status: 'completed', completedAt: new Date() },
+        data: {
+          receivedQuantity,
+          shortageQuantity,
+          receivedAt: now,
+          status: close ? 'completed' : 'in_transit',
+          completedAt: close ? now : null,
+        },
       });
-      return new StockTransfer(
-        completed.id,
-        completed.tenantId,
-        completed.fromWarehouseId,
-        completed.toWarehouseId,
-        completed.productId,
-        completed.quantity,
-        completed.status,
-        completed.notes,
-        completed.createdAt,
-        completed.completedAt,
-        completed.lotNumber,
-      );
+      return this.toStockTransfer(received);
     });
   }
 
   async cancelTransfer(id: string, tenantId: string): Promise<StockTransfer> {
     this.requireTenant(tenantId);
-    const r = await this.prisma.$transaction(async (tx) => {
+    return this.serialTransaction(async (tx) => {
+      const transfer = await tx.stockTransfer.findFirst({ where: { id, tenantId } });
+      if (!transfer) throw new NotFoundException('Transfer not found');
+      if (transfer.status !== 'pending') throw new BadRequestException('Only pending transfers can be cancelled');
+
       const cancelled = await tx.stockTransfer.updateMany({
         where: { id, tenantId, status: 'pending' },
-        data: { status: 'cancelled' },
+        data: { status: 'cancelled', cancelledAt: new Date() },
       });
       if (cancelled.count !== 1) {
         throw new BadRequestException('Only pending transfers can be cancelled');
       }
-      return tx.stockTransfer.findUniqueOrThrow({ where: { id } });
+      if (transfer.reserved) {
+        const release = await tx.stock.updateMany({
+          where: {
+            productId: transfer.productId,
+            warehouseId: transfer.fromWarehouseId,
+            committedQuantity: { gte: transfer.quantity },
+          },
+          data: { committedQuantity: { decrement: transfer.quantity } },
+        });
+        if (release.count !== 1) {
+          throw new BadRequestException('Transfer reservation is no longer available');
+        }
+      }
+      const record = await tx.stockTransfer.findUniqueOrThrow({ where: { id } });
+      return this.toStockTransfer(record);
     });
-    return new StockTransfer(r.id, r.tenantId, r.fromWarehouseId, r.toWarehouseId, r.productId, r.quantity, r.status, r.notes, r.createdAt, r.completedAt, r.lotNumber);
+  }
+
+  private toStockTransfer(record: any): StockTransfer {
+    return new StockTransfer(
+      record.id,
+      record.tenantId,
+      record.fromWarehouseId,
+      record.toWarehouseId,
+      record.productId,
+      record.quantity,
+      record.status,
+      record.notes,
+      record.createdAt,
+      record.completedAt,
+      record.lotNumber,
+      record.receivedQuantity ?? 0,
+      record.shortageQuantity ?? 0,
+      record.reserved ?? false,
+      record.dispatchedAt ?? null,
+      record.receivedAt ?? null,
+      record.cancelledAt ?? null,
+      record.lotSerialNumber ?? null,
+      record.lotExpirationDate ?? null,
+    );
   }
 
   // Reorder Points

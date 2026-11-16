@@ -479,5 +479,13 @@ describe('PosSaleService', () => {
       setupPayMocks(tx);
       await expect(service.pay('sale-1', 'u1', 't1', 'pm-1', 'cr-1')).rejects.toThrow('Insufficient stock for product Laptop');
     });
+
+    it('should throw when physical stock is reserved by another operation', async () => {
+      const tx = makeTxMock({ stockQty: 2 });
+      tx.$queryRawUnsafe = jest.fn().mockResolvedValue([{ quantity: 2, committed_quantity: 1 }]);
+      setupPayMocks(tx);
+      await expect(service.pay('sale-1', 'u1', 't1', 'pm-1', 'cr-1')).rejects.toThrow('Insufficient stock for product Laptop');
+      expect(tx.stock.update).not.toHaveBeenCalled();
+    });
   });
 });

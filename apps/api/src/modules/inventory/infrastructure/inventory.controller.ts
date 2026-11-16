@@ -17,7 +17,7 @@ import { ReorderPointService } from '../application/reorder-point.service';
 import { BranchService } from '../application/branch.service';
 import { InventorySummaryService } from '../application/inventory-summary.service';
 import { ProductBrandService } from '../application/product-brand.service';
-import { CreateProductCategoryDto, UpdateProductCategoryDto, CreateProductBrandDto, UpdateProductBrandDto, CreateProductDto, UpdateProductDto, CreateWarehouseDto, UpdateWarehouseDto, CreateBranchDto, UpdateBranchDto, StockMovementQueryDto, AdjustStockDto, CreateTransferDto, SetReorderPointDto, UpdateReorderPointDto, CreateStorageLocationDto, UpdateStorageLocationDto, GenerateStorageLocationsDto } from './dto/inventory.dto';
+import { CreateProductCategoryDto, UpdateProductCategoryDto, CreateProductBrandDto, UpdateProductBrandDto, CreateProductDto, UpdateProductDto, CreateWarehouseDto, UpdateWarehouseDto, CreateBranchDto, UpdateBranchDto, StockMovementQueryDto, AdjustStockDto, CreateTransferDto, ReceiveTransferDto, SetReorderPointDto, UpdateReorderPointDto, CreateStorageLocationDto, UpdateStorageLocationDto, GenerateStorageLocationsDto } from './dto/inventory.dto';
 
 @ApiTags('Inventory')
 @Controller('inventory')
@@ -380,11 +380,26 @@ export class InventoryController {
     return this.transferService.findById(this.tenantId(user), id);
   }
 
-  @Patch('transfers/:id/complete')
+  @Patch('transfers/:id/dispatch')
   @RequirePermission('inventory:transfer:complete')
-  @ApiOperation({ summary: 'Complete transfer (moves stock)' })
-  async completeTransfer(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.transferService.complete(this.tenantId(user), id, user.id);
+  @ApiOperation({ summary: 'Dispatch a pending transfer into transit' })
+  async dispatchTransfer(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.transferService.dispatch(this.tenantId(user), id, user.id);
+  }
+
+  @Patch('transfers/:id/receive')
+  @RequirePermission('inventory:transfer:complete')
+  @ApiOperation({ summary: 'Receive dispatched transfer stock, fully or partially' })
+  async receiveTransfer(
+    @Param('id') id: string,
+    @Body() dto: ReceiveTransferDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.transferService.receive(this.tenantId(user), id, {
+      quantity: dto.quantity,
+      closeShortage: dto.closeShortage,
+      userId: user.id,
+    });
   }
 
   @Patch('transfers/:id/cancel')

@@ -8,7 +8,9 @@ export class StockService {
   async getBalance(tenantId: string, productId: string, warehouseId: string) {
     await this.ensureResources(tenantId, productId, warehouseId);
     const stock = await this.repo.getStock(productId, warehouseId, tenantId);
-    return { productId, warehouseId, quantity: stock?.quantity ?? 0 };
+    const quantity = stock?.quantity ?? 0;
+    const committedQuantity = stock?.committedQuantity ?? 0;
+    return { productId, warehouseId, quantity, committedQuantity, availableQuantity: Math.max(0, quantity - committedQuantity) };
   }
 
   async adjust(data: StockAdjustmentInput) {

@@ -22,7 +22,8 @@ vi.mock('@/modules/inventory/hooks/useTransfers', () => ({
     isFetching: false,
   }),
   useCreateTransfer: () => ({}),
-  useCompleteTransfer: () => ({}),
+  useDispatchTransfer: () => ({}),
+  useReceiveTransfer: () => ({}),
   useCancelTransfer: () => ({}),
 }));
 vi.mock('@/modules/inventory/hooks/useWarehouses', () => ({ useWarehouses: () => ({ data: [] }) }));

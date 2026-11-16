@@ -206,16 +206,36 @@
       "cancelErrorTitle": "No se pudo cancelar el traslado",
       "status": {
         "pending": "Pendiente",
-        "processing": "Procesando",
         "completed": "Completado",
-        "cancelled": "Cancelado"
+        "cancelled": "Cancelado",
+        "in_transit": "En tránsito"
       },
       "statusLabel": "Estado",
       "completeTitle": "Completar traslado",
       "cancelTitle": "Cancelar traslado",
       "cancelAction": "Cancelar traslado",
       "sameWarehouse": "El origen y el destino deben ser almacenes distintos.",
-      "invalidQuantity": "Ingresa una cantidad mayor que cero."
+      "invalidQuantity": "Ingresa una cantidad mayor que cero.",
+      "dispatch": "Despachar",
+      "dispatchTitle": "Despachar traslado",
+      "dispatchConfirm": "¿Despachar {quantity} unidades de {product}? El stock saldrá del almacén origen y quedará en tránsito.",
+      "dispatchSuccessTitle": "Traslado despachado",
+      "dispatchSuccessBody": "El stock salió del origen y está en tránsito.",
+      "dispatchErrorTitle": "No se pudo despachar el traslado",
+      "dispatchErrorBody": "Verifica que el traslado siga pendiente y que el origen tenga stock disponible.",
+      "receive": "Recibir",
+      "receiveTitle": "Recibir traslado",
+      "receiveConfirm": "Pendiente por recibir: {quantity} unidades de {product}.",
+      "receiveQuantity": "Cantidad recibida",
+      "closeShortage": "Cerrar con faltante (no se recibirá el resto)",
+      "receiveInvalidQuantity": "Ingresa una cantidad entre 0 y lo pendiente.",
+      "receivePositiveQuantity": "Ingresa una cantidad mayor que cero o marca cerrar con faltante.",
+      "receiveSuccessTitle": "Traslado recibido",
+      "receiveSuccessBody": "El stock recibido fue ingresado al almacén destino.",
+      "receiveErrorTitle": "No se pudo recibir el traslado",
+      "receiveErrorBody": "Verifica que el traslado esté en tránsito y la cantidad pendiente.",
+      "received": "Recibido",
+      "shortage": "Faltante"
     },
     "stock": "Stock",
     "stockView": {
@@ -269,7 +289,9 @@
       "unchangedCount": "El conteo coincide con el saldo; no hay diferencia que conciliar.",
       "loadError": "No se pudieron cargar las existencias o los movimientos.",
       "fromDate": "Desde",
-      "toDate": "Hasta"
+      "toDate": "Hasta",
+      "committed": "Comprometido",
+      "available": "Disponible"
     },
     "summary": {
       "loading": "Cargando resumen de inventario",
@@ -596,7 +618,9 @@
       "from": "Desde",
       "to": "Hasta",
       "rate": "Tasa",
-      "date": "Fecha"
+      "date": "Fecha",
+      "provider": "Proveedor",
+      "manual": "Manual"
     }
   },
   "crm": {

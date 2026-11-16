@@ -448,12 +448,12 @@ export class PosSaleService {
       // Lock stock rows with FOR UPDATE — prevents race conditions
       for (const line of doc.lines) {
         if (!line.productId || !line.warehouseId) continue;
-        const [stockRow] = await tx.$queryRawUnsafe<Array<{ quantity: number }>>(
-          `SELECT quantity FROM stock WHERE product_id = $1 AND warehouse_id = $2 FOR UPDATE`,
+        const [stockRow] = await tx.$queryRawUnsafe<Array<{ quantity: number; committed_quantity: number }>>(
+          `SELECT quantity, committed_quantity FROM stock WHERE product_id = $1 AND warehouse_id = $2 FOR UPDATE`,
           line.productId,
           line.warehouseId,
         );
-        const available = stockRow ? Number(stockRow.quantity) : 0;
+        const available = stockRow ? Number(stockRow.quantity) - Number(stockRow.committed_quantity ?? 0) : 0;
         if (available < Number(line.quantity)) {
           throw new BadRequestException(`Insufficient stock for product ${line.description}`);
         }

@@ -255,6 +255,17 @@ describe('QuickSaleService', () => {
     expect(prisma.stock.update).not.toHaveBeenCalled();
   });
 
+  it('rejects the sale when physical stock is reserved by another operation', async () => {
+    prisma.stock.findUnique.mockResolvedValue({ quantity: 10, committedQuantity: 9 });
+
+    await expect(service.execute(
+      makeInput({
+        items: [{ productId: 'product-1', warehouseId: 'warehouse-1', quantity: 2, unitPrice: 100 }],
+      }),
+    )).rejects.toThrow('Stock insuficiente');
+    expect(prisma.stock.update).not.toHaveBeenCalled();
+  });
+
   it('rejects an oversell when a concurrent sale wins the conditional decrement', async () => {
     prisma.stock.updateMany = jest.fn().mockResolvedValue({ count: 0 });
     await expect(service.execute(makeInput())).rejects.toThrow('Stock insuficiente');

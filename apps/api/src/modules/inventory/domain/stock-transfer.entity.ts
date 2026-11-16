@@ -11,5 +11,17 @@ export class StockTransfer {
     public readonly createdAt: Date,
     public readonly completedAt: Date | null,
     public readonly lotNumber: string | null = null,
+    public readonly receivedQuantity: number = 0,
+    public readonly shortageQuantity: number = 0,
+    public readonly reserved: boolean = false,
+    public readonly dispatchedAt: Date | null = null,
+    public readonly receivedAt: Date | null = null,
+    public readonly cancelledAt: Date | null = null,
+    public readonly lotSerialNumber: string | null = null,
+    public readonly lotExpirationDate: Date | null = null,
   ) {}
+
+  get pendingQuantity(): number {
+    return Math.max(0, this.quantity - this.receivedQuantity - this.shortageQuantity);
+  }
 }

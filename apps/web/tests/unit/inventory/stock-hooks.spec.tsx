@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import api from '@/shared/lib/api/client';
 import { useTenantStore } from '@/core/tenant/store';
 import { useAdjustStock, useAllStockMovements, useStockBalances } from '@/modules/inventory/hooks/useStockMovements';
-import { useCompleteTransfer } from '@/modules/inventory/hooks/useTransfers';
+import { useCancelTransfer, useDispatchTransfer, useReceiveTransfer } from '@/modules/inventory/hooks/useTransfers';
 
 vi.mock('@/shared/lib/api/client', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 
@@ -52,13 +52,37 @@ describe('inventory transactional hooks', () => {
     }
   });
 
-  it('refreshes stock, history, product and alerts after completing a transfer', async () => {
+  it('dispatches a transfer and refreshes stock, history, product and alerts', async () => {
     vi.mocked(api.patch).mockResolvedValue({ data: {} });
     const { client, wrapper } = setup();
     const invalidate = vi.spyOn(client, 'invalidateQueries');
-    const { result } = renderHook(() => useCompleteTransfer(), { wrapper });
+    const { result } = renderHook(() => useDispatchTransfer(), { wrapper });
     await act(() => result.current.mutateAsync('transfer-1'));
+    expect(api.patch).toHaveBeenCalledWith('/inventory/transfers/transfer-1/dispatch');
     for (const key of ['stock-transfers', 'stock-balances', 'stock-movements-all', 'inventory', 'reorder-points', 'warehouses']) {
+      expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ queryKey: [key] }));
+    }
+  });
+
+  it('receives a partial transfer quantity and refreshes stock', async () => {
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    const { client, wrapper } = setup();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useReceiveTransfer(), { wrapper });
+    await act(() => result.current.mutateAsync({ id: 'transfer-1', quantity: 2, closeShortage: true }));
+    expect(api.patch).toHaveBeenCalledWith('/inventory/transfers/transfer-1/receive', { quantity: 2, closeShortage: true });
+    expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['stock-balances'] }));
+    expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['stock-movements-all'] }));
+  });
+
+  it('cancels a pending transfer and refreshes the released commitment', async () => {
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    const { client, wrapper } = setup();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useCancelTransfer(), { wrapper });
+    await act(() => result.current.mutateAsync('transfer-1'));
+    expect(api.patch).toHaveBeenCalledWith('/inventory/transfers/transfer-1/cancel');
+    for (const key of ['stock-transfers', 'stock-balances', 'inventory', 'reorder-points']) {
       expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ queryKey: [key] }));
     }
   });

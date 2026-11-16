@@ -641,12 +641,13 @@ model Branch {
 }
 
 model Stock {
-  id          String   @id @default(uuid()) @db.Uuid
-  productId   String   @map("product_id") @db.Uuid
-  warehouseId String   @map("warehouse_id") @db.Uuid
-  quantity    Float    @default(0)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(uuid()) @db.Uuid
+  productId         String   @map("product_id") @db.Uuid
+  warehouseId       String   @map("warehouse_id") @db.Uuid
+  quantity          Float    @default(0)
+  committedQuantity Float    @default(0) @map("committed_quantity")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   product   Product   @relation(fields: [productId], references: [id])
   warehouse Warehouse @relation(fields: [warehouseId], references: [id])
@@ -780,6 +781,8 @@ model CurrencyRate {
   toCurrency   String   @map("to_currency")
   rate         Float    @default(0)
   date         DateTime
+  source       String   @default("manual")
+  provider     String?
   createdAt    DateTime @default(now()) @map("created_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
@@ -1539,6 +1542,7 @@ model AuditLog {
   id         String      @id @default(uuid()) @db.Uuid
   entityType String      @map("entity_type")
   entityId   String?     @map("entity_id") @db.Uuid
+  resource   String?     @map("resource")
   action     AuditAction
   before     Json?
   after      Json?
@@ -1676,17 +1680,25 @@ model SalesCommission {
 }
 
 model StockTransfer {
-  id              String    @id @default(uuid()) @db.Uuid
-  tenantId        String    @map("tenant_id") @db.Uuid
-  fromWarehouseId String    @map("from_warehouse_id") @db.Uuid
-  toWarehouseId   String    @map("to_warehouse_id") @db.Uuid
-  productId       String    @map("product_id") @db.Uuid
-  quantity        Float     @default(0)
-  status          String    @default("pending")
-  lotNumber       String?   @map("lot_number")
-  notes           String?
-  createdAt       DateTime  @default(now()) @map("created_at")
-  completedAt     DateTime? @map("completed_at")
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  fromWarehouseId   String    @map("from_warehouse_id") @db.Uuid
+  toWarehouseId     String    @map("to_warehouse_id") @db.Uuid
+  productId         String    @map("product_id") @db.Uuid
+  quantity          Float     @default(0)
+  receivedQuantity  Float     @default(0) @map("received_quantity")
+  shortageQuantity  Float     @default(0) @map("shortage_quantity")
+  reserved          Boolean   @default(false)
+  status            String    @default("pending")
+  lotNumber         String?   @map("lot_number")
+  lotSerialNumber   String?   @map("lot_serial_number")
+  lotExpirationDate DateTime? @map("lot_expiration_date")
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  dispatchedAt      DateTime? @map("dispatched_at")
+  receivedAt        DateTime? @map("received_at")
+  completedAt       DateTime? @map("completed_at")
+  cancelledAt       DateTime? @map("cancelled_at")
 
   tenant        Tenant    @relation(fields: [tenantId], references: [id])
   fromWarehouse Warehouse @relation("from_warehouse", fields: [fromWarehouseId], references: [id])

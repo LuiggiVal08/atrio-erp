@@ -105,7 +105,10 @@ export interface InventoryRepository {
   }): Promise<StockTransfer>;
   findTransfersByTenant(tenantId: string): Promise<StockTransfer[]>;
   findTransferById(id: string): Promise<StockTransfer | null>;
-  completeTransfer(id: string, tenantId: string, userId?: string): Promise<StockTransfer>;
+  dispatchTransfer(id: string, tenantId: string, userId?: string): Promise<StockTransfer>;
+  receiveTransfer(id: string, tenantId: string, data: {
+    quantity: number; closeShortage?: boolean; userId?: string;
+  }): Promise<StockTransfer>;
   cancelTransfer(id: string, tenantId: string): Promise<StockTransfer>;
 
   // Reorder Points

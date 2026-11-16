@@ -161,6 +161,31 @@ export function StockMovementsView() {
       },
     },
     {
+      key: 'committedQuantity',
+      label: t('inventory.stockView.committed'),
+      width: 110,
+      align: 'right',
+      render: (_value, row) => (
+        <span className="font-mono tabular-nums text-text-secondary">
+          {formatNumber(Number(row.committedQuantity ?? 0))}
+        </span>
+      ),
+    },
+    {
+      key: 'availableQuantity',
+      label: t('inventory.stockView.available'),
+      width: 110,
+      align: 'right',
+      render: (_value, row) => {
+        const available = Number(row.quantity) - Number(row.committedQuantity ?? 0);
+        return (
+          <span className={`font-mono tabular-nums ${available <= 0 ? 'font-semibold text-error' : 'font-semibold text-text-primary'}`}>
+            {formatNumber(available)}
+          </span>
+        );
+      },
+    },
+    {
       key: 'limits',
       label: t('inventory.stockView.limits'),
       width: 160,

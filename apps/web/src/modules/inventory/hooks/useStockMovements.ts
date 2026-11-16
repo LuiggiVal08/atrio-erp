@@ -24,6 +24,7 @@ export interface StockBalance {
   productId: string;
   warehouseId: string;
   quantity: number;
+  committedQuantity?: number;
   updatedAt: string;
   product: {
     id: string; name: string; sku: string; minStock?: number; maxStock?: number | null;

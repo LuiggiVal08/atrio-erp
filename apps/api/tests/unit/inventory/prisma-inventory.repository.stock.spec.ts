@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { PrismaInventoryRepository } from '../../../src/modules/inventory/infrastructure/prisma-inventory.repository';
 
 const input = { tenantId: 't1', productId: 'p1', warehouseId: 'w1', type: 'out' as const, quantity: 3, userId: 'u1', operationId: 'op1' };
-function setup() {
+function setup(committed = 0) {
   let quantity = 5;
   const movements: any[] = [];
   const tx: any = {
@@ -16,7 +16,7 @@ function setup() {
         quantity += data.quantity.increment;
         return { count: 1 };
       }),
-      findUniqueOrThrow: jest.fn().mockImplementation(async () => ({ id: 's1', productId: 'p1', warehouseId: 'w1', quantity, createdAt: new Date(), updatedAt: new Date() })),
+      findUniqueOrThrow: jest.fn().mockImplementation(async () => ({ id: 's1', productId: 'p1', warehouseId: 'w1', quantity, committedQuantity: committed, createdAt: new Date(), updatedAt: new Date() })),
     },
     stockLot: {
       findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null),
@@ -76,6 +76,19 @@ describe('atomic inventory adjustments', () => {
     await repo.adjustStockAtomic(input);
     await expect(repo.adjustStockAtomic({ ...input, operationId: 'op2' })).rejects.toBeInstanceOf(BadRequestException);
     expect(balance()).toBe(2);
+  });
+
+  it('protects committed stock from outgoing adjustments', async () => {
+    const { repo, balance } = setup(3);
+    await expect(repo.adjustStockAtomic(input)).rejects.toBeInstanceOf(BadRequestException);
+    expect(balance()).toBe(5);
+  });
+
+  it('allows an outgoing adjustment that leaves committed stock covered', async () => {
+    const { repo, tx, balance } = setup(2);
+    await repo.adjustStockAtomic(input);
+    expect(balance()).toBe(2);
+    expect(tx.stock.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ quantity: { gte: 5 } }) }));
   });
 
   it('rejects foreign products without changing balances', async () => {

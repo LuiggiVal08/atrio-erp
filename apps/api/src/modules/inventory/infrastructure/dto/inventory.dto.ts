@@ -157,6 +157,11 @@ export class CreateTransferDto {
   @IsOptional() @IsString() lotNumber?: string;
 }
 
+export class ReceiveTransferDto {
+  @IsNumber() @Min(0) quantity!: number;
+  @IsOptional() @IsBoolean() closeShortage?: boolean;
+}
+
 export class SetReorderPointDto {
   @IsUUID() productId!: string;
   @IsUUID() warehouseId!: string;

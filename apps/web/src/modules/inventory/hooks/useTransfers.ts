@@ -10,6 +10,15 @@ export interface StockTransfer {
   toWarehouseId: string;
   quantity: number;
   status: string;
+  receivedQuantity: number;
+  shortageQuantity: number;
+  reserved: boolean;
+  lotNumber?: string | null;
+  lotSerialNumber?: string | null;
+  lotExpirationDate?: string | null;
+  dispatchedAt?: string | null;
+  receivedAt?: string | null;
+  cancelledAt?: string | null;
   createdAt: string;
 }
 
@@ -38,15 +47,34 @@ export function useCreateTransfer() {
   });
 }
 
-export function useCompleteTransfer() {
+function invalidateTransferData(queryClient: ReturnType<typeof useQueryClient>) {
+  return Promise.all(
+    ['stock-transfers', 'stock-balances', 'stock-movements-all', 'stock-movements', 'inventory', 'product', 'reorder-points', 'warehouses'].map(
+      (key) => queryClient.invalidateQueries({ queryKey: [key] }),
+    ),
+  );
+}
+
+export function useDispatchTransfer() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => (await api.patch(`/inventory/transfers/${id}/complete`)).data,
-    onSuccess: () => Promise.all(
-      ['stock-transfers', 'stock-balances', 'stock-movements-all', 'stock-movements', 'inventory', 'product', 'reorder-points', 'warehouses'].map(
-        (key) => queryClient.invalidateQueries({ queryKey: [key] }),
-      ),
-    ),
+    mutationFn: async (id: string) => (await api.patch(`/inventory/transfers/${id}/dispatch`)).data,
+    onSuccess: () => invalidateTransferData(queryClient),
+  });
+}
+
+export interface ReceiveTransferInput {
+  id: string;
+  quantity: number;
+  closeShortage?: boolean;
+}
+
+export function useReceiveTransfer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, quantity, closeShortage }: ReceiveTransferInput) =>
+      (await api.patch(`/inventory/transfers/${id}/receive`, { quantity, closeShortage })).data,
+    onSuccess: () => invalidateTransferData(queryClient),
   });
 }
 
@@ -54,6 +82,6 @@ export function useCancelTransfer() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => (await api.patch(`/inventory/transfers/${id}/cancel`)).data,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-transfers'] }),
+    onSuccess: () => invalidateTransferData(queryClient),
   });
 }

@@ -5,7 +5,8 @@ import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 import {
   useTransfers,
   useCreateTransfer,
-  useCompleteTransfer,
+  useDispatchTransfer,
+  useReceiveTransfer,
   useCancelTransfer,
   type StockTransfer,
 } from '@/modules/inventory/hooks/useTransfers';
@@ -26,7 +27,8 @@ export function TransferListView() {
   const { t, locale } = useTranslation();
   const { data: transfers, isLoading, isError, error, refetch, isFetching } = useTransfers();
   const createMutation = useCreateTransfer();
-  const completeMutation = useCompleteTransfer();
+  const dispatchMutation = useDispatchTransfer();
+  const receiveMutation = useReceiveTransfer();
   const cancelMutation = useCancelTransfer();
   const { data: warehouses } = useWarehouses();
   useInventoryList();
@@ -38,9 +40,12 @@ export function TransferListView() {
   const [quantity, setQuantity] = useState('1');
   const [formError, setFormError] = useState('');
   const [confirm, setConfirm] = useState<{
-    action: 'complete' | 'cancel';
+    action: 'dispatch' | 'receive' | 'cancel';
     transfer: StockTransfer;
   } | null>(null);
+  const [receiveQuantity, setReceiveQuantity] = useState('');
+  const [closeShortage, setCloseShortage] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,31 +84,73 @@ export function TransferListView() {
     }
   };
 
+  const pendingQuantity = (transfer: StockTransfer) =>
+    Number(transfer.quantity) - Number(transfer.receivedQuantity ?? 0) - Number(transfer.shortageQuantity ?? 0);
+
+  const openConfirm = (action: 'dispatch' | 'receive' | 'cancel', transfer: StockTransfer) => {
+    setConfirm({ action, transfer });
+    setConfirmError('');
+    if (action === 'receive') {
+      setReceiveQuantity(String(pendingQuantity(transfer)));
+      setCloseShortage(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!confirm) return;
     const { action, transfer } = confirm;
-    if (action === 'complete') {
+    if (action === 'dispatch') {
       try {
-        await completeMutation.mutateAsync(transfer.id);
+        await dispatchMutation.mutateAsync(transfer.id);
         toastService.success(
-          t('inventory.transfer.completeSuccessTitle'),
-          t('inventory.transfer.completeSuccessBody'),
+          t('inventory.transfer.dispatchSuccessTitle'),
+          t('inventory.transfer.dispatchSuccessBody'),
         );
         setConfirm(null);
       } catch {
         toastService.error(
-          t('inventory.transfer.completeErrorTitle'),
-          t('inventory.transfer.completeErrorBody'),
+          t('inventory.transfer.dispatchErrorTitle'),
+          t('inventory.transfer.dispatchErrorBody'),
         );
       }
-    } else {
+      return;
+    }
+    if (action === 'receive') {
+      const pending = pendingQuantity(transfer);
+      const parsed = Number(receiveQuantity);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > pending) {
+        setConfirmError(t('inventory.transfer.receiveInvalidQuantity'));
+        return;
+      }
+      if (parsed <= 0 && !closeShortage) {
+        setConfirmError(t('inventory.transfer.receivePositiveQuantity'));
+        return;
+      }
       try {
-        await cancelMutation.mutateAsync(transfer.id);
-        toastService.success(t('inventory.transfer.cancelSuccessTitle'), '');
+        await receiveMutation.mutateAsync({
+          id: transfer.id,
+          quantity: parsed,
+          closeShortage: parsed < pending ? closeShortage : undefined,
+        });
+        toastService.success(
+          t('inventory.transfer.receiveSuccessTitle'),
+          t('inventory.transfer.receiveSuccessBody'),
+        );
         setConfirm(null);
       } catch {
-        toastService.error(t('inventory.transfer.cancelErrorTitle'), t('common.saveUnconfirmed'));
+        toastService.error(
+          t('inventory.transfer.receiveErrorTitle'),
+          t('inventory.transfer.receiveErrorBody'),
+        );
       }
+      return;
+    }
+    try {
+      await cancelMutation.mutateAsync(transfer.id);
+      toastService.success(t('inventory.transfer.cancelSuccessTitle'), '');
+      setConfirm(null);
+    } catch {
+      toastService.error(t('inventory.transfer.cancelErrorTitle'), t('common.saveUnconfirmed'));
     }
   };
 
@@ -117,8 +164,8 @@ export function TransferListView() {
     switch (status) {
       case 'pending':
         return t('inventory.transfer.status.pending');
-      case 'processing':
-        return t('inventory.transfer.status.processing');
+      case 'in_transit':
+        return t('inventory.transfer.status.inTransit');
       case 'completed':
         return t('inventory.transfer.status.completed');
       case 'cancelled':
@@ -157,6 +204,26 @@ export function TransferListView() {
       ),
     },
     {
+      key: 'receivedQuantity',
+      label: t('inventory.transfer.received'),
+      width: 90,
+      align: 'right',
+      render: (value) => (
+        <span className="font-mono tabular-nums">{Number(value ?? 0).toLocaleString(locale)}</span>
+      ),
+    },
+    {
+      key: 'shortageQuantity',
+      label: t('inventory.transfer.shortage'),
+      width: 90,
+      align: 'right',
+      render: (value) => (
+        <span className="font-mono tabular-nums text-warning">
+          {Number(value ?? 0).toLocaleString(locale)}
+        </span>
+      ),
+    },
+    {
       key: 'status',
       label: t('inventory.transfer.statusLabel'),
       width: 110,
@@ -167,7 +234,7 @@ export function TransferListView() {
             ? 'bg-success/10 text-success'
             : status === 'cancelled'
               ? 'bg-error/10 text-error'
-              : status === 'processing'
+              : status === 'in_transit'
                 ? 'bg-info/10 text-info'
                 : 'bg-warning/10 text-warning';
         return (
@@ -186,37 +253,54 @@ export function TransferListView() {
     {
       key: 'actions',
       label: t('common.actions'),
-      width: 220,
+      width: 230,
       align: 'center',
-      render: (_value, transfer) =>
-        transfer.status === 'pending' ? (
-          <div className="flex justify-center gap-2">
+      render: (_value, transfer) => {
+        if (transfer.status === 'pending') {
+          return (
+            <div className="flex justify-center gap-2">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openConfirm('dispatch', transfer);
+                }}
+                disabled={dispatchMutation.isPending}
+                className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {t('inventory.transfer.dispatch')}
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openConfirm('cancel', transfer);
+                }}
+                disabled={cancelMutation.isPending}
+                className="rounded-lg border border-border px-3 py-1 text-xs text-text-secondary hover:text-error disabled:opacity-50"
+              >
+                {t('inventory.transfer.cancelAction')}
+              </button>
+            </div>
+          );
+        }
+        if (transfer.status === 'in_transit') {
+          return (
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                setConfirm({ action: 'complete', transfer });
+                openConfirm('receive', transfer);
               }}
-              disabled={completeMutation.isPending}
+              disabled={receiveMutation.isPending}
               className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
             >
-              {t('inventory.transfer.complete')}
+              {t('inventory.transfer.receive')}
             </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setConfirm({ action: 'cancel', transfer });
-              }}
-              disabled={cancelMutation.isPending}
-              className="rounded-lg border border-border px-3 py-1 text-xs text-text-secondary hover:text-error disabled:opacity-50"
-            >
-              {t('inventory.transfer.cancelAction')}
-            </button>
-          </div>
-        ) : (
-          <span className="text-xs text-text-secondary">—</span>
-        ),
+          );
+        }
+        return <span className="text-xs text-text-secondary">—</span>;
+      },
     },
   ];
 
@@ -370,19 +454,63 @@ export function TransferListView() {
         open={!!confirm}
         onClose={() => setConfirm(null)}
         title={
-          confirm?.action === 'complete'
-            ? t('inventory.transfer.completeTitle')
-            : t('inventory.transfer.cancelTitle')
+          confirm?.action === 'dispatch'
+            ? t('inventory.transfer.dispatchTitle')
+            : confirm?.action === 'receive'
+              ? t('inventory.transfer.receiveTitle')
+              : t('inventory.transfer.cancelTitle')
         }
         size="sm"
       >
         <p className="text-sm text-text-secondary">
-          {confirm?.action === 'complete'
-            ? t('inventory.transfer.completeConfirm')
+          {confirm?.action === 'dispatch'
+            ? t('inventory.transfer.dispatchConfirm')
                 .replace('{quantity}', String(confirm.transfer.quantity))
                 .replace('{product}', productName(confirm.transfer.productId))
-            : t('inventory.transfer.cancelConfirm')}
+            : confirm?.action === 'receive'
+              ? t('inventory.transfer.receiveConfirm')
+                  .replace('{quantity}', String(pendingQuantity(confirm.transfer)))
+                  .replace('{product}', productName(confirm.transfer.productId))
+              : t('inventory.transfer.cancelConfirm')}
         </p>
+        {confirm?.action === 'receive' && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <label htmlFor="receive-quantity" className="mb-1 block text-xs text-text-secondary">
+                {t('inventory.transfer.receiveQuantity')}
+              </label>
+              <input
+                id="receive-quantity"
+                type="number"
+                min="0"
+                max={pendingQuantity(confirm.transfer)}
+                step="0.01"
+                value={receiveQuantity}
+                onChange={(event) => {
+                  setReceiveQuantity(event.target.value);
+                  setConfirmError('');
+                }}
+                className={inputClass}
+              />
+            </div>
+            {Number(receiveQuantity) < pendingQuantity(confirm.transfer) && (
+              <label className="flex items-center gap-2 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={closeShortage}
+                  onChange={(event) => setCloseShortage(event.target.checked)}
+                  className="h-4 w-4 rounded border-border"
+                />
+                {t('inventory.transfer.closeShortage')}
+              </label>
+            )}
+            {confirmError && (
+              <p role="alert" className="text-xs text-error">
+                {confirmError}
+              </p>
+            )}
+          </div>
+        )}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
@@ -394,14 +522,16 @@ export function TransferListView() {
           <button
             type="button"
             onClick={() => void handleConfirm()}
-            disabled={completeMutation.isPending || cancelMutation.isPending}
+            disabled={dispatchMutation.isPending || receiveMutation.isPending || cancelMutation.isPending}
             className={`rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 ${
-              confirm?.action === 'complete' ? 'bg-accent hover:bg-accent-hover' : 'bg-error'
+              confirm?.action === 'cancel' ? 'bg-error' : 'bg-accent hover:bg-accent-hover'
             }`}
           >
-            {confirm?.action === 'complete'
-              ? t('inventory.transfer.complete')
-              : t('inventory.transfer.cancelAction')}
+            {confirm?.action === 'dispatch'
+              ? t('inventory.transfer.dispatch')
+              : confirm?.action === 'receive'
+                ? t('inventory.transfer.receive')
+                : t('inventory.transfer.cancelAction')}
           </button>
         </div>
       </Modal>

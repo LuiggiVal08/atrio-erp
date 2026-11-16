@@ -103,10 +103,20 @@ export class QuickSaleService {
       for (const item of data.items) {
         const stockClient = (tx as any).stock;
         const conditionalDecrement = typeof stockClient?.updateMany === 'function';
+        const current = await stockClient.findUnique({
+          where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } },
+          select: { quantity: true, committedQuantity: true },
+        });
+        const physical = Number(current?.quantity ?? 0);
+        const committed = Number(current?.committedQuantity ?? 0);
+        if (!current || physical - committed < item.quantity) {
+          throw new BadRequestException(`Stock insuficiente para el producto ${item.productId}`);
+        }
         if (conditionalDecrement) {
           const updated = await stockClient.updateMany({
             where: {
-              productId: item.productId, warehouseId: item.warehouseId, quantity: { gte: item.quantity },
+              productId: item.productId, warehouseId: item.warehouseId,
+              quantity: physical, committedQuantity: committed,
               product: { tenantId: data.tenantId, isActive: true, deletedAt: null, isService: false },
               warehouse: { tenantId: data.tenantId, isActive: true, OR: [{ branchId: null }, { branch: { tenantId: data.tenantId, isActive: true } }] },
             },
@@ -114,13 +124,6 @@ export class QuickSaleService {
           });
           if (updated.count !== 1) throw new BadRequestException(`Stock insuficiente para el producto ${item.productId}`);
         } else {
-          const current = await stockClient.findUnique({
-            where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } },
-            select: { quantity: true },
-          });
-          if (!current || current.quantity < item.quantity) {
-            throw new BadRequestException(`Stock insuficiente para el producto ${item.productId}`);
-          }
           await stockClient.update({
             where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } },
             data: { quantity: { decrement: item.quantity } },
