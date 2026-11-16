@@ -11,6 +11,7 @@ export class AuditService {
     action: string;
     entityType: string;
     entityId: string;
+    resource?: string;
     before?: any;
     after?: any;
   }) {
@@ -18,6 +19,7 @@ export class AuditService {
       data: {
         entityType: params.entityType,
         entityId: params.entityId,
+        ...(params.resource ? { resource: params.resource } : {}),
         action: params.action as any,
         before: params.before || null,
         after: params.after || null,
