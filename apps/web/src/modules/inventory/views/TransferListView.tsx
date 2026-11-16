@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 import {
   useTransfers,
   useCreateTransfer,
@@ -23,7 +24,7 @@ const inputClass =
 
 export function TransferListView() {
   const { t, locale } = useTranslation();
-  const { data: transfers, isLoading, refetch, isFetching } = useTransfers();
+  const { data: transfers, isLoading, isError, error, refetch, isFetching } = useTransfers();
   const createMutation = useCreateTransfer();
   const completeMutation = useCompleteTransfer();
   const cancelMutation = useCancelTransfer();
@@ -353,14 +354,17 @@ export function TransferListView() {
         </form>
       )}
 
-      <VirtualGrid
-        data={pagination.pageItems}
-        columns={columns}
-        loading={isLoading}
-        emptyMessage={t('inventory.transfer.empty')}
-        emptyActionLabel={t('inventory.transfer.create')}
-        emptyAction={() => setShowForm(true)}
-      />
+      {isError && <ReadErrorAlert error={error} onRetry={() => void refetch()} retrying={isFetching} className="mb-3" />}
+      {!(isError && (transfers?.length ?? 0) === 0) && (
+        <VirtualGrid
+          data={pagination.pageItems}
+          columns={columns}
+          loading={isLoading}
+          emptyMessage={t('inventory.transfer.empty')}
+          emptyActionLabel={t('inventory.transfer.create')}
+          emptyAction={() => setShowForm(true)}
+        />
+      )}
 
       <Modal
         open={!!confirm}
