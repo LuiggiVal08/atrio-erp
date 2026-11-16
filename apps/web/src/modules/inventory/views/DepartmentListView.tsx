@@ -9,6 +9,7 @@ import {
 } from '@/shared/validation/department';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPagination } from '@/core/components/ListPagination';
+import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { RotateCw } from 'lucide-react';
 import type { Department } from '../hooks/useDepartments';
@@ -49,11 +50,7 @@ export function DepartmentListView() {
   ];
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center text-text-secondary">
-        {t('common.loading')}
-      </div>
-    );
+    return <ModuleSkeleton moduleName={t('hr.departments')} />;
   }
 
   return (

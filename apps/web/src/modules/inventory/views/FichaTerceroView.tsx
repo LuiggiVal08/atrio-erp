@@ -7,6 +7,7 @@ import { toastService } from '@/core/services/toast-service';
 import { MultiSelect } from '@/shared/ui/MultiSelect';
 import { DocumentInput } from '@/shared/ui/DocumentInput';
 import { useFichaTercero, type ThirdPartyKind } from '../hooks/useFichaTercero';
+import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
 
 interface FichaTerceroViewProps {
   id: string;
@@ -87,7 +88,7 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
   const goBack = () => navigate(kind === 'vendor' ? '/vendors' : '/clients');
 
   if (isLoading) {
-    return <div className="flex h-full items-center justify-center text-text-secondary">{t('common.loading')}</div>;
+    return <ModuleSkeleton moduleName={t('crm.ficha.overview')} />;
   }
   if (isError || !ficha) {
     return (

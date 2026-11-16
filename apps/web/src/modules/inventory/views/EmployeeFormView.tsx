@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   useSetupEmployee,
@@ -266,7 +267,7 @@ export function EmployeeFormView() {
   const inputClass = 'w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none';
 
   if (isEdit && empLoading) {
-    return <div className="flex h-full items-center justify-center text-text-secondary">{t('common.loading')}</div>;
+    return <ModuleSkeleton moduleName={t('hr.employee.edit')} />;
   }
 
   return (

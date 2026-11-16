@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
 import { useForm, useStore } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import {
@@ -94,11 +95,7 @@ export function CurrencyRateListView() {
   ];
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center text-text-secondary">
-        {t('common.loading')}
-      </div>
-    );
+    return <ModuleSkeleton moduleName={t('localization.currencyRates')} />;
   }
 
   return (

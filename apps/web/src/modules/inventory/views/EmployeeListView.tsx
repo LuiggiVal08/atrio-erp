@@ -2,6 +2,7 @@ import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCw, Trash2 } from 'lucide-react';
 import { ListPagination } from '@/core/components/ListPagination';
+import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { useEmployees, useDeleteEmployee } from '../hooks/useEmployees';
 import { useTenantStore } from '@/core/tenant/store';
@@ -15,11 +16,7 @@ export function EmployeeListView() {
   const pagination = usePagination(employees);
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center text-text-secondary">
-        {t('common.loading')}
-      </div>
-    );
+    return <ModuleSkeleton moduleName={t('hr.employees')} />;
   }
 
   return (

@@ -2,6 +2,7 @@ import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, BadgeCheck } from 'lucide-react';
 import { useEmployee } from '../hooks/useEmployees';
+import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
 
 export function EmployeeDetailView() {
   const { t } = useTranslation();
@@ -10,11 +11,7 @@ export function EmployeeDetailView() {
   const { data: employee, isLoading } = useEmployee(id!);
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center text-text-secondary">
-        {t('common.loading')}
-      </div>
-    );
+    return <ModuleSkeleton moduleName={t('hr.employees')} />;
   }
 
   if (!employee) {

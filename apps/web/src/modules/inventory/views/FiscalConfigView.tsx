@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useTaxes, useCreateTax } from '../hooks/useTaxes';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
+import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
 import type { Tax } from '../hooks/useTaxes';
 
 export function FiscalConfigView() {
@@ -49,7 +50,7 @@ export function FiscalConfigView() {
   ];
 
   if (isLoading) {
-    return <div className="flex h-full items-center justify-center text-text-secondary">{t('common.loading')}</div>;
+    return <ModuleSkeleton moduleName={t('localization.title')} />;
   }
 
   return (

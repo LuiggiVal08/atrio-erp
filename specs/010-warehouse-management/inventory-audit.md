@@ -89,7 +89,7 @@ Este documento responde una pregunta: **qué se encontró, qué se corregirá y 
 
 - [x] **INV-052 — Código sin consumidores y duplicación.** VALIDATED. Se verificaron consumidores y se eliminaron `InventoryFormView`, `ProductImageUploader`, `CreditAlertBanner`, `ExchangeRateDisplay`, `useFiscalConfig`, `useSalaryHistory` y los stores auxiliares `fiscal-config-store`/`employee-store`, junto con sus tests exclusivos. `inventory-store` permanece porque lo consumen la lista y el kardex. Typecheck sin importaciones rotas.
 - [ ] **INV-053 — Claves de caché por tenant.** OPEN. Queries de referencia y transaccionales carecen de identidad de empresa. Aceptación: consultas segregadas por tenant/usuario y contexto reactivo consistente.
-- [ ] **INV-054 — Teclado, feedback y carga.** OPEN. Cabeceras de VirtualGrid ordenan solo al clic, controles y pestañas requieren navegación accesible, vistas antiguas usan loading textual. Aceptación: acciones accesibles por teclado, etiquetas y skeletons apropiados sin ocultar datos durante refetch.
+- [x] **INV-054 — Teclado, feedback y carga.** VALIDATED. Las cabeceras ordenables son botones con `aria-sort` y foco visible; `VirtualGrid.spec.tsx` cubre foco y dirección. Las pestañas de almacén y movimientos implementan `tablist` con flechas/Home/End. Las listas y detalles de inventario usan `ModuleSkeleton`/`TableSkeleton` en carga inicial y conservan datos durante refetch.
 - [ ] **INV-055 — Pruebas E2E y regresiones.** OPEN. Selectores antiguos de Crear/Inactivo y generación interna ausente; formulario de almacén falla. Aceptación: tests actualizados sin debilitar assertions, caminos exitosos y errores/precisión/concurrencia/tenant cubiertos; navegador sin excepciones.
 
 ## Secuencia de trabajo
