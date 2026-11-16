@@ -10,6 +10,7 @@ import {
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ListPagination } from '@/core/components/ListPagination';
 import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
+import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { RotateCw } from 'lucide-react';
 import type { Department } from '../hooks/useDepartments';
@@ -18,7 +19,7 @@ const defaultValues: DepartmentFormValues = { name: '' };
 
 export function DepartmentListView() {
   const { t } = useTranslation();
-  const { data: departments = [], isLoading, refetch, isFetching } = useDepartments();
+  const { data: departments = [], isLoading, isError, error, refetch, isFetching } = useDepartments();
   const createDept = useCreateDepartment();
   const [serverError, setServerError] = useState('');
 
@@ -51,6 +52,9 @@ export function DepartmentListView() {
 
   if (isLoading) {
     return <ModuleSkeleton moduleName={t('hr.departments')} />;
+  }
+  if (isError && departments.length === 0) {
+    return <div className="p-6"><ReadErrorAlert error={error} onRetry={() => void refetch()} retrying={isFetching} /></div>;
   }
 
   return (

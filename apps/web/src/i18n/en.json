@@ -29,7 +29,13 @@
     "clear": "Clear",
     "notes": "Notes",
     "close": "Close",
-    "retry": "Retry"
+    "retry": "Retry",
+    "readError": {
+      "forbidden": "You do not have permission to view this information.",
+      "notFound": "The requested information was not found.",
+      "offline": "Could not reach the server. Check your connection.",
+      "unknown": "Could not load the information. Please try again."
+    }
   },
   "auth": {
     "login": "Sign in",

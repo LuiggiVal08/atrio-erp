@@ -8,6 +8,7 @@ import { MultiSelect } from '@/shared/ui/MultiSelect';
 import { DocumentInput } from '@/shared/ui/DocumentInput';
 import { useFichaTercero, type ThirdPartyKind } from '../hooks/useFichaTercero';
 import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
+import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 
 interface FichaTerceroViewProps {
   id: string;
@@ -76,7 +77,7 @@ const isOwnerContact = (contact: ContactDraft) => contact.position === 'Dueño';
 export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: ficha, isLoading, isError } = useFichaTercero(id, kind);
+  const { data: ficha, isLoading, isError, error, refetch, isFetching } = useFichaTercero(id, kind);
   const { data: categories } = useCategories();
   const updateVendor = useUpdateVendor();
 
@@ -90,10 +91,20 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
   if (isLoading) {
     return <ModuleSkeleton moduleName={t('crm.ficha.overview')} />;
   }
-  if (isError || !ficha) {
+  if (isError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3">
+        <ReadErrorAlert error={error} onRetry={() => void refetch()} retrying={isFetching} />
+        <button type="button" onClick={goBack} className="rounded-lg border border-border px-3 py-1.5 text-xs hover:text-text-primary">
+          {t('crm.ficha.back')}
+        </button>
+      </div>
+    );
+  }
+  if (!ficha) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-text-secondary">
-        <p>{t('common.noResults')}</p>
+        <p>{t('common.notFound')}</p>
         <button type="button" onClick={goBack} className="rounded-lg border border-border px-3 py-1.5 text-xs hover:text-text-primary">
           {t('crm.ficha.back')}
         </button>

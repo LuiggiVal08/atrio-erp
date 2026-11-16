@@ -29,7 +29,13 @@
     "clear": "Limpiar",
     "notes": "Notas",
     "close": "Cerrar",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "readError": {
+      "forbidden": "No tienes permiso para ver esta información.",
+      "notFound": "No se encontró la información solicitada.",
+      "offline": "No se pudo conectar con el servidor. Revisa la conexión.",
+      "unknown": "No se pudo cargar la información. Inténtalo de nuevo."
+    }
   },
   "auth": {
     "login": "Iniciar sesión",

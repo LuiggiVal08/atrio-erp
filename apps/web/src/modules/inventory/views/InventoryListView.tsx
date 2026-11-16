@@ -26,6 +26,7 @@ import { InventorySummaryCards } from '../components/InventorySummaryCards';
 import { ProductImagePicker } from '../components/ProductImagePicker';
 import { useUploadProductImages } from '../hooks/useProductImage';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 import { toastService } from '@/core/services/toast-service';
 import { ChevronRight, Plus, Tags, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -58,6 +59,7 @@ export function InventoryListView() {
     total,
     isLoading: loading,
     isError: listError,
+    error: listReadError,
     refetch: refetchInventory,
   } = useInventoryList();
   const createProduct = useCreateProduct();
@@ -312,7 +314,7 @@ export function InventoryListView() {
             </button>}
           </div>
         </div>
-        {listError && <p role="alert" className="text-sm text-error">{t('inventory.product.loadError')} <button type="button" onClick={() => void refetchInventory()} className="underline">{t('common.retry')}</button></p>}
+        {listError && <ReadErrorAlert error={listReadError} onRetry={() => void refetchInventory()} retrying={refreshing} />}
         <div className="flex shrink-0 flex-col">
           {groupByCategory &&
             (() => {

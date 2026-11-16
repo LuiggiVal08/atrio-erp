@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
+import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 import { useForm, useStore } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import {
@@ -25,7 +26,7 @@ import {
 
 export function CurrencyRateListView() {
   const { t } = useTranslation();
-  const { data: rates = [], isLoading, refetch, isFetching } = useCurrencyRates();
+  const { data: rates = [], isLoading, isError, error, refetch, isFetching } = useCurrencyRates();
   const createRate = useCreateCurrencyRate();
   const syncRate = useSyncCurrencyRate();
 
@@ -96,6 +97,9 @@ export function CurrencyRateListView() {
 
   if (isLoading) {
     return <ModuleSkeleton moduleName={t('localization.currencyRates')} />;
+  }
+  if (isError && rates.length === 0) {
+    return <div className="p-6"><ReadErrorAlert error={error} onRetry={() => void refetch()} retrying={isFetching} /></div>;
   }
 
   return (

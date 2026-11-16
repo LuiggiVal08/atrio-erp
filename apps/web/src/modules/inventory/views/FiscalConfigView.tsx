@@ -3,11 +3,12 @@ import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useTaxes, useCreateTax } from '../hooks/useTaxes';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
+import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 import type { Tax } from '../hooks/useTaxes';
 
 export function FiscalConfigView() {
   const { t } = useTranslation();
-  const { data: taxes = [], isLoading } = useTaxes();
+  const { data: taxes = [], isLoading, isError, error, refetch, isFetching } = useTaxes();
   const createTax = useCreateTax();
 
   const [name, setName] = useState('');
@@ -51,6 +52,9 @@ export function FiscalConfigView() {
 
   if (isLoading) {
     return <ModuleSkeleton moduleName={t('localization.title')} />;
+  }
+  if (isError && taxes.length === 0) {
+    return <div className="p-6"><ReadErrorAlert error={error} onRetry={() => void refetch()} retrying={isFetching} /></div>;
   }
 
   return (

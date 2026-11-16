@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCw, Trash2 } from 'lucide-react';
 import { ListPagination } from '@/core/components/ListPagination';
 import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
+import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { useEmployees, useDeleteEmployee } from '../hooks/useEmployees';
 import { useTenantStore } from '@/core/tenant/store';
@@ -11,12 +12,15 @@ export function EmployeeListView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const tenantId = useTenantStore.getState().activeTenantId;
-  const { data: employees = [], isLoading, refetch, isFetching } = useEmployees();
+  const { data: employees = [], isLoading, isError, error, refetch, isFetching } = useEmployees();
   const deleteEmployee = useDeleteEmployee();
   const pagination = usePagination(employees);
 
   if (isLoading) {
     return <ModuleSkeleton moduleName={t('hr.employees')} />;
+  }
+  if (isError && employees.length === 0) {
+    return <div className="p-6"><ReadErrorAlert error={error} onRetry={() => void refetch()} retrying={isFetching} /></div>;
   }
 
   return (
