@@ -69,7 +69,7 @@ Este documento responde una pregunta: **qué se encontró, qué se corregirá y 
 - [x] **INV-037 — Contexto multi-almacén del producto.** VALIDATED. El detalle lista existencias por almacén con su unidad y enlace al historial filtrado; carga, error con reintento y ausencia de stock se distinguen. `product-detail-edit.spec.tsx` verifica el desglose por almacén y su unidad.
 - [x] **INV-038 — Moneda y unidad de precios.** VALIDATED. La ficha muestra moneda base de la empresa, unidad base, unidad de compra y factor; la etiqueta recibe la moneda base y la imprime. `product-barcode-label.spec.tsx` verifica el precio en `USD` y `product-detail-edit.spec.tsx` las unidades.
 - [x] **INV-039 — Proveedor principal.** VALIDATED. Alta y edición exponen proveedor principal y referencia; la API valida en la misma transacción que el Partner sea `SUPPLIER`, esté activo, no esté borrado y pertenezca al tenant antes de crear/actualizar. `product-detail-edit.spec.tsx` verifica la visualización y `prisma-inventory.repository.product.spec.ts` el rechazo de un proveedor ausente/ajeno/inactivo antes de escribir.
-- [ ] **INV-040 — Controles según permisos.** OPEN. Crear/editar/crear marca-categoría inline visibles para lectores; rechazo inline no se captura. Aceptación: permisos de cada acción y errores recuperables; esto no sustituye RBAC servidor.
+- [x] **INV-040 — Controles según permisos.** VALIDATED. Categorías y marcas ocultan crear/editar/eliminar y carga de logo según `inventory:category:*` e `inventory:brand:*`; los formularios inline conservan manejo de errores del servidor. `catalog-permissions.spec.tsx` cubre lectores sin controles y la carga única de logo; el RBAC del servidor sigue siendo la autoridad.
 
 ## P1/P2 — vistas auxiliares aún activas
 

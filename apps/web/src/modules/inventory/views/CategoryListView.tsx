@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
+import { usePermission } from '@/core/auth/usePermission';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useCategories } from '@/shared/hooks/useCategories';
@@ -28,6 +29,9 @@ interface EditingState {
 
 export function CategoryListView() {
   const { t } = useTranslation();
+  const canCreate = usePermission('inventory:category:create');
+  const canUpdate = usePermission('inventory:category:update');
+  const canDelete = usePermission('inventory:category:delete');
   const { data: categories = [], isLoading, refetch, isFetching } = useCategories();
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
@@ -62,6 +66,7 @@ export function CategoryListView() {
   );
 
   const toggleForm = () => {
+    if (!canCreate) return;
     if (showForm) {
       form.reset();
       setShowForm(false);
@@ -73,11 +78,12 @@ export function CategoryListView() {
   };
 
   const handleStartEdit = (row: CategoryRow) => {
+    if (!canUpdate) return;
     setEditing({ id: row.id, name: row.name, parentId: row.parentId ?? '' });
   };
 
   const handleSaveEdit = () => {
-    if (!editing || !editing.name.trim()) return;
+    if (!editing || !editing.name.trim() || !canUpdate) return;
     updateCategory.mutate(
       {
         id: editing.id,
@@ -127,7 +133,7 @@ export function CategoryListView() {
 
   const parentOptions = categories.filter((c) => c.id !== editing?.id);
 
-  const columns: GridColumn<CategoryRow>[] = [
+  const allColumns: GridColumn<CategoryRow>[] = [
     {
       key: 'name',
       label: t('inventory.categoryView.name'),
@@ -206,26 +212,30 @@ export function CategoryListView() {
         }
         return (
           <div className="flex items-center justify-end gap-1">
-            <button
+            {canUpdate && <button
               onClick={() => handleStartEdit(row)}
               aria-label={t('common.edit')}
               className="rounded p-1 text-text-secondary hover:bg-canvas"
             >
               <Pencil size={16} aria-hidden="true" />
-            </button>
-            <button
+            </button>}
+            {canDelete && <button
               onClick={() => setDeleteTarget(row)}
               disabled={deleteCategory.isPending}
               aria-label={t('common.delete')}
               className="rounded p-1 text-text-secondary hover:bg-error/10 hover:text-error disabled:opacity-50"
             >
               <Trash2 size={16} aria-hidden="true" />
-            </button>
+            </button>}
           </div>
         );
       },
     },
   ];
+
+  const columns = canUpdate || canDelete
+    ? allColumns
+    : allColumns.filter((column) => column.key !== 'actions');
 
   return (
     <ListPage
@@ -244,14 +254,14 @@ export function CategoryListView() {
         />
       }
       actions={
-        <button
+        canCreate ? <button
           onClick={toggleForm}
           aria-expanded={showForm}
           className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
         >
           <Plus size={14} aria-hidden="true" />
           {t('inventory.categoryView.create')}
-        </button>
+        </button> : null
       }
     >
       {error && (
@@ -270,7 +280,7 @@ export function CategoryListView() {
         </div>
       )}
 
-      {showForm && (
+      {showForm && canCreate && (
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -319,8 +329,8 @@ export function CategoryListView() {
         columns={columns}
         loading={isLoading}
         emptyMessage={t('inventory.categoryView.empty')}
-        emptyActionLabel={t('inventory.categoryView.create')}
-        emptyAction={() => setShowForm(true)}
+        emptyActionLabel={canCreate ? t('inventory.categoryView.create') : undefined}
+        emptyAction={canCreate ? () => setShowForm(true) : undefined}
       />
 
       <Modal

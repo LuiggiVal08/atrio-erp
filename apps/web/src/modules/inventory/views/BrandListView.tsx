@@ -4,6 +4,7 @@ import { CardSkeleton } from '@/core/components/CardSkeleton';
 import { EmptyState } from '@/core/components/EmptyState';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
+import { usePermission } from '@/core/auth/usePermission';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import {
   useCreateBrand,
@@ -21,6 +22,8 @@ function serverMessage(err: any, fallback: string): string {
 
 export function BrandListView() {
   const { t } = useTranslation();
+  const canCreate = usePermission('inventory:brand:create');
+  const canUpdate = usePermission('inventory:brand:update');
   const { data: brands = [], isLoading, refetch, isFetching } = useBrands();
   const createBrand = useCreateBrand();
   const updateBrand = useUpdateBrand();
@@ -34,7 +37,7 @@ export function BrandListView() {
   const pagination = usePagination(brands);
 
   const submitCreate = () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !canCreate) return;
     setError(null);
     createBrand.mutate(
       { name: newName.trim() },
@@ -50,7 +53,7 @@ export function BrandListView() {
   };
 
   const saveEdit = () => {
-    if (!editing?.name.trim()) return;
+    if (!editing?.name.trim() || !canUpdate) return;
     setError(null);
     updateBrand.mutate(
       { id: editing.id, name: editing.name.trim() },
@@ -66,6 +69,7 @@ export function BrandListView() {
   };
 
   const chooseLogo = (brandId: string) => {
+    if (!canUpdate) return;
     setLogoTarget(brandId);
     logoInputRef.current?.click();
   };
@@ -123,7 +127,7 @@ export function BrandListView() {
             </button>
           </div>
         )}
-        <div className="mb-5 flex max-w-xl items-center gap-2 rounded-xl border border-border bg-surface p-3">
+        {canCreate && <div className="mb-5 flex max-w-xl items-center gap-2 rounded-xl border border-border bg-surface p-3">
           <input
             ref={createInputRef}
             value={newName}
@@ -140,7 +144,7 @@ export function BrandListView() {
           >
             <Plus size={14} aria-hidden="true" /> {t('common.create')}
           </button>
-        </div>
+        </div>}
         <input
           ref={logoInputRef}
           type="file"
@@ -167,7 +171,8 @@ export function BrandListView() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => chooseLogo(brand.id)}
-                    className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-canvas text-text-muted hover:border-accent"
+                    disabled={!canUpdate}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-canvas text-text-muted hover:border-accent disabled:cursor-default"
                     aria-label={t('inventory.brandView.changeLogo')}
                   >
                     {brand.logoUrl ? (
@@ -224,7 +229,7 @@ export function BrandListView() {
                         <X size={16} aria-hidden="true" />
                       </button>
                     </div>
-                  ) : (
+                  ) : canUpdate ? (
                     <button
                       onClick={() => setEditing(brand)}
                       className="rounded p-1.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
@@ -232,9 +237,9 @@ export function BrandListView() {
                     >
                       <Pencil size={16} aria-hidden="true" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
-                <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+                {canUpdate && <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
                   <button
                     onClick={() => chooseLogo(brand.id)}
                     className="text-xs font-medium text-accent hover:underline"
@@ -260,7 +265,7 @@ export function BrandListView() {
                       ? t('inventory.brandView.deactivate')
                       : t('inventory.brandView.activate')}
                   </button>
-                </div>
+                </div>}
               </article>
             ))}
           </div>
@@ -268,8 +273,8 @@ export function BrandListView() {
         {!isLoading && !pagination.total && (
           <EmptyState
             message={t('inventory.brandView.empty')}
-            actionLabel={t('common.create')}
-            onAction={() => createInputRef.current?.focus()}
+            actionLabel={canCreate ? t('common.create') : undefined}
+            onAction={canCreate ? () => createInputRef.current?.focus() : undefined}
           />
         )}
       </div>
