@@ -147,6 +147,8 @@
       "count": "{count} configured",
       "lowStock": "{count} below minimum",
       "lowStockNone": "No replenishment alerts",
+      "lowStockLoading": "Checking replenishment…",
+      "lowStockError": "Could not load replenishment alerts",
       "create": "New reorder point",
       "save": "Save reorder point",
       "delete": "Delete reorder point",

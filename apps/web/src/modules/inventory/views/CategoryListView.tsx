@@ -82,7 +82,7 @@ export function CategoryListView() {
       {
         id: editing.id,
         name: editing.name.trim(),
-        parentId: editing.parentId || undefined,
+        parentId: editing.parentId || null,
       },
       {
         onSuccess: () => {

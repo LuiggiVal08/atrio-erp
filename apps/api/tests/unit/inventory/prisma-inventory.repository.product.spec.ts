@@ -26,6 +26,7 @@ const record = {
   maxStock: 50,
   reorderPoint: 5,
   supplierSku: 'TR-500',
+  imageUrl: 'https://cdn.example.com/product-1.jpg',
   brand: { name: 'Truper' },
   category: { name: 'Herramientas' },
   tax: { name: 'IVA' },
@@ -98,6 +99,7 @@ describe('PrismaInventoryRepository findProductById', () => {
     expect(product).toMatchObject({
       id: 'product-1', sku: 'SKU-001', name: 'Taladro percutor',
       brand: 'Truper', category: 'Herramientas', taxName: 'IVA',
+      imageUrl: 'https://cdn.example.com/product-1.jpg',
     });
   });
 
@@ -118,7 +120,10 @@ describe('PrismaInventoryRepository updateProduct', () => {
       data: { minStock: 7, brandId: null },
       include,
     });
-    expect(product).toMatchObject({ id: 'product-1', brand: 'Truper', category: 'Herramientas' });
+    expect(product).toMatchObject({
+      id: 'product-1', brand: 'Truper', category: 'Herramientas',
+      imageUrl: 'https://cdn.example.com/product-1.jpg',
+    });
   });
 
   it('records cost history only when costPrice is sent', async () => {

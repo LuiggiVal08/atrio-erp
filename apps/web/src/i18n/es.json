@@ -147,6 +147,8 @@
       "count": "{count} configurados",
       "lowStock": "{count} bajo mínimo",
       "lowStockNone": "Sin alertas de reposición",
+      "lowStockLoading": "Comprobando reposición…",
+      "lowStockError": "No se pudieron cargar las alertas de reposición",
       "create": "Nuevo punto de reorden",
       "save": "Guardar punto de reorden",
       "delete": "Eliminar punto de reorden",

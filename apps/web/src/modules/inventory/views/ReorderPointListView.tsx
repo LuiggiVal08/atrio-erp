@@ -26,7 +26,7 @@ export function ReorderPointListView() {
   const { data: products = [] } = useInventoryProducts();
   const { data: warehouses } = useWarehouses();
   const { data: reorderPoints = [], isLoading, refetch, isFetching } = useReorderPoints();
-  const { data: lowStock = [] } = useLowStock();
+  const { data: lowStock = [], isLoading: lowStockLoading, isError: lowStockError, refetch: refetchLowStock } = useLowStock();
   const setReorderPoint = useSetReorderPoint();
   const deleteReorderPoint = useDeleteReorderPoint();
 
@@ -183,15 +183,30 @@ export function ReorderPointListView() {
         }
         actions={
           <>
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                lowStock.length ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
-              }`}
-            >
-              {lowStock.length
-                ? t('inventory.reorderPoint.lowStock').replace('{count}', String(lowStock.length))
-                : t('inventory.reorderPoint.lowStockNone')}
-            </span>
+            {lowStockError ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-error/10 px-2.5 py-1 text-xs font-semibold text-error">
+                <span>{t('inventory.reorderPoint.lowStockError')}</span>
+                <button type="button" onClick={() => void refetchLowStock()} className="underline">
+                  {t('common.retry')}
+                </button>
+              </span>
+            ) : (
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  lowStockLoading
+                    ? 'bg-surface text-text-secondary'
+                    : lowStock.length
+                      ? 'bg-warning/10 text-warning'
+                      : 'bg-success/10 text-success'
+                }`}
+              >
+                {lowStockLoading
+                  ? t('inventory.reorderPoint.lowStockLoading')
+                  : lowStock.length
+                    ? t('inventory.reorderPoint.lowStock').replace('{count}', String(lowStock.length))
+                    : t('inventory.reorderPoint.lowStockNone')}
+              </span>
+            )}
             <button
               onClick={() => setShowForm(true)}
               disabled={noOptions}
