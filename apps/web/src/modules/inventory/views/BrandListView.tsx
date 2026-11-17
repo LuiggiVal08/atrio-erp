@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { Check, ImagePlus, Pencil, Plus, RotateCw, X } from 'lucide-react';
 import { CardSkeleton } from '@/core/components/CardSkeleton';
 import { EmptyState } from '@/core/components/EmptyState';
@@ -6,6 +7,8 @@ import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { usePermission } from '@/core/auth/usePermission';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { applyServerErrors, clearServerErrors, FormInput, resolveServerErrorMessage } from '@/shared/form';
+import { brandFormSchema } from '@/shared/validation/brand';
 import {
   useCreateBrand,
   useBrands,
@@ -28,44 +31,76 @@ export function BrandListView() {
   const createBrand = useCreateBrand();
   const updateBrand = useUpdateBrand();
   const uploadLogo = useUploadBrandLogo();
-  const [newName, setNewName] = useState('');
   const [editing, setEditing] = useState<ProductBrand | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logoTarget, setLogoTarget] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const createInputRef = useRef<HTMLInputElement>(null);
   const pagination = usePagination(brands);
 
-  const submitCreate = () => {
-    if (!newName.trim() || !canCreate) return;
-    setError(null);
-    createBrand.mutate(
-      { name: newName.trim() },
-      {
-        onSuccess: () => {
-          setNewName('');
-          setError(null);
+  const createForm = useForm({
+    defaultValues: { name: '' },
+    validators: { onSubmit: brandFormSchema },
+    onSubmit: ({ value }) => {
+      if (!canCreate || !value.name.trim()) return;
+      setError(null);
+      createBrand.mutate(
+        { name: value.name.trim() },
+        {
+          onSuccess: () => {
+            clearServerErrors(createForm);
+            createForm.reset();
+            setError(null);
+          },
+          onError: (err: any) => {
+            const result = applyServerErrors(createForm, err);
+            setError(resolveServerErrorMessage(result, t('inventory.brandView.createError')));
+          },
         },
-        onError: (err: any) =>
-          setError(serverMessage(err, t('inventory.brandView.createError'))),
-      },
-    );
+      );
+    },
+  });
+
+  const editForm = useForm({
+    defaultValues: { name: '' },
+    validators: { onSubmit: brandFormSchema },
+    onSubmit: ({ value }) => {
+      if (!editing || !canUpdate || !value.name.trim()) return;
+      setError(null);
+      updateBrand.mutate(
+        { id: editing.id, name: value.name.trim() },
+        {
+          onSuccess: () => {
+            clearServerErrors(editForm);
+            editForm.reset();
+            setEditing(null);
+            setError(null);
+          },
+          onError: (err: any) => {
+            const result = applyServerErrors(editForm, err);
+            setError(resolveServerErrorMessage(result, t('inventory.brandView.updateError')));
+          },
+        },
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (!editing) return;
+    clearServerErrors(editForm);
+    editForm.reset({ name: editing.name }, { keepDefaultValues: true });
+  }, [editForm, editing]);
+
+  const startEdit = (brand: ProductBrand) => {
+    if (!canUpdate) return;
+    setEditing(brand);
+    setError(null);
   };
 
-  const saveEdit = () => {
-    if (!editing?.name.trim() || !canUpdate) return;
+  const cancelEdit = () => {
+    clearServerErrors(editForm);
+    editForm.reset();
+    setEditing(null);
     setError(null);
-    updateBrand.mutate(
-      { id: editing.id, name: editing.name.trim() },
-      {
-        onSuccess: () => {
-          setEditing(null);
-          setError(null);
-        },
-        onError: (err: any) =>
-          setError(serverMessage(err, t('inventory.brandView.updateError'))),
-      },
-    );
   };
 
   const chooseLogo = (brandId: string) => {
@@ -127,24 +162,36 @@ export function BrandListView() {
             </button>
           </div>
         )}
-        {canCreate && <div className="mb-5 flex max-w-xl items-center gap-2 rounded-xl border border-border bg-surface p-3">
-          <input
-            ref={createInputRef}
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && submitCreate()}
-            placeholder={t('inventory.brandView.namePlaceholder')}
-            aria-label={t('inventory.brandView.namePlaceholder')}
-            className="min-w-0 flex-1 rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
-          />
-          <button
-            onClick={submitCreate}
-            disabled={!newName.trim() || createBrand.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+        {canCreate && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createForm.handleSubmit();
+            }}
+            className="mb-5 flex max-w-xl items-start gap-2 rounded-xl border border-border bg-surface p-3"
           >
-            <Plus size={14} aria-hidden="true" /> {t('common.create')}
-          </button>
-        </div>}
+            <FormInput
+              form={createForm}
+              name="name"
+              id="brand-create-name"
+              ariaLabel={t('inventory.brandView.namePlaceholder')}
+              placeholder={t('inventory.brandView.namePlaceholder')}
+              className="min-w-0 flex-1"
+              required
+            />
+            <createForm.Subscribe selector={(state) => state.values.name}>
+              {(name) => (
+                <button
+                  type="submit"
+                  disabled={!name.trim() || createBrand.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+                >
+                  <Plus size={14} aria-hidden="true" /> {t('common.create')}
+                </button>
+              )}
+            </createForm.Subscribe>
+          </form>
+        )}
         <input
           ref={logoInputRef}
           type="file"
@@ -183,16 +230,20 @@ export function BrandListView() {
                   </button>
                   <div className="min-w-0 flex-1">
                     {editing?.id === brand.id ? (
-                      <input
+                      <FormInput
+                        form={editForm}
+                        name="name"
                         autoFocus
-                        value={editing.name}
-                        onChange={(event) => setEditing({ ...editing, name: event.target.value })}
                         onKeyDown={(event) => {
-                          if (event.key === 'Enter') saveEdit();
-                          if (event.key === 'Escape') setEditing(null);
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void editForm.handleSubmit();
+                          }
+                          if (event.key === 'Escape') cancelEdit();
                         }}
-                        aria-label={t('inventory.brandView.namePlaceholder')}
-                        className="w-full rounded border border-border bg-canvas px-2 py-1 text-sm text-text-primary focus:border-accent focus:outline-none"
+                        ariaLabel={t('inventory.brandView.namePlaceholder')}
+                        className="w-full"
+                        required
                       />
                     ) : (
                       <h2 className="truncate text-sm font-semibold text-text-primary">
@@ -214,7 +265,8 @@ export function BrandListView() {
                   {editing?.id === brand.id ? (
                     <div className="flex gap-1">
                       <button
-                        onClick={saveEdit}
+                        type="button"
+                        onClick={() => void editForm.handleSubmit()}
                         disabled={updateBrand.isPending}
                         className="rounded p-1.5 text-success hover:bg-success/10"
                         aria-label={t('common.save')}
@@ -222,7 +274,8 @@ export function BrandListView() {
                         <Check size={16} />
                       </button>
                       <button
-                        onClick={() => setEditing(null)}
+                        type="button"
+                        onClick={cancelEdit}
                         className="rounded p-1.5 text-text-secondary hover:bg-surface-hover"
                         aria-label={t('common.cancel')}
                       >
@@ -231,7 +284,7 @@ export function BrandListView() {
                     </div>
                   ) : canUpdate ? (
                     <button
-                      onClick={() => setEditing(brand)}
+                      onClick={() => startEdit(brand)}
                       className="rounded p-1.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
                       aria-label={t('common.edit')}
                     >
@@ -274,7 +327,7 @@ export function BrandListView() {
           <EmptyState
             message={t('inventory.brandView.empty')}
             actionLabel={canCreate ? t('common.create') : undefined}
-            onAction={canCreate ? () => createInputRef.current?.focus() : undefined}
+            onAction={canCreate ? () => document.getElementById('brand-create-name')?.focus() : undefined}
           />
         )}
       </div>

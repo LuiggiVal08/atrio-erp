@@ -15,7 +15,7 @@ export function FieldLabel({ label, description, required, htmlFor }: FieldLabel
         className="text-xs font-medium text-text-secondary"
       >
         {label}
-        {required && <span aria-hidden="true" className="ml-0.5 text-error">*</span>}
+        {required && <span aria-hidden="true"> *</span>}
       </label>
       {description && (
         <Tooltip delay={0}>

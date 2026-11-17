@@ -5,6 +5,7 @@ export {
 } from './apply-server-errors';
 export type { ApplyServerErrorsResult } from './apply-server-errors';
 export { FormAddressInput } from './form-address-input';
+export { FormCheckbox } from './form-checkbox';
 export { FormCombobox } from './form-combobox';
 export { FormDocumentInput } from './form-document-input';
 export { FormField } from './form-field';

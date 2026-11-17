@@ -1,6 +1,17 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, FileDown, Pencil, X } from 'lucide-react';
+import {
+  FormInput,
+  FormSelect,
+  applyServerErrors,
+  resolveServerErrorMessage,
+} from '@/shared/form';
+import {
+  payrollAdjustmentSchema,
+  type PayrollAdjustmentValues,
+} from '@/shared/validation/payroll-adjustment';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useCashRegisters } from '@/modules/cash/hooks/useCashRegisters';
 import { useBankAccounts } from '@/modules/cash/hooks/useBankAccounts';
@@ -45,32 +56,49 @@ export function PayrollDetailView() {
   const downloadReceipt = useDownloadPayslipReceipt();
   const addInput = useAddPayrollInput(id);
   const updateInput = useUpdatePayrollInput(id);
-  const [relationshipId, setRelationshipId] = useState('');
-  const [conceptId, setConceptId] = useState('');
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
   const [editingInputId, setEditingInputId] = useState<string | null>(null);
+  const [adjustmentError, setAdjustmentError] = useState('');
   const [cashRegisterId, setCashRegisterId] = useState('');
   const [bankAccountId, setBankAccountId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank'>('cash');
   const activeConcepts = concepts.filter((concept) => concept.isActive);
   const eligibleEmployees = employees;
 
-  const handleAddInput = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const onSuccess = () => {
-      setAmount('');
-      setDescription('');
-      setEditingInputId(null);
-    };
-    if (editingInputId) {
-      updateInput.mutate({ id: editingInputId, amount: Number(amount), description: description.trim() }, { onSuccess });
-      return;
-    }
-    addInput.mutate({ relationshipId, conceptId, amount: Number(amount), description: description.trim() || undefined }, {
-      onSuccess,
-    });
-  };
+  const adjustmentForm = useForm({
+    defaultValues: {
+      relationshipId: '',
+      conceptId: '',
+      amount: undefined,
+      description: '',
+    } as PayrollAdjustmentValues,
+    validators: { onSubmit: payrollAdjustmentSchema },
+    onSubmit: async ({ value }) => {
+      setAdjustmentError('');
+      try {
+        if (editingInputId) {
+          await updateInput.mutateAsync({
+            id: editingInputId,
+            amount: value.amount ?? 0,
+            description: value.description.trim(),
+          });
+        } else {
+          await addInput.mutateAsync({
+            relationshipId: value.relationshipId,
+            conceptId: value.conceptId,
+            amount: value.amount ?? 0,
+            description: value.description.trim() || undefined,
+          });
+        }
+        adjustmentForm.setFieldValue('amount', undefined);
+        adjustmentForm.setFieldValue('description', '');
+        setEditingInputId(null);
+      } catch (error) {
+        const result = applyServerErrors(adjustmentForm, error);
+        setAdjustmentError(resolveServerErrorMessage(result, 'No se pudo guardar el ajuste.'));
+      }
+    },
+  });
+
 
   if (loadingPeriod) {
     return <div className="flex h-full items-center justify-center text-text-secondary">{t('common.loading')}</div>;
@@ -257,35 +285,50 @@ export function PayrollDetailView() {
               <h2 className="text-base font-bold text-text-primary">{t('payroll.addAdjustments')}</h2>
               <p className="mt-1 text-xs text-text-secondary">{t('payroll.adjustmentsHelp')}</p>
             </div>
-            <form onSubmit={handleAddInput} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-text-secondary">{t('payroll.employee')}</span>
-                <select required value={relationshipId} onChange={(event) => setRelationshipId(event.target.value)} className={fieldClass}>
-                  <option value="">{t('payroll.selectEmployee')}</option>
-                  {eligibleEmployees.map((employee) => (
-                    <option key={employee.relationshipId} value={employee.relationshipId}>{employee.employeeName}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-text-secondary">{t('payroll.conceptName')}</span>
-                <select required value={conceptId} onChange={(event) => setConceptId(event.target.value)} className={fieldClass}>
-                  <option value="">{t('payroll.selectConcept')}</option>
-                  {activeConcepts.map((concept) => (
-                    <option key={concept.id} value={concept.id}>
-                      {concept.name} · {t(`payroll.${concept.type === 'EARNING' ? 'earning' : 'deduction'}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-text-secondary">{t('payroll.amount')}</span>
-                <input required type="number" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} className={fieldClass} />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-text-secondary">{t('payroll.description')}</span>
-                <input maxLength={240} value={description} onChange={(event) => setDescription(event.target.value)} className={fieldClass} />
-              </label>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void adjustmentForm.handleSubmit();
+              }}
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            >
+              <FormSelect
+                form={adjustmentForm}
+                name="relationshipId"
+                label={t('payroll.employee')}
+                placeholder={t('payroll.selectEmployee')}
+                required
+                options={eligibleEmployees.map((employee) => ({
+                  value: employee.relationshipId,
+                  label: employee.employeeName,
+                }))}
+              />
+              <FormSelect
+                form={adjustmentForm}
+                name="conceptId"
+                label={t('payroll.conceptName')}
+                placeholder={t('payroll.selectConcept')}
+                required
+                options={activeConcepts.map((concept) => ({
+                  value: concept.id,
+                  label: `${concept.name} · ${t(`payroll.${concept.type === 'EARNING' ? 'earning' : 'deduction'}`)}`,
+                }))}
+              />
+              <FormInput
+                form={adjustmentForm}
+                name="amount"
+                label={t('payroll.amount')}
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+              />
+              <FormInput
+                form={adjustmentForm}
+                name="description"
+                label={t('payroll.description')}
+                maxLength={240}
+              />
               <button
                 type="submit"
                 disabled={
@@ -303,9 +346,9 @@ export function PayrollDetailView() {
                 <button
                   type="button"
                   onClick={() => {
+                    adjustmentForm.setFieldValue('amount', undefined);
+                    adjustmentForm.setFieldValue('description', '');
                     setEditingInputId(null);
-                    setAmount('');
-                    setDescription('');
                   }}
                   className="rounded-lg border border-border px-4 py-2 text-xs text-text-secondary hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent lg:col-start-2 lg:justify-self-start"
                 >
@@ -314,6 +357,7 @@ export function PayrollDetailView() {
               )}
             </form>
 
+            {adjustmentError && <p role="alert" className="text-xs text-error">{adjustmentError}</p>}
             {inputsError && <p role="alert" className="text-xs text-error">{t('payroll.loadError')}</p>}
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[560px] text-left text-xs">
@@ -345,16 +389,21 @@ export function PayrollDetailView() {
                           aria-label={`${t('payroll.editAdjustment')}: ${input.description || input.concept?.name || ''}`}
                           onClick={() => {
                             if (editingInputId === input.id) {
+                              adjustmentForm.setFieldValue('amount', undefined);
+                              adjustmentForm.setFieldValue('description', '');
                               setEditingInputId(null);
-                              setAmount('');
-                              setDescription('');
                               return;
                             }
                             setEditingInputId(input.id);
-                            setRelationshipId(input.relationshipId);
-                            setConceptId(input.conceptId);
-                            setAmount(String(input.amount));
-                            setDescription(input.description || '');
+                            adjustmentForm.reset(
+                              {
+                                relationshipId: input.relationshipId,
+                                conceptId: input.conceptId,
+                                amount: input.amount,
+                                description: input.description || '',
+                              },
+                              { keepDefaultValues: true },
+                            );
                           }}
                           className="rounded p-1 text-text-secondary hover:bg-surface-hover hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
                         >

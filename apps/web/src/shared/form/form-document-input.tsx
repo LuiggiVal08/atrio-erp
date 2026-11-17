@@ -7,6 +7,7 @@ export interface FormDocumentInputProps extends FormControlBaseProps {
   country?: string;
   placeholder?: string;
   allowedGroups?: string[];
+  onValueChange?: (value: string) => void;
 }
 
 export function FormDocumentInput({
@@ -21,6 +22,7 @@ export function FormDocumentInput({
   country,
   placeholder,
   allowedGroups,
+  onValueChange,
 }: FormDocumentInputProps) {
   return (
     <form.Field name={name}>
@@ -42,7 +44,10 @@ export function FormDocumentInput({
               >
                 <DocumentInput
                   value={valueField.state.value ?? ''}
-                  onChange={valueField.handleChange}
+                  onChange={(next) => {
+                    valueField.handleChange(next);
+                    onValueChange?.(next);
+                  }}
                   identificationType={typeField.state.value ?? ''}
                   onIdentificationTypeChange={typeField.handleChange}
                   country={country}

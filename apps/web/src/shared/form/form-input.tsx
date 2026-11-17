@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes } from 'react';
+import { useId, type InputHTMLAttributes, type KeyboardEventHandler } from 'react';
 import { FormField } from './form-field';
 import { controlClass } from './styles';
 import type { FormControlBaseProps } from './types';
@@ -11,8 +11,11 @@ export interface FormInputProps extends FormControlBaseProps {
   min?: number | string;
   max?: number | string;
   step?: number | string;
+  maxLength?: number;
   multiline?: boolean;
   rows?: number;
+  autoFocus?: boolean;
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement | HTMLTextAreaElement>;
 }
 
 export function FormInput({
@@ -32,8 +35,11 @@ export function FormInput({
   min,
   max,
   step,
+  maxLength,
   multiline = false,
   rows = 3,
+  autoFocus,
+  onKeyDown,
 }: FormInputProps) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -57,9 +63,11 @@ export function FormInput({
               value={field.state.value ?? ''}
               onChange={(event) => field.handleChange(event.target.value)}
               onBlur={field.handleBlur}
+              onKeyDown={onKeyDown}
               disabled={disabled}
               placeholder={placeholder}
               rows={rows}
+              autoFocus={autoFocus}
               className={controlClass}
             />
           ) : (
@@ -79,13 +87,16 @@ export function FormInput({
                 field.handleChange(event.target.value);
               }}
               onBlur={field.handleBlur}
+              onKeyDown={onKeyDown}
               disabled={disabled}
               placeholder={placeholder}
               autoComplete={autoComplete}
+              autoFocus={autoFocus}
               inputMode={inputMode}
               min={min}
               max={max}
               step={step}
+              maxLength={maxLength}
               className={controlClass}
             />
           )}

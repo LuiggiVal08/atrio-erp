@@ -1,10 +1,21 @@
 import { useState, useRef, useEffect, useDeferredValue } from 'react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
+import { useForm, useStore } from '@tanstack/react-form';
 import { useCreatePurchaseOrder } from '@/modules/purchases/hooks/usePurchaseOrders';
 import { useVendors } from '@/shared/hooks/useVendors';
 import { useInventoryProducts } from '@/modules/inventory/hooks/useInventoryList';
 import { useCategories } from '@/shared/hooks/useCategories';
+import {
+  FormInput,
+  applyServerErrors,
+  fieldErrorMessages,
+  resolveServerErrorMessage,
+} from '@/shared/form';
+import {
+  purchaseOrderFormSchema,
+  type PurchaseOrderFormValues,
+} from '@/shared/validation/purchase-order';
 
 export function PurchaseOrderFormView() {
   const { t } = useTranslation();
@@ -15,19 +26,50 @@ export function PurchaseOrderFormView() {
   const { data: products = [] } = useInventoryProducts();
 
   const [vendorSearch, setVendorSearch] = useState('');
-  const [vendorId, setVendorId] = useState('');
   const [showVendorDropdown, setShowVendorDropdown] = useState(false);
-  const [expectedDate, setExpectedDate] = useState('');
   const [expectedDateDirty, setExpectedDateDirty] = useState(false);
   const [suggestedDays, setSuggestedDays] = useState<number | null>(null);
-  const [subtotal, setSubtotal] = useState('0');
-  const [taxAmount, setTaxAmount] = useState('0');
-  const [notes, setNotes] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const [serverError, setServerError] = useState('');
   const deferredVendorSearch = useDeferredValue(vendorSearch);
   const deferredProductSearch = useDeferredValue(productSearch);
   const [suggestedCategoryId, setSuggestedCategoryId] = useState<string | null>(null);
   const vendorRef = useRef<HTMLDivElement>(null);
+
+  const form = useForm({
+    defaultValues: {
+      vendorId: '',
+      expectedDate: '',
+      subtotal: 0,
+      taxAmount: 0,
+      notes: '',
+    } as PurchaseOrderFormValues,
+    validators: { onSubmit: purchaseOrderFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await createMutation.mutateAsync({
+          vendorId: value.vendorId,
+          subtotal: value.subtotal ?? 0,
+          taxAmount: value.taxAmount ?? 0,
+          total: (value.subtotal ?? 0) + (value.taxAmount ?? 0),
+          expectedDate: value.expectedDate,
+          notes: value.notes.trim() || undefined,
+        });
+        navigate('/purchasing');
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, 'No se pudo crear la orden de compra.'));
+      }
+    },
+  });
+
+  const vendorId = useStore(form.store, (state) => state.values.vendorId);
+  const subtotal = useStore(form.store, (state) => state.values.subtotal);
+  const taxAmount = useStore(form.store, (state) => state.values.taxAmount);
+  const vendorErrors = useStore(form.store, (state) =>
+    fieldErrorMessages(state.fieldMeta.vendorId?.errors),
+  );
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -49,34 +91,17 @@ export function PurchaseOrderFormView() {
     p.sku.toLowerCase().includes(deferredProductSearch.toLowerCase())
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!vendorId || !expectedDate) return;
-
-    const sub = parseFloat(subtotal) || 0;
-    const tax = parseFloat(taxAmount) || 0;
-    await createMutation.mutateAsync({
-      vendorId,
-      subtotal: sub,
-      taxAmount: tax,
-      total: sub + tax,
-      expectedDate,
-      notes: notes.trim() || undefined,
-    });
-    navigate('/purchasing');
-  };
-
   const formatDateInput = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const selectVendor = (v: any) => {
-    setVendorId(v.id);
+    form.setFieldValue('vendorId', v.id);
     setVendorSearch(v.legalName);
     setShowVendorDropdown(false);
     if (v.deliveryDays != null && !expectedDateDirty) {
       const d = new Date();
       d.setDate(d.getDate() + v.deliveryDays);
-      setExpectedDate(formatDateInput(d));
+      form.setFieldValue('expectedDate', formatDateInput(d));
     }
     setSuggestedDays(v.deliveryDays ?? null);
   };
@@ -96,7 +121,13 @@ export function PurchaseOrderFormView() {
         <h1 className="text-lg font-bold text-text-primary">{t('purchasing.createOrder')}</h1>
       </div>
       <div className="flex-1 overflow-auto p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="space-y-4"
+        >
         <div ref={vendorRef} className="relative">
           <label className="mb-1 block text-xs font-medium text-text-secondary">{t('purchasing.vendor')}</label>
           <input
@@ -105,9 +136,11 @@ export function PurchaseOrderFormView() {
             onChange={(e) => { setVendorSearch(e.target.value); setShowVendorDropdown(true); }}
             onFocus={() => setShowVendorDropdown(true)}
             placeholder="Buscar proveedor..."
-            required
             className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
           />
+          {vendorErrors.length > 0 && (
+            <p role="alert" className="mt-1 text-xs text-error">{vendorErrors.join(' · ')}</p>
+          )}
           {showVendorDropdown && vendorSearch && (
             <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-border bg-surface shadow-lg">
               {filteredVendors.length === 0 ? (
@@ -129,14 +162,13 @@ export function PurchaseOrderFormView() {
           )}
         </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-text-secondary">{t('purchasing.expectedDate')}</label>
-          <input
+        <div onChange={() => setExpectedDateDirty(true)}>
+          <FormInput
+            form={form}
+            name="expectedDate"
+            label={t('purchasing.expectedDate')}
             type="date"
-            value={expectedDate}
-            onChange={(e) => { setExpectedDateDirty(true); setExpectedDate(e.target.value); }}
             required
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
           />
           {suggestedDays != null && !expectedDateDirty && (
             <p className="mt-1 text-xs text-text-secondary">
@@ -203,38 +235,45 @@ export function PurchaseOrderFormView() {
         )}
 
         <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">{t('sales.pos.subtotal')}</label>
-            <input
-              type="number" min={0} step={0.01}
-              value={subtotal} onChange={(e) => setSubtotal(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">{t('localization.taxes')}</label>
-            <input
-              type="number" min={0} step={0.01}
-              value={taxAmount} onChange={(e) => setTaxAmount(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-            />
-          </div>
+          <FormInput
+            form={form}
+            name="subtotal"
+            label={t('sales.pos.subtotal')}
+            type="number"
+            min={0}
+            step={0.01}
+          />
+          <FormInput
+            form={form}
+            name="taxAmount"
+            label={t('localization.taxes')}
+            type="number"
+            min={0}
+            step={0.01}
+          />
           <div>
             <label className="mb-1 block text-xs font-medium text-text-secondary">{t('sales.pos.total')}</label>
             <input
               type="number" readOnly
-              value={((parseFloat(subtotal) || 0) + (parseFloat(taxAmount) || 0)).toFixed(2)}
+              value={((subtotal ?? 0) + (taxAmount ?? 0)).toFixed(2)}
               className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm font-semibold text-text-primary"
             />
           </div>
         </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-text-secondary">{t('purchasing.notes')}</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none"
-          />
-        </div>
+        <FormInput
+          form={form}
+          name="notes"
+          label={t('purchasing.notes')}
+          multiline
+          rows={3}
+        />
+
+        {serverError && (
+          <p role="alert" className="rounded-lg border border-error/30 bg-error-alpha px-3 py-2 text-sm text-error">
+            {serverError}
+          </p>
+        )}
 
         <div className="flex items-center gap-3 pt-2">
           <button type="submit" disabled={createMutation.isPending}

@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useCategories } from '@/shared/hooks/useCategories';
 import { useUpdateVendor } from '@/modules/client-vendor/hooks/useUpdateVendor';
 import { toastService } from '@/core/services/toast-service';
 import { MultiSelect } from '@/shared/ui/MultiSelect';
-import { DocumentInput } from '@/shared/ui/DocumentInput';
+import { applyServerErrors, clearServerErrors, FormDocumentInput, FormInput, FormSelect, resolveServerErrorMessage } from '@/shared/form';
+import { fichaTerceroFormSchema, type FichaTerceroFormValues } from '@/shared/validation/ficha-tercero';
 import { useFichaTercero, type ThirdPartyKind } from '../hooks/useFichaTercero';
 import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
 import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
@@ -13,25 +15,6 @@ import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
 interface FichaTerceroViewProps {
   id: string;
   kind: ThirdPartyKind;
-}
-
-interface VendorFormState {
-  legalName: string;
-  documentId: string;
-  identificationType: string;
-  taxId: string;
-  email: string;
-  phone: string;
-  commercialName: string;
-  website: string;
-  paymentTerms: string;
-  deliveryDays: string;
-  metadataNotes: string;
-  addressLine: string;
-  addressCity: string;
-  addressState: string;
-  addressCountry: string;
-  addressReference: string;
 }
 
 interface ContactDraft {
@@ -46,7 +29,7 @@ interface ContactDraft {
   isPrimary: boolean;
 }
 
-const emptyForm: VendorFormState = {
+const emptyForm: FichaTerceroFormValues = {
   legalName: '',
   documentId: '',
   identificationType: '',
@@ -56,13 +39,16 @@ const emptyForm: VendorFormState = {
   commercialName: '',
   website: '',
   paymentTerms: '',
-  deliveryDays: '',
-  metadataNotes: '',
-  addressLine: '',
-  addressCity: '',
-  addressState: '',
-  addressCountry: 'VE',
-  addressReference: '',
+  deliveryDays: undefined,
+  notes: '',
+  categoryIds: [],
+  address: {
+    country: 'VE',
+    state: '',
+    city: '',
+    addressLine: '',
+    reference: '',
+  },
 };
 
 const labelClass = 'text-xs text-text-secondary';
@@ -81,11 +67,71 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
   const { data: categories } = useCategories();
   const updateVendor = useUpdateVendor();
 
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<VendorFormState>(emptyForm);
-  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [editDraft, setEditDraft] = useState<FichaTerceroFormValues | null>(null);
   const [contactDrafts, setContactDrafts] = useState<ContactDraft[]>([]);
+  const [serverError, setServerError] = useState('');
 
+  const form = useForm({
+    defaultValues: emptyForm,
+    validators: { onSubmit: fichaTerceroFormSchema },
+    onSubmit: async ({ value }) => {
+      if (!ficha) return;
+      setServerError('');
+      const addressLine = value.address.addressLine.trim();
+      const validContacts = contactDrafts.filter((contact) => contact.fullName.trim());
+      try {
+        await updateVendor.mutateAsync({
+          id: ficha.id,
+          legalName: value.legalName.trim(),
+          documentId: value.documentId.trim() || undefined,
+          identificationType: value.identificationType || undefined,
+          taxId: value.taxId.trim() || value.documentId.trim() || undefined,
+          email: value.email.trim() || null,
+          phone: value.phone.trim() || null,
+          commercialName: value.commercialName.trim() || undefined,
+          website: value.website.trim() || undefined,
+          metadataNotes: value.notes.trim() || undefined,
+          paymentTerms: value.paymentTerms || undefined,
+          deliveryDays: value.deliveryDays,
+          categoryIds: value.categoryIds,
+          address: addressLine ? {
+            country: value.address.country.trim(),
+            state: value.address.state.trim(),
+            city: value.address.city.trim(),
+            addressLine,
+            reference: value.address.reference.trim() || undefined,
+          } : null,
+          contacts: validContacts.map((contact) => ({
+            id: contact.id,
+            fullName: contact.fullName.trim(),
+            position: contact.position || undefined,
+            email: contact.email.trim() || null,
+            phone: contact.phone.trim() || null,
+            mobile: contact.mobile.trim() || null,
+            identificationNumber: contact.identificationNumber.trim() || null,
+            isPrimary: contact.isPrimary,
+          })),
+        });
+        toastService.success(t('crm.ficha.saveSuccess'));
+        clearServerErrors(form);
+        form.reset();
+        setEditDraft(null);
+        setServerError('');
+      } catch (err) {
+        const result = applyServerErrors(form, err);
+        setServerError(resolveServerErrorMessage(result, t('crm.ficha.saveError')));
+        toastService.error(t('crm.ficha.saveError'), t('common.saveUnconfirmed'));
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!editDraft) return;
+    clearServerErrors(form);
+    form.reset(editDraft, { keepDefaultValues: true });
+  }, [editDraft, form]);
+
+  const editing = editDraft !== null;
   const goBack = () => navigate(kind === 'vendor' ? '/vendors' : '/clients');
 
   if (isLoading) {
@@ -118,7 +164,8 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
   const active = ficha.isActive !== false;
 
   const startEdit = () => {
-    setForm({
+    setServerError('');
+    setEditDraft({
       legalName: ficha.legalName ?? '',
       documentId: ficha.documentId ?? '',
       identificationType: ficha.identificationType ?? '',
@@ -128,15 +175,17 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
       commercialName: ficha.commercialName ?? '',
       website: ficha.website ?? '',
       paymentTerms: ficha.paymentTerms ?? '',
-      deliveryDays: ficha.deliveryDays != null ? String(ficha.deliveryDays) : '',
-      metadataNotes: ficha.metadataNotes ?? '',
-      addressLine: ficha.address?.line1 ?? '',
-      addressCity: ficha.address?.city ?? '',
-      addressState: ficha.address?.state ?? '',
-      addressCountry: ficha.address?.country ?? 'VE',
-      addressReference: ficha.address?.line2 ?? '',
+      deliveryDays: ficha.deliveryDays != null ? ficha.deliveryDays : undefined,
+      notes: ficha.metadataNotes ?? '',
+      categoryIds: fichaCategories.map((category) => category.id),
+      address: {
+        country: ficha.address?.country ?? 'VE',
+        state: ficha.address?.state ?? '',
+        city: ficha.address?.city ?? '',
+        addressLine: ficha.address?.line1 ?? '',
+        reference: ficha.address?.line2 ?? '',
+      },
     });
-    setCategoryIds(fichaCategories.map((category) => category.id));
     setContactDrafts(
       contacts.map((contact) => ({
         key: contact.id,
@@ -150,10 +199,13 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
         isPrimary: contact.isPrimary,
       })),
     );
-    setEditing(true);
   };
 
-  const cancelEdit = () => setEditing(false);
+  const cancelEdit = () => {
+    clearServerErrors(form);
+    setEditDraft(null);
+    setServerError('');
+  };
 
   const addContact = () => {
     setContactDrafts((prev) => [
@@ -191,57 +243,6 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
     setContactDrafts((prev) => prev.map((contact) => ({ ...contact, isPrimary: contact.key === key })));
   };
 
-  const save = async () => {
-    if (!form.legalName.trim()) {
-      toastService.error(t('crm.ficha.legalNameRequired'));
-      return;
-    }
-    const addressLine = form.addressLine.trim();
-    if (addressLine && (!form.addressCity.trim() || !form.addressState.trim() || !form.addressCountry.trim())) {
-      toastService.error(t('crm.ficha.addressIncomplete'));
-      return;
-    }
-    const validContacts = contactDrafts.filter((contact) => contact.fullName.trim());
-    try {
-      await updateVendor.mutateAsync({
-        id: ficha.id,
-        legalName: form.legalName.trim(),
-        documentId: form.documentId.trim() || undefined,
-        identificationType: form.identificationType || undefined,
-        taxId: form.taxId.trim() || form.documentId.trim() || undefined,
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        commercialName: form.commercialName.trim() || undefined,
-        website: form.website.trim() || undefined,
-        metadataNotes: form.metadataNotes.trim() || undefined,
-        paymentTerms: form.paymentTerms || undefined,
-        deliveryDays: form.deliveryDays ? Number(form.deliveryDays) : undefined,
-        categoryIds,
-        address: addressLine ? {
-          country: form.addressCountry.trim(),
-          state: form.addressState.trim(),
-          city: form.addressCity.trim(),
-          addressLine,
-          reference: form.addressReference.trim() || undefined,
-        } : null,
-        contacts: validContacts.map((contact) => ({
-          id: contact.id,
-          fullName: contact.fullName.trim(),
-          position: contact.position || undefined,
-          email: contact.email.trim() || null,
-          phone: contact.phone.trim() || null,
-          mobile: contact.mobile.trim() || null,
-          identificationNumber: contact.identificationNumber.trim() || null,
-          isPrimary: contact.isPrimary,
-        })),
-      });
-      toastService.success(t('crm.ficha.saveSuccess'));
-      setEditing(false);
-    } catch {
-      toastService.error(t('crm.ficha.saveError'), t('common.saveUnconfirmed'));
-    }
-  };
-
   return (
     <div className="mx-auto flex h-full max-w-4xl flex-col">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3">
@@ -268,7 +269,7 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
               </button>
               <button
                 type="button"
-                onClick={save}
+                onClick={() => void form.handleSubmit()}
                 disabled={updateVendor.isPending}
                 className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
               >
@@ -284,50 +285,44 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
       </div>
 
       <div className="flex-1 space-y-6 overflow-auto p-6">
+        {serverError && (
+          <p role="alert" className="rounded-lg border border-error/30 bg-error/10 px-4 py-2 text-sm text-error">
+            {serverError}
+          </p>
+        )}
+
         <section className="rounded-lg border border-border bg-surface p-6">
           <h2 className="mb-4 text-sm font-bold text-text-primary">{t('crm.ficha.overview')}</h2>
           {editing ? (
             <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-              <FieldInput label={t('crm.ficha.legalName')} value={form.legalName} onChange={(value) => setForm({ ...form, legalName: value })} required />
-              <DocumentInput
-                value={form.documentId}
-                onChange={(value) => setForm({ ...form, documentId: value, taxId: value })}
-                identificationType={form.identificationType}
-                onIdentificationTypeChange={(value) => setForm({ ...form, identificationType: value })}
+              <FormInput form={form} name="legalName" label={t('crm.ficha.legalName')} required />
+              <FormDocumentInput
+                form={form}
+                name="documentId"
+                identificationTypeName="identificationType"
                 label={t('crm.ficha.documentId')}
                 allowedGroups={['RIF']}
+                onValueChange={(value) => form.setFieldValue('taxId', value)}
               />
-              <FieldInput label={t('crm.ficha.taxId')} value={form.taxId} onChange={(value) => setForm({ ...form, taxId: value })} />
-              <FieldInput label={t('crm.ficha.email')} value={form.email} onChange={(value) => setForm({ ...form, email: value })} type="email" />
-              <FieldInput label={t('crm.ficha.phone')} value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
-              <FieldInput label={t('crm.ficha.commercialName')} value={form.commercialName} onChange={(value) => setForm({ ...form, commercialName: value })} />
-              <FieldInput label={t('crm.ficha.website')} value={form.website} onChange={(value) => setForm({ ...form, website: value })} type="url" />
-              <div>
-                <label className={labelClass} htmlFor="vendor-payment-terms">{t('crm.ficha.paymentTerms')}</label>
-                <select
-                  id="vendor-payment-terms"
-                  value={form.paymentTerms}
-                  onChange={(event) => setForm({ ...form, paymentTerms: event.target.value })}
-                  className={inputClass}
-                >
-                  <option value="">—</option>
-                  <option value="contado">Contado</option>
-                  <option value="credito-7">Crédito 7 días</option>
-                  <option value="credito-15">Crédito 15 días</option>
-                  <option value="credito-30">Crédito 30 días</option>
-                </select>
-              </div>
-              <FieldInput label={t('crm.ficha.deliveryDays')} value={form.deliveryDays} onChange={(value) => setForm({ ...form, deliveryDays: value })} type="number" />
-              <div className="sm:col-span-2">
-                <label className={labelClass} htmlFor="vendor-notes">{t('crm.ficha.notes')}</label>
-                <textarea
-                  id="vendor-notes"
-                  rows={2}
-                  value={form.metadataNotes}
-                  onChange={(event) => setForm({ ...form, metadataNotes: event.target.value })}
-                  className={inputClass}
-                />
-              </div>
+              <FormInput form={form} name="taxId" label={t('crm.ficha.taxId')} />
+              <FormInput form={form} name="email" label={t('crm.ficha.email')} type="email" />
+              <FormInput form={form} name="phone" label={t('crm.ficha.phone')} type="tel" />
+              <FormInput form={form} name="commercialName" label={t('crm.ficha.commercialName')} />
+              <FormInput form={form} name="website" label={t('crm.ficha.website')} type="url" />
+              <FormSelect
+                form={form}
+                name="paymentTerms"
+                label={t('crm.ficha.paymentTerms')}
+                placeholder="—"
+                options={[
+                  { value: 'contado', label: 'Contado' },
+                  { value: 'credito-7', label: 'Crédito 7 días' },
+                  { value: 'credito-15', label: 'Crédito 15 días' },
+                  { value: 'credito-30', label: 'Crédito 30 días' },
+                ]}
+              />
+              <FormInput form={form} name="deliveryDays" label={t('crm.ficha.deliveryDays')} type="number" min={0} />
+              <FormInput form={form} name="notes" label={t('crm.ficha.notes')} multiline rows={2} className="sm:col-span-2" />
             </div>
           ) : (
             <>
@@ -360,11 +355,11 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
           <h2 className="mb-4 text-sm font-bold text-text-primary">{t('crm.ficha.address')}</h2>
           {editing ? (
             <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-              <FieldInput label={t('crm.ficha.addressLine')} value={form.addressLine} onChange={(value) => setForm({ ...form, addressLine: value })} />
-              <FieldInput label={t('crm.ficha.addressReference')} value={form.addressReference} onChange={(value) => setForm({ ...form, addressReference: value })} />
-              <FieldInput label={t('crm.ficha.addressCity')} value={form.addressCity} onChange={(value) => setForm({ ...form, addressCity: value })} />
-              <FieldInput label={t('crm.ficha.addressState')} value={form.addressState} onChange={(value) => setForm({ ...form, addressState: value })} />
-              <FieldInput label={t('crm.ficha.addressCountry')} value={form.addressCountry} onChange={(value) => setForm({ ...form, addressCountry: value })} />
+              <FormInput form={form} name="address.addressLine" label={t('crm.ficha.addressLine')} />
+              <FormInput form={form} name="address.reference" label={t('crm.ficha.addressReference')} />
+              <FormInput form={form} name="address.city" label={t('crm.ficha.addressCity')} />
+              <FormInput form={form} name="address.state" label={t('crm.ficha.addressState')} />
+              <FormInput form={form} name="address.country" label={t('crm.ficha.addressCountry')} />
             </div>
           ) : ficha.address ? (
             <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
@@ -383,15 +378,19 @@ export function FichaTerceroView({ id, kind }: FichaTerceroViewProps) {
           <section className="rounded-lg border border-border bg-surface p-6">
             <h2 className="mb-3 text-sm font-bold text-text-primary">{t('crm.ficha.categories')}</h2>
             {editing ? (
-              <MultiSelect
-                options={(categories ?? []).map((category: any) => ({ id: category.id, label: category.name }))}
-                value={categoryIds}
-                onChange={setCategoryIds}
-                ariaLabel={t('crm.ficha.categories')}
-                placeholder={t('crm.ficha.categoriesPlaceholder')}
-                searchPlaceholder={t('common.search')}
-                emptyMessage={t('common.noResults')}
-              />
+              <form.Subscribe selector={(state) => state.values.categoryIds}>
+                {(categoryIds) => (
+                  <MultiSelect
+                    options={(categories ?? []).map((category: any) => ({ id: category.id, label: category.name }))}
+                    value={categoryIds}
+                    onChange={(value) => form.setFieldValue('categoryIds', value)}
+                    ariaLabel={t('crm.ficha.categories')}
+                    placeholder={t('crm.ficha.categoriesPlaceholder')}
+                    searchPlaceholder={t('common.search')}
+                    emptyMessage={t('common.noResults')}
+                  />
+                )}
+              </form.Subscribe>
             ) : fichaCategories.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {fichaCategories.map((category) => (
@@ -553,35 +552,6 @@ function Field({ label, value }: { label: string; value?: string | null }) {
     <div>
       <span className={labelClass}>{label}</span>
       <p className={valueClass}>{value?.trim() ? value : '—'}</p>
-    </div>
-  );
-}
-
-function FieldInput({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  required = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  required?: boolean;
-}) {
-  return (
-    <div>
-      <label className={labelClass}>
-        {label}
-        {required && <span className="ml-0.5 text-error" aria-hidden="true">*</span>}
-      </label>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={inputClass}
-      />
     </div>
   );
 }

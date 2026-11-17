@@ -1,7 +1,31 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm, useStore } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { useTenantStore } from '@/core/tenant/store';
+import {
+  FormCheckbox,
+  FormInput,
+  FormSelect,
+  applyServerErrors,
+  resolveServerErrorMessage,
+} from '@/shared/form';
+import {
+  companySettingsSchema,
+  financialSettingsSchema,
+  fiscalSettingsSchema,
+  generalSettingsSchema,
+  inventorySettingsSchema,
+  salesSettingsSchema,
+  systemSettingsSchema,
+  type CompanySettingsValues,
+  type FinancialSettingsValues,
+  type FiscalSettingsValues,
+  type GeneralSettingsValues,
+  type InventorySettingsValues,
+  type SalesSettingsValues,
+  type SystemSettingsValues,
+} from '@/shared/validation/tenant-settings';
 import { useTenant, useUpdateTenant, useTenantModules, useUpdateTenantModules } from '../hooks/useTenant';
 import { useThemeStore, themeOptions } from '@/core/store/theme-store';
 import {
@@ -164,61 +188,6 @@ function SettingsCard({ title, subtitle, children, onSave, isPending, isSuccess 
   );
 }
 
-function SelectField({ id, label, value, onChange, options }: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-sm font-medium text-text-secondary" htmlFor={id}>
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-border bg-canvas px-3 py-2.5 text-sm text-text-primary focus:border-accent focus:outline-none"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function InputField({ id, label, type = 'text', value, onChange, min, max, placeholder }: {
-  id: string;
-  label: string;
-  type?: string;
-  value: string;
-  onChange: (v: string) => void;
-  min?: number;
-  max?: number;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-sm font-medium text-text-secondary" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        min={min}
-        max={max}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-border bg-canvas px-3 py-2.5 text-sm text-text-primary focus:border-accent focus:outline-none"
-      />
-    </div>
-  );
-}
-
 function CheckboxField({ id, label, checked, onChange }: {
   id: string;
   label: string;
@@ -301,54 +270,288 @@ export function TenantSettingsView() {
   const { data: modulesData } = useTenantModules(tenantId);
   const updateModules = useUpdateTenantModules(tenantId);
 
-  const [legalName, setLegalName] = useState('');
-  const [taxId, setTaxId] = useState('');
-  const [baseCurrency, setBaseCurrency] = useState('');
-  const [timezone, setTimezone] = useState('');
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
-
-  const [language, setLanguage] = useState('');
-  const [stockThreshold, setStockThreshold] = useState('');
-  const [lowStockAlerts, setLowStockAlerts] = useState(true);
-  const [stockAlertEmail, setStockAlertEmail] = useState(false);
-  const [stockAlertRecipients, setStockAlertRecipients] = useState('');
-
-  const [defaultCostMethod, setDefaultCostMethod] = useState('');
-  const [allowNegativeStock, setAllowNegativeStock] = useState(false);
-
-  const [defaultDocType, setDefaultDocType] = useState('');
-  const [receiptFooter, setReceiptFooter] = useState('');
-  const [enableCommissions, setEnableCommissions] = useState(false);
-  const [defaultPaymentTerms, setDefaultPaymentTerms] = useState('');
-  const [autoInvoiceNumbering, setAutoInvoiceNumbering] = useState(true);
-
-  const [defaultVatRate, setDefaultVatRate] = useState('');
-  const [autoWithholding, setAutoWithholding] = useState(false);
-  const [defaultContributorType, setDefaultContributorType] = useState('');
-
-  const [foreignCurrency, setForeignCurrency] = useState('');
-  const [multicurrency, setMulticurrency] = useState(false);
-  const [exchangeRateSource, setExchangeRateSource] = useState('');
-  const [exchangeRateProviders, setExchangeRateProviders] = useState('automatic');
   const [customRateProviders, setCustomRateProviders] = useState<ExchangeRateProviderConfig[]>([]);
+  const [serverError, setServerError] = useState('');
+  const initializedRef = useRef(false);
 
-  const [sessionTimeout, setSessionTimeout] = useState('');
-  const [enableAudit, setEnableAudit] = useState(true);
+  const saveError = (form: Parameters<typeof applyServerErrors>[0], error: unknown) => {
+    const result = applyServerErrors(form, error);
+    setServerError(resolveServerErrorMessage(result, 'No se pudo guardar la configuración.'));
+  };
+
+  const companyForm = useForm({
+    defaultValues: {
+      legalName: '',
+      taxId: '',
+      baseCurrency: '',
+      timezone: '',
+    } as CompanySettingsValues,
+    validators: { onSubmit: companySettingsSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await updateTenant.mutateAsync({
+          legalName: value.legalName.trim(),
+          taxId: value.taxId.trim(),
+          baseCurrency: value.baseCurrency,
+          timezone: value.timezone,
+        });
+      } catch (error) {
+        saveError(companyForm, error);
+      }
+    },
+  });
+
+  const generalForm = useForm({
+    defaultValues: {
+      language: 'es',
+      stockThreshold: undefined,
+      lowStockAlerts: true,
+      stockAlertEmail: false,
+      stockAlertRecipients: '',
+    } as GeneralSettingsValues,
+    validators: { onSubmit: generalSettingsSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await updateTenant.mutateAsync({
+          settings: {
+            ...getExistingSettings(tenant),
+            language: value.language,
+            stockThreshold: Number(value.stockThreshold ?? 0),
+            lowStockAlerts: value.lowStockAlerts,
+            stockAlertEmail: value.stockAlertEmail,
+            stockAlertRecipients: value.stockAlertRecipients.trim(),
+          },
+        });
+      } catch (error) {
+        saveError(generalForm, error);
+      }
+    },
+  });
+
+  const inventoryForm = useForm({
+    defaultValues: {
+      defaultCostMethod: 'weighted_average',
+      allowNegativeStock: false,
+    } as InventorySettingsValues,
+    validators: { onSubmit: inventorySettingsSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await updateTenant.mutateAsync({
+          settings: {
+            ...getExistingSettings(tenant),
+            defaultCostMethod: value.defaultCostMethod,
+            allowNegativeStock: value.allowNegativeStock,
+          },
+        });
+      } catch (error) {
+        saveError(inventoryForm, error);
+      }
+    },
+  });
+
+  const salesForm = useForm({
+    defaultValues: {
+      defaultDocType: 'sales_invoice',
+      receiptFooter: '',
+      enableCommissions: false,
+      defaultPaymentTerms: 'cash',
+      autoInvoiceNumbering: true,
+    } as SalesSettingsValues,
+    validators: { onSubmit: salesSettingsSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await updateTenant.mutateAsync({
+          settings: {
+            ...getExistingSettings(tenant),
+            defaultDocType: value.defaultDocType,
+            receiptFooter: value.receiptFooter,
+            enableCommissions: value.enableCommissions,
+            defaultPaymentTerms: value.defaultPaymentTerms,
+            autoInvoiceNumbering: value.autoInvoiceNumbering,
+          },
+        });
+      } catch (error) {
+        saveError(salesForm, error);
+      }
+    },
+  });
+
+  const fiscalForm = useForm({
+    defaultValues: {
+      defaultVatRate: undefined,
+      autoWithholding: false,
+      defaultContributorType: 'ordinary',
+    } as FiscalSettingsValues,
+    validators: { onSubmit: fiscalSettingsSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await updateTenant.mutateAsync({
+          settings: {
+            ...getExistingSettings(tenant),
+            defaultVatRate: Number(value.defaultVatRate ?? 0),
+            autoWithholding: value.autoWithholding,
+            defaultContributorType: value.defaultContributorType,
+          },
+        });
+      } catch (error) {
+        saveError(fiscalForm, error);
+      }
+    },
+  });
+
+  const financialForm = useForm({
+    defaultValues: {
+      foreignCurrency: 'USD',
+      multicurrency: false,
+      exchangeRateSource: 'bcv',
+      exchangeRateProviders: 'automatic',
+    } as FinancialSettingsValues,
+    validators: { onSubmit: financialSettingsSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await updateTenant.mutateAsync({
+          settings: {
+            ...getExistingSettings(tenant),
+            foreignCurrency: value.foreignCurrency,
+            multicurrency: value.multicurrency,
+            exchangeRateSource: value.exchangeRateSource,
+            exchangeRateProviders: value.exchangeRateProviders,
+            exchangeRateProviderConfig: { providers: customRateProviders },
+          },
+        });
+      } catch (error) {
+        saveError(financialForm, error);
+      }
+    },
+  });
+
+  const systemForm = useForm({
+    defaultValues: {
+      sessionTimeout: undefined,
+      enableAudit: true,
+    } as SystemSettingsValues,
+    validators: { onSubmit: systemSettingsSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      try {
+        await updateTenant.mutateAsync({
+          settings: {
+            ...getExistingSettings(tenant),
+            sessionTimeout: Number(value.sessionTimeout ?? 0),
+            enableAudit: value.enableAudit,
+          },
+        });
+      } catch (error) {
+        saveError(systemForm, error);
+      }
+    },
+  });
+
+  const stockAlertEmail = useStore(generalForm.store, (state) => state.values.stockAlertEmail);
 
   const { primaryDark, primaryLight, setPrimaryDark, setPrimaryLight } = useThemeStore();
-
-  const initRef = useRef(false);
-  const genInitRef = useRef(false);
-  const invInitRef = useRef(false);
-  const salesInitRef = useRef(false);
-  const fiscalInitRef = useRef(false);
-  const financialInitRef = useRef(false);
-  const systemInitRef = useRef(false);
 
   const sectionIds = useMemo(() => ALL_SECTIONS.map((s) => s.id), []);
   const activeSection = useScrollSpy(sectionIds);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!tenant || initializedRef.current) return;
+    initializedRef.current = true;
+    const s = getExistingSettings(tenant);
+
+    companyForm.reset(
+      {
+        legalName: tenant.legalName ?? '',
+        taxId: tenant.taxId ?? '',
+        baseCurrency: tenant.baseCurrency ?? '',
+        timezone: tenant.timezone ?? '',
+      },
+      { keepDefaultValues: true },
+    );
+
+    generalForm.reset(
+      {
+        language: s.language || 'es',
+        stockThreshold: s.stockThreshold === undefined ? undefined : Number(s.stockThreshold),
+        lowStockAlerts: s.lowStockAlerts !== false,
+        stockAlertEmail: s.stockAlertEmail === true,
+        stockAlertRecipients: s.stockAlertRecipients || '',
+      },
+      { keepDefaultValues: true },
+    );
+
+    inventoryForm.reset(
+      {
+        defaultCostMethod: s.defaultCostMethod || 'weighted_average',
+        allowNegativeStock: s.allowNegativeStock === true,
+      },
+      { keepDefaultValues: true },
+    );
+
+    salesForm.reset(
+      {
+        defaultDocType: s.defaultDocType || 'sales_invoice',
+        receiptFooter: s.receiptFooter || '',
+        enableCommissions: s.enableCommissions === true,
+        defaultPaymentTerms: s.defaultPaymentTerms || 'cash',
+        autoInvoiceNumbering: s.autoInvoiceNumbering !== false,
+      },
+      { keepDefaultValues: true },
+    );
+
+    fiscalForm.reset(
+      {
+        defaultVatRate: s.defaultVatRate === undefined ? undefined : Number(s.defaultVatRate),
+        autoWithholding: s.autoWithholding === true,
+        defaultContributorType: s.defaultContributorType || 'ordinary',
+      },
+      { keepDefaultValues: true },
+    );
+
+    financialForm.reset(
+      {
+        foreignCurrency: s.foreignCurrency || 'USD',
+        multicurrency: s.multicurrency === true,
+        exchangeRateSource: s.exchangeRateSource || 'bcv',
+        exchangeRateProviders: s.exchangeRateProviders || 'automatic',
+      },
+      { keepDefaultValues: true },
+    );
+
+    systemForm.reset(
+      {
+        sessionTimeout: s.sessionTimeout === undefined ? undefined : Number(s.sessionTimeout),
+        enableAudit: s.enableAudit !== false,
+      },
+      { keepDefaultValues: true },
+    );
+
+    const providerConfig = s.exchangeRateProviderConfig?.providers;
+    setCustomRateProviders(
+      Array.isArray(providerConfig)
+        ? providerConfig.map((provider: any) => ({
+            id: String(provider.id || ''),
+            name: String(provider.name || ''),
+            urlTemplate: String(provider.urlTemplate || ''),
+            ratePath: String(provider.ratePath || ''),
+            datePath: String(provider.datePath || ''),
+            apiKeyHeader: String(provider.apiKeyHeader || ''),
+            apiKey: String(provider.apiKey || ''),
+            enabled: provider.enabled !== false,
+          }))
+        : [],
+    );
+  }, [tenant, companyForm, generalForm, inventoryForm, salesForm, fiscalForm, financialForm, systemForm]);
+
 
   const handleNavigate = (id: string) => {
     const el = document.getElementById(id);
@@ -373,81 +576,9 @@ export function TenantSettingsView() {
     return <div className="flex h-full items-center justify-center text-text-secondary">{t('common.error')}</div>;
   }
 
-  if (!initRef.current) {
-    initRef.current = true;
-    setLegalName(tenant.legalName);
-    setTaxId(tenant.taxId);
-    setBaseCurrency(tenant.baseCurrency);
-    setTimezone(tenant.timezone);
-  }
-
   if (!selectedModules.length && modulesData) {
     setSelectedModules(modulesData.enabledModules);
   }
-
-  const s = getExistingSettings(tenant);
-
-  if (!genInitRef.current && tenant.settings) {
-    genInitRef.current = true;
-    setLanguage(s.language || 'es');
-    setStockThreshold(String(s.stockThreshold ?? 10));
-    setLowStockAlerts(s.lowStockAlerts !== false);
-    setStockAlertEmail(s.stockAlertEmail === true);
-    setStockAlertRecipients(s.stockAlertRecipients || '');
-  }
-
-  if (!invInitRef.current && tenant.settings) {
-    invInitRef.current = true;
-    setDefaultCostMethod(s.defaultCostMethod || 'weighted_average');
-    setAllowNegativeStock(s.allowNegativeStock === true);
-  }
-
-  if (!salesInitRef.current && tenant.settings) {
-    salesInitRef.current = true;
-    setDefaultDocType(s.defaultDocType || 'sales_invoice');
-    setReceiptFooter(s.receiptFooter || '');
-    setEnableCommissions(s.enableCommissions === true);
-    setDefaultPaymentTerms(s.defaultPaymentTerms || 'cash');
-    setAutoInvoiceNumbering(s.autoInvoiceNumbering !== false);
-  }
-
-  if (!fiscalInitRef.current && tenant.settings) {
-    fiscalInitRef.current = true;
-    setDefaultVatRate(String(s.defaultVatRate ?? 16));
-    setAutoWithholding(s.autoWithholding === true);
-    setDefaultContributorType(s.defaultContributorType || 'ordinary');
-  }
-
-  if (!financialInitRef.current && tenant.settings) {
-    financialInitRef.current = true;
-    setForeignCurrency(s.foreignCurrency || 'USD');
-    setMulticurrency(s.multicurrency === true);
-    setExchangeRateSource(s.exchangeRateSource || 'bcv');
-    setExchangeRateProviders(s.exchangeRateProviders || 'automatic');
-    const providerConfig = s.exchangeRateProviderConfig?.providers;
-    setCustomRateProviders(Array.isArray(providerConfig)
-      ? providerConfig.map((provider: any) => ({
-          id: String(provider.id || ''),
-          name: String(provider.name || ''),
-          urlTemplate: String(provider.urlTemplate || ''),
-          ratePath: String(provider.ratePath || ''),
-          datePath: String(provider.datePath || ''),
-          apiKeyHeader: String(provider.apiKeyHeader || ''),
-          apiKey: String(provider.apiKey || ''),
-          enabled: provider.enabled !== false,
-        }))
-      : []);
-  }
-
-  if (!systemInitRef.current && tenant.settings) {
-    systemInitRef.current = true;
-    setSessionTimeout(String(s.sessionTimeout ?? 60));
-    setEnableAudit(s.enableAudit !== false);
-  }
-
-  const handleCompanySave = () => {
-    updateTenant.mutate({ legalName, taxId, baseCurrency, timezone });
-  };
 
   const toggleModule = (id: string) => {
     setSelectedModules((prev) =>
@@ -459,97 +590,32 @@ export function TenantSettingsView() {
     updateModules.mutate(selectedModules);
   };
 
-  const handleGeneralSave = () => {
-    updateTenant.mutate({
-      settings: {
-        ...getExistingSettings(tenant),
-        language,
-        stockThreshold: Number(stockThreshold),
-        lowStockAlerts,
-        stockAlertEmail,
-        stockAlertRecipients,
-      },
-    });
-  };
-
-  const handleInventorySave = () => {
-    updateTenant.mutate({
-      settings: {
-        ...getExistingSettings(tenant),
-        defaultCostMethod,
-        allowNegativeStock,
-      },
-    });
-  };
-
-  const handleSalesSave = () => {
-    updateTenant.mutate({
-      settings: {
-        ...getExistingSettings(tenant),
-        defaultDocType,
-        receiptFooter,
-        enableCommissions,
-        defaultPaymentTerms,
-        autoInvoiceNumbering,
-      },
-    });
-  };
-
-  const handleFiscalSave = () => {
-    updateTenant.mutate({
-      settings: {
-        ...getExistingSettings(tenant),
-        defaultVatRate: Number(defaultVatRate),
-        autoWithholding,
-        defaultContributorType,
-      },
-    });
-  };
-
-  const handleFinancialSave = () => {
-    updateTenant.mutate({
-      settings: {
-        ...getExistingSettings(tenant),
-        foreignCurrency,
-        multicurrency,
-        exchangeRateSource,
-        exchangeRateProviders,
-        exchangeRateProviderConfig: { providers: customRateProviders },
-      },
-    });
-  };
-
-  const handleSystemSave = () => {
-    updateTenant.mutate({
-      settings: {
-        ...getExistingSettings(tenant),
-        sessionTimeout: Number(sessionTimeout),
-        enableAudit,
-      },
-    });
-  };
-
   return (
     <div ref={scrollContainerRef} className="mx-auto flex h-full w-full gap-8 overflow-y-auto p-6">
       <SidebarNav groups={SIDEBAR_GROUPS} activeSection={activeSection} onNavigate={handleNavigate} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 pb-24">
+        {serverError && (
+          <p role="alert" className="rounded-lg border border-error/30 bg-error-alpha px-4 py-3 text-sm text-error">
+            {serverError}
+          </p>
+        )}
         <section id="company">
           <SettingsCard
             title={t('settings.company.title')}
             subtitle={t('settings.company.subtitle')}
-            onSave={handleCompanySave}
+            onSave={() => void companyForm.handleSubmit()}
             isPending={updateTenant.isPending}
             isSuccess={updateTenant.isSuccess}
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              <InputField id="legalName" label={t('settings.company.legalName')} value={legalName} onChange={setLegalName} />
-              <InputField id="taxId" label={t('settings.company.taxId')} value={taxId} onChange={setTaxId} />
-              <SelectField
-                id="currency"
+              <FormInput form={companyForm} name="legalName" label={t('settings.company.legalName')} required />
+              <FormInput form={companyForm} name="taxId" label={t('settings.company.taxId')} />
+              <FormSelect
+                form={companyForm}
+                name="baseCurrency"
                 label={t('settings.company.baseCurrency')}
-                value={baseCurrency}
-                onChange={setBaseCurrency}
+                required
                 options={[
                   { value: 'VED', label: 'VED — Bolívar Digital' },
                   { value: 'USD', label: 'USD — Dólar' },
@@ -557,11 +623,11 @@ export function TenantSettingsView() {
                   { value: 'COP', label: 'COP — Peso Colombiano' },
                 ]}
               />
-              <SelectField
-                id="timezone"
+              <FormSelect
+                form={companyForm}
+                name="timezone"
                 label={t('settings.company.timezone')}
-                value={timezone}
-                onChange={setTimezone}
+                required
                 options={[
                   { value: 'America/Caracas', label: 'America/Caracas (UTC−4)' },
                   { value: 'America/Bogota', label: 'America/Bogota (UTC−5)' },
@@ -577,32 +643,30 @@ export function TenantSettingsView() {
           <SettingsCard
             title={t('settings.general.title')}
             subtitle={t('settings.general.subtitle')}
-            onSave={handleGeneralSave}
+            onSave={() => void generalForm.handleSubmit()}
             isPending={updateTenant.isPending}
             isSuccess={updateTenant.isSuccess}
           >
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-5">
-                <SelectField
-                  id="language"
+                <FormSelect
+                  form={generalForm}
+                  name="language"
                   label={t('settings.general.language')}
-                  value={language}
-                  onChange={setLanguage}
                   options={[
                     { value: 'es', label: 'Español' },
                     { value: 'en', label: 'English' },
                   ]}
                 />
-                <InputField
-                  id="stockThreshold"
+                <FormInput
+                  form={generalForm}
+                  name="stockThreshold"
                   label={t('settings.general.stockThreshold')}
                   type="number"
                   min={0}
-                  value={stockThreshold}
-                  onChange={setStockThreshold}
                 />
               </div>
-              <CheckboxField id="lowStockAlerts" label={t('settings.general.lowStockAlerts')} checked={lowStockAlerts} onChange={setLowStockAlerts} />
+              <FormCheckbox form={generalForm} name="lowStockAlerts" label={t('settings.general.lowStockAlerts')} />
             </div>
             <div className="mt-6 border-t border-border pt-6">
               <h3 className="mb-1 text-sm font-bold text-text-primary">
@@ -611,14 +675,13 @@ export function TenantSettingsView() {
               </h3>
               <p className="mb-4 text-sm text-text-muted">{t('settings.notifications.subtitle')}</p>
               <div className="space-y-4">
-                <CheckboxField id="stockAlertEmail" label={t('settings.notifications.stockAlertEmail')} checked={stockAlertEmail} onChange={setStockAlertEmail} />
+                <FormCheckbox form={generalForm} name="stockAlertEmail" label={t('settings.notifications.stockAlertEmail')} />
                 {stockAlertEmail && (
-                  <InputField
-                    id="stockAlertRecipients"
+                  <FormInput
+                    form={generalForm}
+                    name="stockAlertRecipients"
                     label={t('settings.notifications.stockAlertRecipients')}
                     placeholder="correo@ejemplo.com, otro@ejemplo.com"
-                    value={stockAlertRecipients}
-                    onChange={setStockAlertRecipients}
                   />
                 )}
               </div>
@@ -717,22 +780,21 @@ export function TenantSettingsView() {
           <SettingsCard
             title={t('settings.system.title')}
             subtitle={t('settings.system.subtitle')}
-            onSave={handleSystemSave}
+            onSave={() => void systemForm.handleSubmit()}
             isPending={updateTenant.isPending}
             isSuccess={updateTenant.isSuccess}
           >
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-5">
-                <InputField
-                  id="sessionTimeout"
+                <FormInput
+                  form={systemForm}
+                  name="sessionTimeout"
                   label={t('settings.system.sessionTimeout')}
                   type="number"
                   min={1}
-                  value={sessionTimeout}
-                  onChange={setSessionTimeout}
                 />
               </div>
-              <CheckboxField id="enableAudit" label={t('settings.system.enableAudit')} checked={enableAudit} onChange={setEnableAudit} />
+              <FormCheckbox form={systemForm} name="enableAudit" label={t('settings.system.enableAudit')} />
             </div>
           </SettingsCard>
         </section>
@@ -741,27 +803,25 @@ export function TenantSettingsView() {
           <SettingsCard
             title={t('settings.sales.title')}
             subtitle={t('settings.sales.subtitle')}
-            onSave={handleSalesSave}
+            onSave={() => void salesForm.handleSubmit()}
             isPending={updateTenant.isPending}
             isSuccess={updateTenant.isSuccess}
           >
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-5">
-                <SelectField
-                  id="defaultDocType"
+                <FormSelect
+                  form={salesForm}
+                  name="defaultDocType"
                   label={t('settings.sales.defaultDocType')}
-                  value={defaultDocType}
-                  onChange={setDefaultDocType}
                   options={[
                     { value: 'sales_invoice', label: t('settings.sales.docTypes.salesInvoice') },
                     { value: 'delivery_order', label: t('settings.sales.docTypes.deliveryOrder') },
                   ]}
                 />
-                <SelectField
-                  id="defaultPaymentTerms"
+                <FormSelect
+                  form={salesForm}
+                  name="defaultPaymentTerms"
                   label={t('settings.sales.defaultPaymentTerms')}
-                  value={defaultPaymentTerms}
-                  onChange={setDefaultPaymentTerms}
                   options={[
                     { value: 'cash', label: t('settings.sales.paymentTerms.cash') },
                     { value: 'credit_15', label: t('settings.sales.paymentTerms.credit15') },
@@ -770,15 +830,14 @@ export function TenantSettingsView() {
                   ]}
                 />
               </div>
-              <InputField
-                id="receiptFooter"
+              <FormInput
+                form={salesForm}
+                name="receiptFooter"
                 label={t('settings.sales.receiptFooter')}
                 placeholder={t('settings.sales.receiptFooterPlaceholder')}
-                value={receiptFooter}
-                onChange={setReceiptFooter}
               />
-              <CheckboxField id="enableCommissions" label={t('settings.sales.enableCommissions')} checked={enableCommissions} onChange={setEnableCommissions} />
-              <CheckboxField id="autoInvoiceNumbering" label={t('settings.sales.autoInvoiceNumbering')} checked={autoInvoiceNumbering} onChange={setAutoInvoiceNumbering} />
+              <FormCheckbox form={salesForm} name="enableCommissions" label={t('settings.sales.enableCommissions')} />
+              <FormCheckbox form={salesForm} name="autoInvoiceNumbering" label={t('settings.sales.autoInvoiceNumbering')} />
             </div>
           </SettingsCard>
         </section>
@@ -787,26 +846,24 @@ export function TenantSettingsView() {
           <SettingsCard
             title={t('settings.fiscal.title')}
             subtitle={t('settings.fiscal.subtitle')}
-            onSave={handleFiscalSave}
+            onSave={() => void fiscalForm.handleSubmit()}
             isPending={updateTenant.isPending}
             isSuccess={updateTenant.isSuccess}
           >
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-5">
-                <InputField
-                  id="defaultVatRate"
+                <FormInput
+                  form={fiscalForm}
+                  name="defaultVatRate"
                   label={t('settings.fiscal.defaultVatRate')}
                   type="number"
                   min={0}
                   max={100}
-                  value={defaultVatRate}
-                  onChange={setDefaultVatRate}
                 />
-                <SelectField
-                  id="defaultContributorType"
+                <FormSelect
+                  form={fiscalForm}
+                  name="defaultContributorType"
                   label={t('settings.fiscal.defaultContributorType')}
-                  value={defaultContributorType}
-                  onChange={setDefaultContributorType}
                   options={[
                     { value: 'ordinary', label: t('settings.fiscal.contributorTypes.ordinary') },
                     { value: 'formal', label: t('settings.fiscal.contributorTypes.formal') },
@@ -814,7 +871,7 @@ export function TenantSettingsView() {
                   ]}
                 />
               </div>
-              <CheckboxField id="autoWithholding" label={t('settings.fiscal.autoWithholding')} checked={autoWithholding} onChange={setAutoWithholding} />
+              <FormCheckbox form={fiscalForm} name="autoWithholding" label={t('settings.fiscal.autoWithholding')} />
             </div>
           </SettingsCard>
         </section>
@@ -823,17 +880,16 @@ export function TenantSettingsView() {
           <SettingsCard
             title={t('settings.inventory.title')}
             subtitle={t('settings.inventory.subtitle')}
-            onSave={handleInventorySave}
+            onSave={() => void inventoryForm.handleSubmit()}
             isPending={updateTenant.isPending}
             isSuccess={updateTenant.isSuccess}
           >
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-5">
-                <SelectField
-                  id="defaultCostMethod"
+                <FormSelect
+                  form={inventoryForm}
+                  name="defaultCostMethod"
                   label={t('settings.inventory.defaultCostMethod')}
-                  value={defaultCostMethod}
-                  onChange={setDefaultCostMethod}
                   options={[
                     { value: 'weighted_average', label: t('settings.inventory.costMethods.weightedAverage') },
                     { value: 'fifo', label: t('settings.inventory.costMethods.fifo') },
@@ -841,7 +897,7 @@ export function TenantSettingsView() {
                   ]}
                 />
               </div>
-              <CheckboxField id="allowNegativeStock" label={t('settings.inventory.allowNegativeStock')} checked={allowNegativeStock} onChange={setAllowNegativeStock} />
+              <FormCheckbox form={inventoryForm} name="allowNegativeStock" label={t('settings.inventory.allowNegativeStock')} />
             </div>
           </SettingsCard>
         </section>
@@ -850,17 +906,16 @@ export function TenantSettingsView() {
           <SettingsCard
             title={t('settings.financial.title')}
             subtitle={t('settings.financial.subtitle')}
-            onSave={handleFinancialSave}
+            onSave={() => void financialForm.handleSubmit()}
             isPending={updateTenant.isPending}
             isSuccess={updateTenant.isSuccess}
           >
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-5">
-                <SelectField
-                  id="foreignCurrency"
+                <FormSelect
+                  form={financialForm}
+                  name="foreignCurrency"
                   label={t('settings.financial.foreignCurrency')}
-                  value={foreignCurrency}
-                  onChange={setForeignCurrency}
                   options={[
                     { value: 'USD', label: 'USD — Dólar' },
                     { value: 'EUR', label: 'EUR — Euro' },
@@ -868,22 +923,20 @@ export function TenantSettingsView() {
                     { value: 'PYG', label: 'PYG — Guaraní' },
                   ]}
                 />
-                <SelectField
-                  id="exchangeRateSource"
+                <FormSelect
+                  form={financialForm}
+                  name="exchangeRateSource"
                   label={t('settings.financial.exchangeRateSource')}
-                  value={exchangeRateSource}
-                  onChange={setExchangeRateSource}
                   options={[
                     { value: 'bcv', label: t('settings.financial.rateSources.bcv') },
                     { value: 'trm', label: t('settings.financial.rateSources.trm') },
                     { value: 'manual', label: t('settings.financial.rateSources.manual') },
                   ]}
                 />
-                <SelectField
-                  id="exchangeRateProviders"
+                <FormSelect
+                  form={financialForm}
+                  name="exchangeRateProviders"
                   label="Orden de proveedores externos"
-                  value={exchangeRateProviders}
-                  onChange={setExchangeRateProviders}
                   options={[
                     { value: 'automatic', label: 'Automático con respaldo' },
                     { value: 'open-er-api', label: 'Open ER API primero' },
@@ -893,7 +946,7 @@ export function TenantSettingsView() {
                   ]}
                 />
               </div>
-              <CheckboxField id="multicurrency" label={t('settings.financial.multicurrency')} checked={multicurrency} onChange={setMulticurrency} />
+              <FormCheckbox form={financialForm} name="multicurrency" label={t('settings.financial.multicurrency')} />
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>

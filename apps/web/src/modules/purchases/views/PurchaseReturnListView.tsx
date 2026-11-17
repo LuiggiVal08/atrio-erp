@@ -7,6 +7,7 @@ import {
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { DocumentStateBadge } from '@/core/components/DocumentStateBadge';
 import { useDeferredValue, useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { Plus, RotateCcw, CheckCircle2, RotateCw } from 'lucide-react';
 import { Modal } from '@/core/components/Modal';
 import { usePurchaseOrders } from '@/modules/purchases/hooks/usePurchaseOrders';
@@ -19,6 +20,11 @@ import { useProductSearch } from '@/modules/sales/hooks/useProductSearch';
 import { toastService } from '@/core/services/toast-service';
 import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
+import { FormInput, FormSelect } from '@/shared/form';
+import {
+  purchaseReturnSchema,
+  type PurchaseReturnValues,
+} from '@/shared/validation/purchase-return';
 
 export function PurchaseReturnListView() {
   const { t } = useTranslation();
@@ -29,17 +35,70 @@ export function PurchaseReturnListView() {
   const createMutation = useCreatePurchaseReturn();
   const updateStatusMutation = useUpdatePurchaseReturnStatus();
   const [open, setOpen] = useState(false);
-  const [orderId, setOrderId] = useState('');
-  const [warehouseId, setWarehouseId] = useState('');
-  const [productId, setProductId] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [reasonCode, setReasonCode] = useState('factory_defect');
-  const [reason, setReason] = useState('');
-  const [total, setTotal] = useState('');
-  const [supplierCreditNo, setSupplierCreditNo] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const deferredProductSearch = useDeferredValue(productSearch);
   const { data: products = [] } = useProductSearch(deferredProductSearch);
+
+  const form = useForm({
+    defaultValues: {
+      orderId: '',
+      warehouseId: '',
+      productId: '',
+      quantity: 1,
+      reasonCode: 'factory_defect',
+      reason: '',
+      total: undefined,
+      supplierCreditNo: '',
+    } as PurchaseReturnValues,
+    validators: { onSubmit: purchaseReturnSchema },
+    onSubmit: async ({ value }) => {
+      const amount = value.total ?? 0;
+      const quantity = value.quantity ?? 0;
+      try {
+        await createMutation.mutateAsync({
+          orderId: value.orderId,
+          warehouseId: value.warehouseId,
+          reason: value.reason.trim(),
+          reasonCode: value.reasonCode,
+          resolution: value.supplierCreditNo ? 'supplier_credit' : 'supplier_replacement',
+          supplierCreditNo: value.supplierCreditNo || undefined,
+          subtotal: amount,
+          taxAmount: 0,
+          total: amount,
+          lines: [
+            {
+              productId: value.productId,
+              warehouseId: value.warehouseId,
+              quantity,
+              unitPrice: amount / quantity,
+            },
+          ],
+        });
+        toastService.success(
+          'Devolución creada',
+          'La devolución quedó registrada para procesamiento.',
+        );
+        setOpen(false);
+        form.reset(
+          {
+            ...value,
+            reason: '',
+            total: undefined,
+            productId: '',
+            supplierCreditNo: '',
+            quantity: 1,
+          },
+          { keepDefaultValues: true },
+        );
+        setProductSearch('');
+      } catch {
+        toastService.error(
+          'No se pudo crear la devolución',
+          'Verifique la orden, el almacén y los datos de la línea.',
+        );
+      }
+    },
+  });
 
   const pagination = usePagination(returns ?? []);
 
@@ -99,54 +158,6 @@ export function PurchaseReturnListView() {
     },
   ];
 
-  const handleCreate = async () => {
-    const amount = Number(total);
-    if (
-      !orderId ||
-      !warehouseId ||
-      !productId ||
-      !reason.trim() ||
-      Number(quantity) <= 0 ||
-      amount < 0
-    )
-      return;
-    try {
-      await createMutation.mutateAsync({
-        orderId,
-        warehouseId,
-        reason: reason.trim(),
-        reasonCode,
-        resolution: supplierCreditNo ? 'supplier_credit' : 'supplier_replacement',
-        supplierCreditNo: supplierCreditNo || undefined,
-        subtotal: amount,
-        taxAmount: 0,
-        total: amount,
-        lines: [
-          {
-            productId,
-            warehouseId,
-            quantity: Number(quantity),
-            unitPrice: amount / Number(quantity),
-          },
-        ],
-      });
-      toastService.success(
-        'Devolución creada',
-        'La devolución quedó registrada para procesamiento.',
-      );
-      setOpen(false);
-      setReason('');
-      setTotal('');
-      setProductId('');
-      setProductSearch('');
-    } catch {
-      toastService.error(
-        'No se pudo crear la devolución',
-        'Verifique la orden, el almacén y los datos de la línea.',
-      );
-    }
-  };
-
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
@@ -200,24 +211,26 @@ export function PurchaseReturnListView() {
         </div>
       </div>
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva devolución a proveedor">
-        <div className="grid gap-4">
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Orden recibida
-            <select
-              value={orderId}
-              onChange={(e) => setOrderId(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="">Seleccionar orden</option>
-              {orders
-                .filter((order) => order.status === 'received' || order.status === 'partial')
-                .map((order) => (
-                  <option key={order.id} value={order.id}>
-                    {order.documentId || order.id}
-                  </option>
-                ))}
-            </select>
-          </label>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="grid gap-4"
+        >
+          <FormSelect
+            form={form}
+            name="orderId"
+            label="Orden recibida"
+            placeholder="Seleccionar orden"
+            required
+            options={orders
+              .filter((order) => order.status === 'received' || order.status === 'partial')
+              .map((order) => ({
+                value: order.id,
+                label: order.documentId || order.id,
+              }))}
+          />
           <label className="grid gap-1 text-xs font-medium text-text-secondary">
             Buscar producto
             <input
@@ -227,96 +240,76 @@ export function PurchaseReturnListView() {
               className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
             />
           </label>
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Producto
-            <select
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="">Seleccionar producto</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} - {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FormSelect
+            form={form}
+            name="productId"
+            label="Producto"
+            placeholder="Seleccionar producto"
+            required
+            options={products.map((product) => ({
+              value: product.id,
+              label: `${product.sku} - ${product.name}`,
+            }))}
+          />
           <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Almacén
-              <select
-                value={warehouseId}
-                onChange={(e) => setWarehouseId(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="">Seleccionar</option>
-                {warehouses
-                  .filter((warehouse) => warehouse.isActive)
-                  .map((warehouse) => (
-                    <option key={warehouse.id} value={warehouse.id}>
-                      {warehouse.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Cantidad
-              <input
-                type="number"
-                min="0.000001"
-                step="0.000001"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              />
-            </label>
-          </div>
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Motivo
-            <select
-              value={reasonCode}
-              onChange={(e) => setReasonCode(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="factory_defect">Defecto de fábrica</option>
-              <option value="wrong_item">Artículo incorrecto</option>
-              <option value="excess">Mercancía sobrante</option>
-              <option value="expired">Producto vencido</option>
-              <option value="damaged">Producto dañado</option>
-              <option value="other">Otro</option>
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Detalle
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Descripción de la devolución"
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
+            <FormSelect
+              form={form}
+              name="warehouseId"
+              label="Almacén"
+              placeholder="Seleccionar"
+              required
+              options={warehouses
+                .filter((warehouse) => warehouse.isActive)
+                .map((warehouse) => ({
+                  value: warehouse.id,
+                  label: warehouse.name,
+                }))}
             />
-          </label>
+            <FormInput
+              form={form}
+              name="quantity"
+              label="Cantidad"
+              type="number"
+              min="0.000001"
+              step="0.000001"
+              required
+            />
+          </div>
+          <FormSelect
+            form={form}
+            name="reasonCode"
+            label="Motivo"
+            options={[
+              { value: 'factory_defect', label: 'Defecto de fábrica' },
+              { value: 'wrong_item', label: 'Artículo incorrecto' },
+              { value: 'excess', label: 'Mercancía sobrante' },
+              { value: 'expired', label: 'Producto vencido' },
+              { value: 'damaged', label: 'Producto dañado' },
+              { value: 'other', label: 'Otro' },
+            ]}
+          />
+          <FormInput
+            form={form}
+            name="reason"
+            label="Detalle"
+            placeholder="Descripción de la devolución"
+            required
+          />
           <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Valor devuelto
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Nota/crédito proveedor
-              <input
-                value={supplierCreditNo}
-                onChange={(e) => setSupplierCreditNo(e.target.value)}
-                placeholder="Opcional"
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              />
-            </label>
+            <FormInput
+              form={form}
+              name="total"
+              label="Valor devuelto"
+              type="number"
+              min="0"
+              step="0.01"
+            />
+            <FormInput
+              form={form}
+              name="supplierCreditNo"
+              label="Nota/crédito proveedor"
+              placeholder="Opcional"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button
@@ -327,15 +320,14 @@ export function PurchaseReturnListView() {
               Cancelar
             </button>
             <button
-              type="button"
-              onClick={handleCreate}
+              type="submit"
               disabled={createMutation.isPending}
               className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {createMutation.isPending ? 'Guardando...' : 'Crear devolución'}
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
     </div>
   );

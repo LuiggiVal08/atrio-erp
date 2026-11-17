@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useForm, useStore } from '@tanstack/react-form';
 import { RotateCcw, Plus, CheckCircle2, RotateCw } from 'lucide-react';
 import { Modal } from '@/core/components/Modal';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
@@ -14,6 +15,8 @@ import {
 import { useWarehouses } from '@/modules/inventory/hooks/useWarehouses';
 import { useCashRegisters } from '@/modules/cash/hooks/useCashRegisters';
 import { useProductSearch } from '../hooks/useProductSearch';
+import { FormInput, FormSelect } from '@/shared/form';
+import { salesReturnSchema, type SalesReturnValues } from '@/shared/validation/sales-return';
 
 export function SalesReturnListView() {
   const { data: returns = [], isLoading, refetch, isFetching } = useSalesReturns();
@@ -23,23 +26,80 @@ export function SalesReturnListView() {
   const createReturn = useCreateSalesReturn();
   const updateStatus = useUpdateSalesReturnStatus();
   const [open, setOpen] = useState(false);
-  const [invoiceId, setInvoiceId] = useState('');
-  const [warehouseId, setWarehouseId] = useState('');
-  const [reasonCode, setReasonCode] = useState('factory_defect');
-  const [condition, setCondition] = useState<'saleable' | 'repair' | 'damaged'>('saleable');
-  const [resolution, setResolution] = useState<
-    'credit_note' | 'refund_cash' | 'refund_card' | 'exchange'
-  >('credit_note');
-  const [cashRegisterId, setCashRegisterId] = useState('');
-  const [reason, setReason] = useState('');
-  const [total, setTotal] = useState('');
-  const [productId, setProductId] = useState('');
-  const [quantity, setQuantity] = useState('1');
   const [productSearch, setProductSearch] = useState('');
   const { data: products = [] } = useProductSearch(productSearch);
 
-  const destination =
-    condition === 'saleable' ? 'sellable_stock' : condition === 'repair' ? 'repair' : 'scrap';
+  const form = useForm({
+    defaultValues: {
+      invoiceId: '',
+      warehouseId: '',
+      productId: '',
+      quantity: 1,
+      reasonCode: 'factory_defect',
+      reason: '',
+      condition: 'saleable',
+      resolution: 'credit_note',
+      cashRegisterId: '',
+      total: undefined,
+    } as SalesReturnValues,
+    validators: { onSubmit: salesReturnSchema },
+    onSubmit: async ({ value }) => {
+      const destination =
+        value.condition === 'saleable'
+          ? 'sellable_stock'
+          : value.condition === 'repair'
+            ? 'repair'
+            : 'scrap';
+      const amount = value.total ?? 0;
+      const quantity = value.quantity ?? 0;
+      try {
+        await createReturn.mutateAsync({
+          invoiceId: value.invoiceId,
+          warehouseId: value.warehouseId,
+          reason: value.reason.trim(),
+          reasonCode: value.reasonCode,
+          productCondition: value.condition,
+          destination,
+          resolution: value.resolution,
+          cashRegisterId:
+            value.resolution === 'refund_cash' ? value.cashRegisterId || undefined : undefined,
+          subtotal: amount,
+          taxAmount: 0,
+          total: amount,
+          lines: [
+            {
+              productId: value.productId,
+              warehouseId: value.warehouseId,
+              quantity,
+              unitPrice: amount / quantity,
+            },
+          ],
+        });
+        toastService.success(
+          'Devolución creada',
+          'La devolución quedó registrada y puede procesarse.',
+        );
+        setOpen(false);
+        form.reset(
+          {
+            ...value,
+            reason: '',
+            total: undefined,
+            productId: '',
+            quantity: 1,
+          },
+          { keepDefaultValues: true },
+        );
+      } catch {
+        toastService.error(
+          'No se pudo crear la devolución',
+          'Verifique la factura, almacén y datos de la línea.',
+        );
+      }
+    },
+  });
+
+  const resolution = useStore(form.store, (state) => state.values.resolution);
 
   const pagination = usePagination(returns);
 
@@ -97,56 +157,6 @@ export function SalesReturnListView() {
     },
   ];
 
-  const handleCreate = async () => {
-    const amount = Number(total);
-    if (
-      !invoiceId ||
-      !warehouseId ||
-      !reason.trim() ||
-      amount < 0 ||
-      !productId ||
-      Number(quantity) <= 0
-    )
-      return;
-    try {
-      await createReturn.mutateAsync({
-        invoiceId,
-        warehouseId,
-        reason: reason.trim(),
-        reasonCode,
-        productCondition: condition,
-        destination,
-        resolution,
-        cashRegisterId: resolution === 'refund_cash' ? cashRegisterId || undefined : undefined,
-        subtotal: amount,
-        taxAmount: 0,
-        total: amount,
-        lines: [
-          {
-            productId,
-            warehouseId,
-            quantity: Number(quantity),
-            unitPrice: amount / Number(quantity),
-          },
-        ],
-      });
-      toastService.success(
-        'Devolución creada',
-        'La devolución quedó registrada y puede procesarse.',
-      );
-      setOpen(false);
-      setReason('');
-      setTotal('');
-      setProductId('');
-      setQuantity('1');
-    } catch {
-      toastService.error(
-        'No se pudo crear la devolución',
-        'Verifique la factura, almacén y datos de la línea.',
-      );
-    }
-  };
-
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-5">
@@ -199,22 +209,24 @@ export function SalesReturnListView() {
         </div>
       </div>
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva devolución de cliente">
-        <div className="grid gap-4">
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Factura
-            <select
-              value={invoiceId}
-              onChange={(e) => setInvoiceId(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="">Seleccionar factura</option>
-              {invoices.map((invoice) => (
-                <option key={invoice.id} value={invoice.id}>
-                  {invoice.documentId || invoice.id}
-                </option>
-              ))}
-            </select>
-          </label>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="grid gap-4"
+        >
+          <FormSelect
+            form={form}
+            name="invoiceId"
+            label="Factura"
+            placeholder="Seleccionar factura"
+            required
+            options={invoices.map((invoice) => ({
+              value: invoice.id,
+              label: invoice.documentId || invoice.id,
+            }))}
+          />
           <label className="grid gap-1 text-xs font-medium text-text-secondary">
             Buscar producto
             <input
@@ -224,128 +236,103 @@ export function SalesReturnListView() {
               className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
             />
           </label>
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Producto devuelto
-            <select
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="">Seleccionar producto</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} - {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FormSelect
+            form={form}
+            name="productId"
+            label="Producto devuelto"
+            placeholder="Seleccionar producto"
+            required
+            options={products.map((product) => ({
+              value: product.id,
+              label: `${product.sku} - ${product.name}`,
+            }))}
+          />
           <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Almacén
-              <select
-                value={warehouseId}
-                onChange={(e) => setWarehouseId(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="">Seleccionar</option>
-                {warehouses.map((warehouse) => (
-                  <option key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Cantidad
-              <input
-                type="number"
-                min="0.000001"
-                step="0.000001"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              />
-            </label>
-          </div>
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Motivo
-            <select
-              value={reasonCode}
-              onChange={(e) => setReasonCode(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="factory_defect">Defecto de fábrica</option>
-              <option value="dispatch_error">Error de despacho</option>
-              <option value="expired">Producto vencido</option>
-              <option value="change_of_mind">Cambio de opinión</option>
-              <option value="damaged">Producto dañado</option>
-              <option value="other">Otro</option>
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Detalle
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Descripción de la devolución"
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
+            <FormSelect
+              form={form}
+              name="warehouseId"
+              label="Almacén"
+              placeholder="Seleccionar"
+              required
+              options={warehouses.map((warehouse) => ({
+                value: warehouse.id,
+                label: warehouse.name,
+              }))}
             />
-          </label>
+            <FormInput
+              form={form}
+              name="quantity"
+              label="Cantidad"
+              type="number"
+              min="0.000001"
+              step="0.000001"
+              required
+            />
+          </div>
+          <FormSelect
+            form={form}
+            name="reasonCode"
+            label="Motivo"
+            options={[
+              { value: 'factory_defect', label: 'Defecto de fábrica' },
+              { value: 'dispatch_error', label: 'Error de despacho' },
+              { value: 'expired', label: 'Producto vencido' },
+              { value: 'change_of_mind', label: 'Cambio de opinión' },
+              { value: 'damaged', label: 'Producto dañado' },
+              { value: 'other', label: 'Otro' },
+            ]}
+          />
+          <FormInput
+            form={form}
+            name="reason"
+            label="Detalle"
+            placeholder="Descripción de la devolución"
+            required
+          />
           <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Condición
-              <select
-                value={condition}
-                onChange={(e) => setCondition(e.target.value as typeof condition)}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="saleable">Buen estado</option>
-                <option value="repair">Revisión técnica</option>
-                <option value="damaged">Merma / pérdida</option>
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Resolución
-              <select
-                value={resolution}
-                onChange={(e) => setResolution(e.target.value as typeof resolution)}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="credit_note">Nota de crédito</option>
-                <option value="refund_cash">Reembolso efectivo</option>
-                <option value="refund_card">Reembolso tarjeta</option>
-                <option value="exchange">Cambio</option>
-              </select>
-            </label>
+            <FormSelect
+              form={form}
+              name="condition"
+              label="Condición"
+              options={[
+                { value: 'saleable', label: 'Buen estado' },
+                { value: 'repair', label: 'Revisión técnica' },
+                { value: 'damaged', label: 'Merma / pérdida' },
+              ]}
+            />
+            <FormSelect
+              form={form}
+              name="resolution"
+              label="Resolución"
+              options={[
+                { value: 'credit_note', label: 'Nota de crédito' },
+                { value: 'refund_cash', label: 'Reembolso efectivo' },
+                { value: 'refund_card', label: 'Reembolso tarjeta' },
+                { value: 'exchange', label: 'Cambio' },
+              ]}
+            />
           </div>
           {resolution === 'refund_cash' && (
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Caja
-              <select
-                value={cashRegisterId}
-                onChange={(e) => setCashRegisterId(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="">Seleccionar caja</option>
-                {registers.map((register) => (
-                  <option key={register.id} value={register.id}>
-                    {register.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label className="grid gap-1 text-xs font-medium text-text-secondary">
-            Monto devuelto
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={total}
-              onChange={(e) => setTotal(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
+            <FormSelect
+              form={form}
+              name="cashRegisterId"
+              label="Caja"
+              placeholder="Seleccionar caja"
+              required
+              options={registers.map((register) => ({
+                value: register.id,
+                label: register.name,
+              }))}
             />
-          </label>
+          )}
+          <FormInput
+            form={form}
+            name="total"
+            label="Monto devuelto"
+            type="number"
+            min="0"
+            step="0.01"
+          />
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => setOpen(false)}
@@ -354,14 +341,14 @@ export function SalesReturnListView() {
               Cancelar
             </button>
             <button
-              onClick={handleCreate}
+              type="submit"
               disabled={createReturn.isPending}
               className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {createReturn.isPending ? 'Guardando...' : 'Crear devolución'}
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
     </div>
   );

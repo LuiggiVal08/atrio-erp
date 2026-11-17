@@ -35,11 +35,11 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 function fillCreate() {
-  fireEvent.change(screen.getByLabelText('Primer Nombre *'), { target: { value: 'Ana' } });
-  fireEvent.change(screen.getByLabelText('Primer Apellido *'), { target: { value: 'Perez' } });
+  fireEvent.change(screen.getByLabelText('Primer Nombre'), { target: { value: 'Ana' } });
+  fireEvent.change(screen.getByLabelText('Primer Apellido'), { target: { value: 'Perez' } });
   fireEvent.change(screen.getByLabelText('Documento'), { target: { value: '123' } });
-  fireEvent.change(screen.getByLabelText('Fecha de Ingreso *'), { target: { value: '2026-01-01' } });
-  fireEvent.change(screen.getByLabelText('Salario Base *'), { target: { value: '100' } });
+  fireEvent.change(screen.getByLabelText('Fecha de Ingreso'), { target: { value: '2026-01-01' } });
+  fireEvent.change(screen.getByLabelText('Salario Base'), { target: { value: '100' } });
 }
 describe('employee onboarding regressions', () => {
   it('uses one atomic request and preserves the caller ID on retry', async () => {
@@ -85,11 +85,12 @@ describe('employee onboarding regressions', () => {
     fireEvent.change(screen.getByLabelText('Cargo *'), { target: { value: pos } });
     fireEvent.change(screen.getByLabelText('Tipo de Contrato *'), { target: { value: 'FIXED_TERM' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(await screen.findByText('El contrato a plazo fijo requiere fecha de fin.')).toBeInTheDocument();
     expect(api.post).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Fecha de Fin *'), { target: { value: '2026-12-31' } });
-    fireEvent.change(screen.getByLabelText('Salario Base *'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Fecha de Fin'), { target: { value: '2026-12-31' } });
+    fireEvent.change(screen.getByLabelText('Salario Base'), { target: { value: '0' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(await screen.findByText('El salario base debe ser un valor mayor que cero.')).toBeInTheDocument();
     expect(api.post).not.toHaveBeenCalled();
   });
   it('persists hireDate and invalidates both list and detail', async () => {
@@ -103,9 +104,9 @@ describe('employee onboarding regressions', () => {
   });
   it('edits salary through versioned compensation with date currency and reason, not identity salary', async () => {
     fixture('/employees/emp/edit').view();
-    await waitFor(() => expect(screen.getByLabelText('Salario Base *')).toHaveValue(100));
-    fireEvent.change(screen.getByLabelText('Salario Base *'), { target: { value: '150' } });
-    fireEvent.change(screen.getByLabelText('Fecha Efectiva *'), { target: { value: '2026-02-01' } });
+    await waitFor(() => expect(screen.getByLabelText('Salario Base')).toHaveValue(100));
+    fireEvent.change(screen.getByLabelText('Salario Base'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText('Fecha Efectiva'), { target: { value: '2026-02-01' } });
     fireEvent.change(screen.getByLabelText('Motivo de Compensación *'), { target: { value: 'MERIT_INCREASE' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/employment-relationships/rel/compensation/agreement/adjust', { effectiveDate: '2026-02-01', currency: 'EUR', reason: 'MERIT_INCREASE', components: [{ type: 'SALARY', amount: 150 }] }));

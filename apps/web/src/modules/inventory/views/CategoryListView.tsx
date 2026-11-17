@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { usePermission } from '@/core/auth/usePermission';
 import { useTranslation } from '@/shared/hooks/useTranslation';
@@ -21,12 +21,6 @@ interface CategoryRow {
   parentId?: string;
 }
 
-interface EditingState {
-  id: string;
-  name: string;
-  parentId: string;
-}
-
 export function CategoryListView() {
   const { t } = useTranslation();
   const canCreate = usePermission('inventory:category:create');
@@ -38,7 +32,7 @@ export function CategoryListView() {
   const deleteCategory = useDeleteCategory();
 
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<EditingState | null>(null);
+  const [editing, setEditing] = useState<CategoryRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CategoryRow | null>(null);
 
@@ -61,6 +55,34 @@ export function CategoryListView() {
     },
   });
 
+  const editForm = useForm({
+    defaultValues: { name: '', parentId: '' } satisfies CategoryFormValues,
+    validators: { onSubmit: categoryFormSchema },
+    onSubmit: ({ value }) => {
+      if (!editing || !canUpdate || !value.name.trim()) return;
+      setError(null);
+      updateCategory.mutate(
+        {
+          id: editing.id,
+          name: value.name.trim(),
+          parentId: value.parentId || null,
+        },
+        {
+          onSuccess: () => {
+            clearServerErrors(editForm);
+            editForm.reset();
+            setEditing(null);
+            setError(null);
+          },
+          onError: (err: any) => {
+            const result = applyServerErrors(editForm, err);
+            setError(resolveServerErrorMessage(result, t('inventory.categoryView.updateError')));
+          },
+        },
+      );
+    },
+  });
+
   const categoryMap = new Map<string, CategoryRow>(
     categories.map((c): [string, CategoryRow] => [c.id, c]),
   );
@@ -77,31 +99,23 @@ export function CategoryListView() {
     }
   };
 
+  useEffect(() => {
+    if (!editing) return;
+    clearServerErrors(editForm);
+    editForm.reset({ name: editing.name, parentId: editing.parentId ?? '' }, { keepDefaultValues: true });
+  }, [editForm, editing]);
+
   const handleStartEdit = (row: CategoryRow) => {
     if (!canUpdate) return;
-    setEditing({ id: row.id, name: row.name, parentId: row.parentId ?? '' });
+    setEditing(row);
+    setError(null);
   };
 
-  const handleSaveEdit = () => {
-    if (!editing || !editing.name.trim() || !canUpdate) return;
-    updateCategory.mutate(
-      {
-        id: editing.id,
-        name: editing.name.trim(),
-        parentId: editing.parentId || null,
-      },
-      {
-        onSuccess: () => {
-          setEditing(null);
-          setError(null);
-        },
-        onError: (err: any) => {
-          const message =
-            err?.response?.data?.message || err?.message || t('inventory.categoryView.updateError');
-          setError(Array.isArray(message) ? message.join(' ') : message);
-        },
-      },
-    );
+  const cancelEdit = () => {
+    clearServerErrors(editForm);
+    editForm.reset();
+    setEditing(null);
+    setError(null);
   };
 
   const confirmDelete = () => {
@@ -120,15 +134,6 @@ export function CategoryListView() {
     });
   };
 
-  const handleEditKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      handleSaveEdit();
-    } else if (event.key === 'Escape') {
-      setEditing(null);
-    }
-  };
-
   const pagination = usePagination(categories);
 
   const parentOptions = categories.filter((c) => c.id !== editing?.id);
@@ -140,14 +145,20 @@ export function CategoryListView() {
       render: (_value, row) => {
         if (editing?.id === row.id) {
           return (
-            <input
-              type="text"
-              value={editing.name}
-              onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-              onKeyDown={handleEditKeyDown}
-              aria-label={t('inventory.categoryView.name')}
-              className="w-full rounded border border-border bg-canvas px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
+            <FormInput
+              form={editForm}
+              name="name"
               autoFocus
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void editForm.handleSubmit();
+                } else if (event.key === 'Escape') {
+                  cancelEdit();
+                }
+              }}
+              ariaLabel={t('inventory.categoryView.name')}
+              required
             />
           );
         }
@@ -160,20 +171,16 @@ export function CategoryListView() {
       render: (_value, row) => {
         if (editing?.id === row.id) {
           return (
-            <select
-              value={editing.parentId}
-              onChange={(e) => setEditing({ ...editing, parentId: e.target.value })}
-              onKeyDown={handleEditKeyDown}
-              aria-label={t('inventory.categoryView.parent')}
-              className="w-full rounded border border-border bg-canvas px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
-            >
-              <option value="">{t('inventory.categoryView.noParent')}</option>
-              {parentOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <FormSelect
+              form={editForm}
+              name="parentId"
+              ariaLabel={t('inventory.categoryView.parent')}
+              placeholder={t('inventory.categoryView.noParent')}
+              options={parentOptions.map((parent) => ({
+                value: parent.id,
+                label: parent.name,
+              }))}
+            />
           );
         }
         return (
@@ -193,7 +200,8 @@ export function CategoryListView() {
           return (
             <div className="flex items-center justify-end gap-1">
               <button
-                onClick={handleSaveEdit}
+                type="button"
+                onClick={() => void editForm.handleSubmit()}
                 disabled={updateCategory.isPending}
                 aria-label={t('common.save')}
                 className="rounded p-1 text-success hover:bg-success/10"
@@ -201,7 +209,8 @@ export function CategoryListView() {
                 <Check size={16} aria-hidden="true" />
               </button>
               <button
-                onClick={() => setEditing(null)}
+                type="button"
+                onClick={cancelEdit}
                 aria-label={t('common.cancel')}
                 className="rounded p-1 text-text-secondary hover:bg-canvas"
               >

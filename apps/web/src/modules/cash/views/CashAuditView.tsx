@@ -5,6 +5,7 @@ import { CashDashboard } from '@/modules/cash/components/CashDashboard';
 import { useCashRegisters } from '@/modules/cash/hooks/useCashRegisters';
 import { useCashRegisterDetail } from '@/modules/cash/hooks/useCashRegisterDetail';
 import { useEffect, useState } from 'react';
+import { useForm, useStore } from '@tanstack/react-form';
 import { Modal } from '@/core/components/Modal';
 import { useAuthStore } from '@/core/auth/store';
 import { useCloseSession, usePosSessions } from '@/modules/sales/hooks/usePosSessions';
@@ -12,6 +13,11 @@ import { useCreateCashMovement } from '@/modules/cash/hooks/useCashMovements';
 import { useCurrencyRates } from '@/modules/inventory/hooks/useCurrencyRates';
 import { useTenantStore } from '@/core/tenant/store';
 import { useTenant } from '@/modules/settings/hooks/useTenant';
+import { FormInput, FormSelect, applyServerErrors, resolveServerErrorMessage } from '@/shared/form';
+import {
+  cashMovementSchema,
+  type CashMovementValues,
+} from '@/shared/validation/cash-movement';
 
 export function CashAuditView() {
   const { t } = useTranslation();
@@ -21,13 +27,9 @@ export function CashAuditView() {
   const currentUser = useAuthStore((state) => state.user);
   const [registerId, setRegisterId] = useState('');
   const [showMovementModal, setShowMovementModal] = useState(false);
-  const [movementType, setMovementType] = useState<'in' | 'out'>('out');
-  const [movementAmount, setMovementAmount] = useState('');
-  const [movementDescription, setMovementDescription] = useState('');
-  const [movementCategory, setMovementCategory] = useState('Caja chica');
   const [movementReceipt, setMovementReceipt] = useState<File | null>(null);
-  const [movementCurrency, setMovementCurrency] = useState('VED');
   const [movementExchangeRate, setMovementExchangeRate] = useState('1');
+  const [movementError, setMovementError] = useState('');
   const selectedRegister = registers.find((item) => item.id === registerId);
   const { data: registerDetail } = useCashRegisterDetail(registerId || null);
   const movementMutation = useCreateCashMovement(registerId);
@@ -35,6 +37,44 @@ export function CashAuditView() {
   const { data: tenant } = useTenant(tenantId);
   const { data: rates = [] } = useCurrencyRates();
   const closeSessionMutation = useCloseSession();
+
+  const movementForm = useForm({
+    defaultValues: {
+      type: 'out',
+      amount: undefined,
+      currency: 'VED',
+      description: '',
+      category: 'Caja chica',
+    } as CashMovementValues,
+    validators: { onSubmit: cashMovementSchema },
+    onSubmit: async ({ value }) => {
+      setMovementError('');
+      if (!registerId) return;
+      try {
+        await movementMutation.mutateAsync({
+          type: value.type,
+          amount: value.amount ?? 0,
+          description: value.description.trim(),
+          currency: value.currency,
+          exchangeRate: Number(movementExchangeRate) || 1,
+          category: value.type === 'out' ? value.category : undefined,
+          receiptName: movementReceipt?.name,
+        });
+        movementForm.setFieldValue('amount', undefined);
+        movementForm.setFieldValue('description', '');
+        setMovementReceipt(null);
+        setShowMovementModal(false);
+      } catch (error) {
+        const result = applyServerErrors(movementForm, error);
+        setMovementError(resolveServerErrorMessage(result, 'No se pudo registrar el movimiento.'));
+      }
+    },
+  });
+
+  const movementType = useStore(movementForm.store, (state) => state.values.type);
+  const movementCurrency = useStore(movementForm.store, (state) => state.values.currency);
+  const movementAmount = useStore(movementForm.store, (state) => state.values.amount);
+  const movementDescription = useStore(movementForm.store, (state) => state.values.description);
 
   useEffect(() => {
     if (registerId || !currentUser?.id) return;
@@ -64,24 +104,6 @@ export function CashAuditView() {
     else if (inverse?.rate > 0) setMovementExchangeRate(String(1 / inverse.rate));
     else setMovementExchangeRate('');
   }, [movementCurrency, tenant?.baseCurrency, rates]);
-
-  const handleMovement = async () => {
-    const amount = Number(movementAmount);
-    if (!registerId || amount <= 0 || !movementDescription.trim()) return;
-    await movementMutation.mutateAsync({
-      type: movementType,
-      amount,
-      description: movementDescription.trim(),
-      currency: movementCurrency,
-      exchangeRate: Number(movementExchangeRate) || 1,
-      category: movementType === 'out' ? movementCategory : undefined,
-      receiptName: movementReceipt?.name,
-    });
-    setMovementAmount('');
-    setMovementDescription('');
-    setMovementReceipt(null);
-    setShowMovementModal(false);
-  };
 
   const handleStartAudit = () => {
     if (!selectedOpenSession) return;
@@ -310,44 +332,44 @@ export function CashAuditView() {
         </div>
       </div>
         <Modal open={showMovementModal} onClose={() => setShowMovementModal(false)} title="Registrar movimiento de caja">
-          <div className="grid gap-4">
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Tipo
-              <select
-                value={movementType}
-                onChange={(event) => setMovementType(event.target.value as 'in' | 'out')}
-                className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="in">Entrada / fondo adicional</option>
-                <option value="out">Salida / caja chica / traslado</option>
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Monto
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={movementAmount}
-                onChange={(event) => setMovementAmount(event.target.value)}
-                className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary"
-              />
-            </label>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void movementForm.handleSubmit();
+            }}
+            className="grid gap-4"
+          >
+            <FormSelect
+              form={movementForm}
+              name="type"
+              label="Tipo"
+              options={[
+                { value: 'in', label: 'Entrada / fondo adicional' },
+                { value: 'out', label: 'Salida / caja chica / traslado' },
+              ]}
+            />
+            <FormInput
+              form={movementForm}
+              name="amount"
+              label="Monto"
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+            />
             <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1 text-xs font-medium text-text-secondary">
-                Moneda
-                <select
-                  value={movementCurrency}
-                  onChange={(event) => setMovementCurrency(event.target.value)}
-                  className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary"
-                >
-                  <option value="VED">VES</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="COP">COP</option>
-                  <option value="BRL">BRL</option>
-                </select>
-              </label>
+              <FormSelect
+                form={movementForm}
+                name="currency"
+                label="Moneda"
+                options={[
+                  { value: 'VED', label: 'VES' },
+                  { value: 'USD', label: 'USD' },
+                  { value: 'EUR', label: 'EUR' },
+                  { value: 'COP', label: 'COP' },
+                  { value: 'BRL', label: 'BRL' },
+                ]}
+              />
               <label className="grid gap-1 text-xs font-medium text-text-secondary">
                 Tasa de cambio
                 <input
@@ -360,33 +382,30 @@ export function CashAuditView() {
                 />
               </label>
             </div>
-            <label className="grid gap-1 text-xs font-medium text-text-secondary">
-              Concepto y justificante
-              <textarea
-                rows={3}
-                value={movementDescription}
-                onChange={(event) => setMovementDescription(event.target.value)}
-                placeholder="Ej. compra de limpieza - factura 001"
-                className="resize-none rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary"
-              />
-            </label>
+            <FormInput
+              form={movementForm}
+              name="description"
+              label="Concepto y justificante"
+              placeholder="Ej. compra de limpieza - factura 001"
+              multiline
+              rows={3}
+              required
+            />
             {movementType === 'out' && (
               <>
-                <label className="grid gap-1 text-xs font-medium text-text-secondary">
-                  Categoría del gasto
-                  <select
-                    value={movementCategory}
-                    onChange={(event) => setMovementCategory(event.target.value)}
-                    className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary"
-                  >
-                    <option>Caja chica</option>
-                    <option>Operación</option>
-                    <option>Transporte</option>
-                    <option>Mantenimiento</option>
-                    <option>Servicios</option>
-                    <option>Otros</option>
-                  </select>
-                </label>
+                <FormSelect
+                  form={movementForm}
+                  name="category"
+                  label="Categoría del gasto"
+                  options={[
+                    { value: 'Caja chica', label: 'Caja chica' },
+                    { value: 'Operación', label: 'Operación' },
+                    { value: 'Transporte', label: 'Transporte' },
+                    { value: 'Mantenimiento', label: 'Mantenimiento' },
+                    { value: 'Servicios', label: 'Servicios' },
+                    { value: 'Otros', label: 'Otros' },
+                  ]}
+                />
                 <label className="grid gap-1 text-xs font-medium text-text-secondary">
                   Comprobante o recibo
                   <input
@@ -398,22 +417,26 @@ export function CashAuditView() {
                 </label>
               </>
             )}
+            {movementError && (
+              <p role="alert" className="text-xs text-error">{movementError}</p>
+            )}
             <div className="flex justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setShowMovementModal(false)}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleMovement}
+                type="submit"
                 disabled={movementMutation.isPending || !movementAmount || !movementDescription.trim()}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 Registrar movimiento
               </button>
             </div>
-          </div>
+          </form>
         </Modal>
       </div>
     </div>

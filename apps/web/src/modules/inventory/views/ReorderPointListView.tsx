@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { isAxiosError } from 'axios';
+import { useForm } from '@tanstack/react-form';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
@@ -8,6 +8,8 @@ import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { Modal } from '@/core/components/Modal';
 import { toastService } from '@/core/services/toast-service';
+import { applyServerErrors, clearServerErrors, FormInput, FormSelect, resolveServerErrorMessage } from '@/shared/form';
+import { reorderPointFormSchema, type ReorderPointFormValues } from '@/shared/validation/reorder-point';
 import { useInventoryProducts } from '../hooks/useInventoryList';
 import { useWarehouses } from '../hooks/useWarehouses';
 import {
@@ -17,9 +19,6 @@ import {
   useSetReorderPoint,
   type ReorderPoint,
 } from '../hooks/useReorderPoints';
-
-const inputClass =
-  'w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none';
 
 export function ReorderPointListView() {
   const { t } = useTranslation();
@@ -31,11 +30,48 @@ export function ReorderPointListView() {
   const deleteReorderPoint = useDeleteReorderPoint();
 
   const [showForm, setShowForm] = useState(false);
-  const [productId, setProductId] = useState('');
-  const [warehouseId, setWarehouseId] = useState('');
-  const [minQuantity, setMinQuantity] = useState('0');
-  const [maxQuantity, setMaxQuantity] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ReorderPoint | null>(null);
+  const [serverError, setServerError] = useState('');
+
+  const form = useForm({
+    defaultValues: {
+      productId: '',
+      warehouseId: '',
+      minQuantity: '0',
+      maxQuantity: '',
+    } satisfies ReorderPointFormValues,
+    validators: { onSubmit: reorderPointFormSchema },
+    onSubmit: async ({ value }) => {
+      if (setReorderPoint.isPending) return;
+      setServerError('');
+      try {
+        await setReorderPoint.mutateAsync({
+          productId: value.productId,
+          warehouseId: value.warehouseId,
+          minQuantity: Number(value.minQuantity) || 0,
+          maxQuantity: Number(value.maxQuantity),
+        });
+        toastService.success(
+          t('inventory.reorderPoint.createSuccessTitle'),
+          t('inventory.reorderPoint.createSuccessBody'),
+        );
+        clearServerErrors(form);
+        form.reset();
+        setShowForm(false);
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        const message = resolveServerErrorMessage(
+          result,
+          t('inventory.reorderPoint.createErrorBody'),
+        );
+        setServerError(message);
+        toastService.error(
+          t('inventory.reorderPoint.createErrorTitle'),
+          message || t('inventory.reorderPoint.createErrorBody'),
+        );
+      }
+    },
+  });
 
   const productMap = useMemo(
     () => new Map(products.map((product) => [product.id, product])),
@@ -46,41 +82,17 @@ export function ReorderPointListView() {
     [warehouses],
   );
 
-  const resetForm = () => {
-    setProductId('');
-    setWarehouseId('');
-    setMinQuantity('0');
-    setMaxQuantity('');
+  const openForm = () => {
+    setServerError('');
+    clearServerErrors(form);
+    form.reset();
+    setShowForm(true);
   };
 
-  const rangeInvalid =
-    maxQuantity !== '' && Number(maxQuantity) <= Number(minQuantity || 0);
-
-  const handleCreate = async () => {
-    if (!productId || !warehouseId || !maxQuantity || setReorderPoint.isPending || rangeInvalid)
-      return;
-    try {
-      await setReorderPoint.mutateAsync({
-        productId,
-        warehouseId,
-        minQuantity: Number(minQuantity) || 0,
-        maxQuantity: Number(maxQuantity),
-      });
-      toastService.success(
-        t('inventory.reorderPoint.createSuccessTitle'),
-        t('inventory.reorderPoint.createSuccessBody'),
-      );
-      resetForm();
-      setShowForm(false);
-    } catch (error) {
-      const serverMessage = isAxiosError(error) ? error.response?.data?.message : undefined;
-      const message = Array.isArray(serverMessage)
-        ? serverMessage.join(' ')
-        : typeof serverMessage === 'string'
-          ? serverMessage
-          : t('inventory.reorderPoint.createErrorBody');
-      toastService.error(t('inventory.reorderPoint.createErrorTitle'), message);
-    }
+  const closeForm = () => {
+    setServerError('');
+    form.reset();
+    setShowForm(false);
   };
 
   const confirmDelete = async () => {
@@ -208,7 +220,7 @@ export function ReorderPointListView() {
               </span>
             )}
             <button
-              onClick={() => setShowForm(true)}
+              onClick={openForm}
               disabled={noOptions}
               title={noOptionsReason}
               className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
@@ -262,130 +274,77 @@ export function ReorderPointListView() {
           loading={isLoading}
           emptyMessage={noOptionsReason ?? t('inventory.reorderPoint.empty')}
           emptyActionLabel={noOptions ? undefined : t('inventory.reorderPoint.create')}
-          emptyAction={noOptions ? undefined : () => setShowForm(true)}
+          emptyAction={noOptions ? undefined : openForm}
         />
       </ListPage>
 
       <Modal
         open={showForm}
-        onClose={() => setShowForm(false)}
+        onClose={closeForm}
         title={t('inventory.reorderPoint.create')}
       >
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void handleCreate();
+            void form.handleSubmit();
           }}
           className="space-y-4"
         >
-          <div>
-            <label
-              htmlFor="reorder-product"
-              className="mb-1 block text-xs font-medium text-text-secondary"
-            >
-              {t('inventory.reorderPoint.product')}
-            </label>
-            <select
-              id="reorder-product"
-              value={productId}
-              onChange={(event) => setProductId(event.target.value)}
-              required
-              className={inputClass}
-            >
-              <option value="">-- {t('common.select')} --</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} · {product.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="reorder-warehouse"
-              className="mb-1 block text-xs font-medium text-text-secondary"
-            >
-              {t('inventory.reorderPoint.warehouse')}
-            </label>
-            <select
-              id="reorder-warehouse"
-              value={warehouseId}
-              onChange={(event) => setWarehouseId(event.target.value)}
-              required
-              className={inputClass}
-            >
-              <option value="">-- {t('common.select')} --</option>
-              {(warehouses ?? []).map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <FormSelect
+            form={form}
+            name="productId"
+            label={t('inventory.reorderPoint.product')}
+            placeholder={`-- ${t('common.select')} --`}
+            options={products.map((product) => ({
+              value: product.id,
+              label: `${product.sku} · ${product.name}`,
+            }))}
+            required
+          />
+          <FormSelect
+            form={form}
+            name="warehouseId"
+            label={t('inventory.reorderPoint.warehouse')}
+            placeholder={`-- ${t('common.select')} --`}
+            options={(warehouses ?? []).map((warehouse) => ({
+              value: warehouse.id,
+              label: warehouse.name,
+            }))}
+            required
+          />
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="reorder-min"
-                className="mb-1 block text-xs font-medium text-text-secondary"
-              >
-                {t('inventory.reorderPoint.minimum')}
-              </label>
-              <input
-                id="reorder-min"
-                type="number"
-                min="0"
-                step="0.01"
-                value={minQuantity}
-                onChange={(event) => setMinQuantity(event.target.value)}
-                className={inputClass}
-              />
-              <p className="mt-1 text-[11px] text-text-secondary">
-                {t('inventory.reorderPoint.minHint')}
-              </p>
-            </div>
-            <div>
-              <label
-                htmlFor="reorder-max"
-                className="mb-1 block text-xs font-medium text-text-secondary"
-              >
-                {t('inventory.reorderPoint.maximum')}
-              </label>
-              <input
-                id="reorder-max"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={maxQuantity}
-                onChange={(event) => setMaxQuantity(event.target.value)}
-                className={inputClass}
-              />
-              <p className="mt-1 text-[11px] text-text-secondary">
-                {t('inventory.reorderPoint.maxHint')}
-              </p>
-            </div>
+            <FormInput
+              form={form}
+              name="minQuantity"
+              label={t('inventory.reorderPoint.minimum')}
+              description={t('inventory.reorderPoint.minHint')}
+              inputMode="decimal"
+            />
+            <FormInput
+              form={form}
+              name="maxQuantity"
+              label={t('inventory.reorderPoint.maximum')}
+              description={t('inventory.reorderPoint.maxHint')}
+              inputMode="decimal"
+              required
+            />
           </div>
-          {rangeInvalid && (
+          {serverError && (
             <p role="alert" className="text-sm text-error">
-              {t('inventory.reorderPoint.rangeError')}
-            </p>
-          )}
-          {setReorderPoint.isError && (
-            <p role="alert" className="text-sm text-error">
-              {t('inventory.reorderPoint.createErrorBody')}
+              {serverError}
             </p>
           )}
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={closeForm}
               className="rounded-lg border border-border px-4 py-2 text-sm"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
-              disabled={setReorderPoint.isPending || rangeInvalid}
+              disabled={setReorderPoint.isPending}
               className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
             >
               {t('inventory.reorderPoint.save')}

@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { Plus, Play, Pencil, Trash2, FileText } from 'lucide-react';
+import { applyServerErrors, clearServerErrors, FormInput, FormSelect, resolveServerErrorMessage } from '@/shared/form';
+import { reportDefinitionFormSchema, type ReportDefinitionFormValues } from '@/shared/validation/report-definition';
 import { useDefinitions, useCreateDefinition, useUpdateDefinition, useDeleteDefinition, useExecuteDefinition } from '../hooks/useReports';
 import type { ReportDefinition } from '../hooks/useReports';
 
@@ -24,15 +27,7 @@ const freqLabels: Record<string, string> = {
   '0 7 * * *': 'Diario (7am)',
 };
 
-interface FormState {
-  name: string;
-  type: string;
-  format: string;
-  schedule: string;
-  recipients: string;
-}
-
-const emptyForm: FormState = {
+const emptyForm: ReportDefinitionFormValues = {
   name: '',
   type: 'SALES',
   format: 'PDF',
@@ -54,44 +49,67 @@ export function ReportDefinitionsView() {
   const deleteMutation = useDeleteDefinition();
   const executeMutation = useExecuteDefinition();
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [editing, setEditing] = useState<ReportDefinition | null>(null);
+  const [serverError, setServerError] = useState('');
+
+  const form = useForm({
+    defaultValues: emptyForm,
+    validators: { onSubmit: reportDefinitionFormSchema },
+    onSubmit: async ({ value }) => {
+      setServerError('');
+      const payload = {
+        name: value.name.trim(),
+        type: value.type,
+        format: value.format || undefined,
+        schedule: value.schedule || undefined,
+        recipients: value.recipients
+          ? value.recipients.split(',').map((recipient) => recipient.trim()).filter(Boolean)
+          : undefined,
+      };
+
+      try {
+        if (editing) {
+          await updateMutation.mutateAsync({ id: editing.id, ...payload });
+        } else {
+          await createMutation.mutateAsync(payload);
+        }
+        resetForm();
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setServerError(resolveServerErrorMessage(result, 'No se pudo guardar la definición'));
+      }
+    },
+  });
 
   function resetForm() {
-    setForm(emptyForm);
-    setEditingId(null);
+    clearServerErrors(form);
+    form.reset();
+    setEditing(null);
+    setServerError('');
     setShowForm(false);
   }
 
-  function handleEdit(def: ReportDefinition) {
-    setForm({
-      name: def.name,
-      type: def.type,
-      format: def.format,
-      schedule: def.schedule ?? '',
-      recipients: (def.recipients ?? []).join(', '),
-    });
-    setEditingId(def.id);
+  function openCreateForm() {
+    resetForm();
     setShowForm(true);
   }
 
-  async function handleSubmit() {
-    const payload = {
-      name: form.name,
-      type: form.type,
-      format: form.format || undefined,
-      schedule: form.schedule || undefined,
-      recipients: form.recipients
-        ? form.recipients.split(',').map((r) => r.trim()).filter(Boolean)
-        : undefined,
-    };
+  useEffect(() => {
+    if (!editing) return;
+    clearServerErrors(form);
+    form.reset({
+      name: editing.name,
+      type: editing.type,
+      format: editing.format,
+      schedule: editing.schedule ?? '',
+      recipients: (editing.recipients ?? []).join(', '),
+    }, { keepDefaultValues: true });
+  }, [editing, form]);
 
-    if (editingId) {
-      await updateMutation.mutateAsync({ id: editingId, ...payload });
-    } else {
-      await createMutation.mutateAsync(payload);
-    }
-    resetForm();
+  function handleEdit(def: ReportDefinition) {
+    setEditing(def);
+    setServerError('');
+    setShowForm(true);
   }
 
   async function handleExecute(id: string) {
@@ -116,7 +134,7 @@ export function ReportDefinitionsView() {
           </p>
         </div>
         <button
-          onClick={() => { resetForm(); setShowForm(true); }}
+          onClick={openCreateForm}
           className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover"
         >
           <Plus size={16} />
@@ -128,83 +146,71 @@ export function ReportDefinitionsView() {
       {showForm && (
         <div className="rounded-xl border border-border bg-surface p-4">
           <h2 className="mb-4 text-sm font-semibold text-text-primary">
-            {editingId ? 'Editar Definición' : 'Nueva Definición'}
+            {editing ? 'Editar Definición' : 'Nueva Definición'}
           </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="mb-1 block text-xs font-medium text-text-secondary">Nombre</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit();
+            }}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <FormInput
+                form={form}
+                name="name"
+                label="Nombre"
                 placeholder="Ej: Reporte Semanal de Ventas"
+                className="col-span-2"
+                required
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-text-secondary">Tipo</label>
-              <select
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary"
-              >
-                {Object.entries(reportTypeLabels).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-text-secondary">Formato</label>
-              <select
-                value={form.format}
-                onChange={(e) => setForm({ ...form, format: e.target.value })}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary"
-              >
-                {Object.entries(formatLabels).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-text-secondary">Frecuencia</label>
-              <select
-                value={form.schedule}
-                onChange={(e) => setForm({ ...form, schedule: e.target.value })}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary"
-              >
-                {presetSchedules.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-text-secondary">
-                Destinatarios (email, separados por coma)
-              </label>
-              <input
-                type="text"
-                value={form.recipients}
-                onChange={(e) => setForm({ ...form, recipients: e.target.value })}
-                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
+              <FormSelect
+                form={form}
+                name="type"
+                label="Tipo"
+                options={Object.entries(reportTypeLabels).map(([value, label]) => ({ value, label }))}
+              />
+              <FormSelect
+                form={form}
+                name="format"
+                label="Formato"
+                options={Object.entries(formatLabels).map(([value, label]) => ({ value, label }))}
+              />
+              <FormSelect
+                form={form}
+                name="schedule"
+                label="Frecuencia"
+                options={presetSchedules.map((schedule) => ({
+                  value: schedule.value,
+                  label: schedule.label,
+                }))}
+              />
+              <FormInput
+                form={form}
+                name="recipients"
+                label="Destinatarios (email, separados por coma)"
                 placeholder="admin@ejemplo.com, gerente@ejemplo.com"
               />
             </div>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              onClick={resetForm}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-hover"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!form.name || createMutation.isPending || updateMutation.isPending}
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-            >
-              {editingId ? 'Actualizar' : 'Crear'}
-            </button>
-          </div>
+            {serverError && (
+              <p role="alert" className="mt-3 text-xs text-red-500">{serverError}</p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-hover"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+              >
+                {editing ? 'Actualizar' : 'Crear'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

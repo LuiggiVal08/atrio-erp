@@ -1,12 +1,27 @@
-import { useEffect, useState, useRef } from 'react';
-import { useTranslation } from '@/shared/hooks/useTranslation';
-import { useAuthStore } from './store';
+import { useEffect, useRef, useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import {
   User, Camera, Mail, Globe, Building2, Shield, Phone,
   LockKeyhole, Briefcase, ShieldCheck,
 } from 'lucide-react';
+import { useTranslation } from '@/shared/hooks/useTranslation';
 import api from '@/shared/lib/api/client';
 import { useTenantStore } from '@/core/tenant/store';
+import {
+  applyServerErrors,
+  clearServerErrors,
+  resolveServerErrorMessage,
+  FormInput,
+  FormSelect,
+} from '@/shared/form';
+import {
+  passwordChangeSchema,
+  profileInfoSchema,
+  securityQuestionsSchema,
+  type ProfileInfoValues,
+  type SecurityQuestionsValues,
+} from '@/shared/validation/profile';
+import { useAuthStore } from './store';
 
 const SECURITY_QUESTIONS = [
   '¿Cuál fue el nombre de tu primera mascota?',
@@ -17,30 +32,106 @@ const SECURITY_QUESTIONS = [
   '¿Cuál fue el nombre de tu mejor amigo de infancia?',
 ];
 
+const securityQuestionOptions = SECURITY_QUESTIONS.map((question) => ({
+  value: question,
+  label: question,
+}));
+
+const defaultSecurityAnswers: SecurityQuestionsValues['answers'] = [
+  { position: 1, question: '', answer: '' },
+  { position: 2, question: '', answer: '' },
+  { position: 3, question: '', answer: '' },
+];
+
 export function ProfileView() {
   const { t } = useTranslation();
   const { user, setUser } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState(user?.name ?? '');
-  const [locale, setLocale] = useState(user?.locale ?? 'es');
-  const [phone, setPhone] = useState(user?.phone ?? '');
-  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
-  const [securityAnswers, setSecurityAnswers] = useState([
-    { position: 1, question: '', answer: '' },
-    { position: 2, question: '', answer: '' },
-    { position: 3, question: '', answer: '' },
-  ]);
-  const [securitySaving, setSecuritySaving] = useState(false);
   const [securityMessage, setSecurityMessage] = useState('');
+
+  const profileForm = useForm({
+    defaultValues: {
+      name: user?.name ?? '',
+      locale: user?.locale ?? 'es',
+      phone: user?.phone ?? '',
+      employeeId: null as string | null,
+    } satisfies ProfileInfoValues,
+    validators: { onSubmit: profileInfoSchema },
+    onSubmit: async ({ value }) => {
+      setProfileError('');
+      try {
+        const res = await api.patch('/users/me', {
+          name: value.name.trim(),
+          locale: value.locale,
+          phone: value.phone.trim() || undefined,
+          employeeId: value.employeeId || null,
+        });
+        setUser({ name: res.data.name, locale: res.data.locale, phone: res.data.phone });
+        clearServerErrors(profileForm);
+        profileForm.reset({
+          name: res.data.name ?? value.name.trim(),
+          locale: res.data.locale ?? value.locale,
+          phone: res.data.phone ?? '',
+          employeeId: value.employeeId,
+        });
+      } catch (error) {
+        const result = applyServerErrors(profileForm, error);
+        setProfileError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
+      }
+    },
+  });
+
+  const passwordForm = useForm({
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    },
+    validators: { onSubmit: passwordChangeSchema },
+    onSubmit: async ({ value }) => {
+      setPasswordMessage('');
+      try {
+        await api.patch('/users/me/password', {
+          currentPassword: value.currentPassword,
+          newPassword: value.newPassword,
+        });
+        clearServerErrors(passwordForm);
+        passwordForm.reset();
+        setPasswordMessage('Contraseña actualizada correctamente');
+      } catch (error) {
+        const result = applyServerErrors(passwordForm, error);
+        setPasswordMessage(
+          resolveServerErrorMessage(result, 'No se pudo cambiar la contraseña'),
+        );
+      }
+    },
+  });
+
+  const securityForm = useForm({
+    defaultValues: { answers: defaultSecurityAnswers },
+    validators: { onSubmit: securityQuestionsSchema },
+    onSubmit: async ({ value }) => {
+      setSecurityMessage('');
+      try {
+        await api.put('/users/me/security-questions', { answers: value.answers });
+        clearServerErrors(securityForm);
+        securityForm.reset({
+          answers: value.answers.map((entry) => ({ ...entry, answer: '' })),
+        });
+        setSecurityMessage('Preguntas de seguridad actualizadas');
+      } catch (error) {
+        const result = applyServerErrors(securityForm, error);
+        setSecurityMessage(
+          resolveServerErrorMessage(result, 'No se pudieron guardar las preguntas'),
+        );
+      }
+    },
+  });
 
   const displayUrl = previewUrl ?? user?.imageUrl ?? null;
 
@@ -54,21 +145,23 @@ export function ProfileView() {
       api.get('/users/me/security-questions'),
     ]).then(([profileRes, employeesRes, securityRes]) => {
       const profile = profileRes.data;
-      setName(profile.name ?? '');
-      setLocale(profile.locale ?? 'es');
-      setPhone(profile.phone ?? '');
-      setEmployeeId(profile.employeeId ?? null);
+      profileForm.reset({
+        name: profile.name ?? '',
+        locale: profile.locale ?? 'es',
+        phone: profile.phone ?? '',
+        employeeId: profile.employeeId ?? null,
+      });
       setEmployees(employeesRes.data ?? []);
 
       const configured = securityRes.data?.questions ?? [];
-      if (configured.length > 0) {
-        setSecurityAnswers((current) => current.map((item) => {
+      securityForm.reset({
+        answers: defaultSecurityAnswers.map((item) => {
           const match = configured.find((entry: any) => entry.position === item.position);
-          return match ? { ...item, question: match.question } : item;
-        }));
-      }
+          return { ...item, question: match?.question ?? '', answer: '' };
+        }),
+      });
     }).catch(() => {});
-  }, []);
+  }, [profileForm, securityForm]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,69 +192,6 @@ export function ProfileView() {
     } catch {}
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const res = await api.patch('/users/me', {
-        name,
-        locale,
-        phone: phone || undefined,
-        employeeId: employeeId || null,
-      });
-      setUser({ name: res.data.name, locale: res.data.locale, phone: res.data.phone });
-    } catch {} finally {
-      setSaving(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    setPasswordMessage('');
-    if (newPassword.length < 8) {
-      setPasswordMessage('La contraseña nueva debe tener al menos 8 caracteres');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordMessage('La confirmación de contraseña no coincide');
-      return;
-    }
-
-    setPasswordSaving(true);
-    try {
-      await api.patch('/users/me/password', { currentPassword, newPassword });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordMessage('Contraseña actualizada correctamente');
-    } catch (error: any) {
-      setPasswordMessage(error?.response?.data?.message ?? 'No se pudo cambiar la contraseña');
-    } finally {
-      setPasswordSaving(false);
-    }
-  };
-
-  const handleSaveSecurityQuestions = async () => {
-    setSecurityMessage('');
-    if (securityAnswers.some((item) => !item.question || item.answer.trim().length < 2)) {
-      setSecurityMessage('Completa las tres preguntas y respuestas');
-      return;
-    }
-    if (new Set(securityAnswers.map((item) => item.question)).size !== 3) {
-      setSecurityMessage('Selecciona tres preguntas diferentes');
-      return;
-    }
-
-    setSecuritySaving(true);
-    try {
-      await api.put('/users/me/security-questions', { answers: securityAnswers });
-      setSecurityAnswers((current) => current.map((item) => ({ ...item, answer: '' })));
-      setSecurityMessage('Preguntas de seguridad actualizadas');
-    } catch (error: any) {
-      setSecurityMessage(error?.response?.data?.message ?? 'No se pudieron guardar las preguntas');
-    } finally {
-      setSecuritySaving(false);
-    }
-  };
-
   const initials = (user?.name ?? 'U')
     .split(' ')
     .map((n) => n[0])
@@ -173,13 +203,20 @@ export function ProfileView() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="text-lg font-bold text-text-primary">{t('sidebar.profile.label')}</h1>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+        <profileForm.Subscribe
+          selector={(state) => ({ name: state.values.name, submitting: state.isSubmitting })}
         >
-          {saving ? t('common.loading') : t('common.save')}
-        </button>
+          {({ name, submitting }) => (
+            <button
+              type="submit"
+              form="profile-info-form"
+              disabled={submitting || !name.trim()}
+              className="rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+            >
+              {submitting ? t('common.loading') : t('common.save')}
+            </button>
+          )}
+        </profileForm.Subscribe>
       </div>
       <div className="flex-1 overflow-auto p-6">
         <div className="mx-auto max-w-2xl space-y-6">
@@ -195,6 +232,7 @@ export function ProfileView() {
                 )}
               </div>
               <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
                 className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-canvas bg-accent text-white shadow-md hover:bg-accent-hover transition-colors disabled:opacity-50"
@@ -211,6 +249,7 @@ export function ProfileView() {
             </div>
             {displayUrl && (
               <button
+                type="button"
                 onClick={handleDeletePhoto}
                 className="text-xs text-text-secondary underline hover:text-error transition-colors"
               >
@@ -220,19 +259,21 @@ export function ProfileView() {
           </div>
 
           {/* Info */}
-          <div className="rounded-xl border border-border bg-surface p-6">
+          <form
+            id="profile-info-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void profileForm.handleSubmit();
+            }}
+            className="rounded-xl border border-border bg-surface p-6"
+          >
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
                   <User size={13} />
                   {t('auth.name')}
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none placeholder:text-text-secondary"
-                />
+                </div>
+                <FormInput form={profileForm} name="name" ariaLabel={t('auth.name')} required />
               </div>
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
@@ -244,49 +285,48 @@ export function ProfileView() {
                 </p>
               </div>
               <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
                   <Globe size={13} />
                   {t('auth.locale')}
-                </label>
-                <select
-                  value={locale}
-                  onChange={(e) => setLocale(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-                >
-                  <option value="es">Español</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-                  <Phone size={13} />
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+58 412 123 4567"
-                  className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none placeholder:text-text-secondary"
+                </div>
+                <FormSelect
+                  form={profileForm}
+                  name="locale"
+                  ariaLabel={t('auth.locale')}
+                  options={[
+                    { value: 'es', label: 'Español' },
+                    { value: 'en', label: 'English' },
+                  ]}
                 />
               </div>
               <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+                  <Phone size={13} />
+                  Teléfono
+                </div>
+                <FormInput
+                  form={profileForm}
+                  name="phone"
+                  type="tel"
+                  ariaLabel="Teléfono"
+                  placeholder="+58 412 123 4567"
+                />
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
                   <Briefcase size={13} />
                   Empleado vinculado
-                </label>
-                <select
-                  value={employeeId ?? ''}
-                  onChange={(e) => setEmployeeId(e.target.value || null)}
-                  className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-                >
-                  <option value="">Sin vínculo laboral</option>
-                  {employees.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {[item.firstName, item.middleName, item.lastName, item.secondLastName].filter(Boolean).join(' ')} — {item.position}
-                    </option>
-                  ))}
-                </select>
+                </div>
+                <FormSelect
+                  form={profileForm}
+                  name="employeeId"
+                  ariaLabel="Empleado vinculado"
+                  placeholder="Sin vínculo laboral"
+                  options={employees.map((item) => ({
+                    value: item.id,
+                    label: `${[item.firstName, item.middleName, item.lastName, item.secondLastName].filter(Boolean).join(' ')} — ${item.position}`,
+                  }))}
+                />
               </div>
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
@@ -307,10 +347,21 @@ export function ProfileView() {
                 </p>
               </div>
             </div>
-          </div>
+            {profileError && (
+              <p role="alert" className="mt-4 text-xs text-red-500">
+                {profileError}
+              </p>
+            )}
+          </form>
 
           {/* Security */}
-          <div className="rounded-xl border border-border bg-surface p-6">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void passwordForm.handleSubmit();
+            }}
+            className="rounded-xl border border-border bg-surface p-6"
+          >
             <div className="mb-5 flex items-start gap-3">
               <LockKeyhole size={18} className="mt-0.5 text-accent" />
               <div>
@@ -321,47 +372,67 @@ export function ProfileView() {
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <input
+              <FormInput
+                form={passwordForm}
+                name="currentPassword"
                 type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
+                ariaLabel="Contraseña actual"
                 placeholder="Contraseña actual"
                 autoComplete="current-password"
-                className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+                required
               />
-              <input
+              <FormInput
+                form={passwordForm}
+                name="newPassword"
                 type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                ariaLabel="Nueva contraseña"
                 placeholder="Nueva contraseña"
                 autoComplete="new-password"
-                className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+                required
               />
-              <input
+              <FormInput
+                form={passwordForm}
+                name="confirmPassword"
                 type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                ariaLabel="Confirmar contraseña"
                 placeholder="Confirmar contraseña"
                 autoComplete="new-password"
-                className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+                required
               />
             </div>
             <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={handleChangePassword}
-                disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
-                className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+              <passwordForm.Subscribe
+                selector={(state) => ({
+                  submitting: state.isSubmitting,
+                  current: state.values.currentPassword,
+                  next: state.values.newPassword,
+                  confirm: state.values.confirmPassword,
+                })}
               >
-                {passwordSaving ? 'Guardando...' : 'Actualizar contraseña'}
-              </button>
+                {({ submitting, current, next, confirm }) => (
+                  <button
+                    type="submit"
+                    disabled={submitting || !current || !next || !confirm}
+                    className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+                  >
+                    {submitting ? 'Guardando...' : 'Actualizar contraseña'}
+                  </button>
+                )}
+              </passwordForm.Subscribe>
               {passwordMessage && (
-                <span className="text-xs text-text-secondary">{passwordMessage}</span>
+                <span role="status" className="text-xs text-text-secondary">{passwordMessage}</span>
               )}
             </div>
-          </div>
+          </form>
 
           {/* Security questions */}
-          <div className="rounded-xl border border-border bg-surface p-6">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void securityForm.handleSubmit();
+            }}
+            className="rounded-xl border border-border bg-surface p-6"
+          >
             <div className="mb-5 flex items-start gap-3">
               <ShieldCheck size={18} className="mt-0.5 text-accent" />
               <div>
@@ -372,46 +443,43 @@ export function ProfileView() {
               </div>
             </div>
             <div className="space-y-4">
-              {securityAnswers.map((item, index) => (
+              {defaultSecurityAnswers.map((item, index) => (
                 <div key={item.position} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr]">
-                  <select
-                    value={item.question}
-                    onChange={(e) => setSecurityAnswers((current) => current.map((entry, entryIndex) =>
-                      entryIndex === index ? { ...entry, question: e.target.value } : entry,
-                    ))}
-                    className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-                  >
-                    <option value="">Selecciona una pregunta</option>
-                    {SECURITY_QUESTIONS.map((question) => (
-                      <option key={question} value={question}>{question}</option>
-                    ))}
-                  </select>
-                  <input
+                  <FormSelect
+                    form={securityForm}
+                    name={`answers[${index}].question`}
+                    ariaLabel={`Pregunta de seguridad ${item.position}`}
+                    placeholder="Selecciona una pregunta"
+                    options={securityQuestionOptions}
+                  />
+                  <FormInput
+                    form={securityForm}
+                    name={`answers[${index}].answer`}
                     type="password"
-                    value={item.answer}
-                    onChange={(e) => setSecurityAnswers((current) => current.map((entry, entryIndex) =>
-                      entryIndex === index ? { ...entry, answer: e.target.value } : entry,
-                    ))}
+                    ariaLabel={`Respuesta de seguridad ${item.position}`}
                     placeholder="Respuesta privada"
                     autoComplete="off"
-                    className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
                   />
                 </div>
               ))}
             </div>
             <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={handleSaveSecurityQuestions}
-                disabled={securitySaving}
-                className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
-              >
-                {securitySaving ? 'Guardando...' : 'Guardar preguntas'}
-              </button>
+              <securityForm.Subscribe selector={(state) => state.isSubmitting}>
+                {(submitting) => (
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+                  >
+                    {submitting ? 'Guardando...' : 'Guardar preguntas'}
+                  </button>
+                )}
+              </securityForm.Subscribe>
               {securityMessage && (
-                <span className="text-xs text-text-secondary">{securityMessage}</span>
+                <span role="status" className="text-xs text-text-secondary">{securityMessage}</span>
               )}
             </div>
-          </div>
+          </form>
 
           {/* Danger zone */}
           <div className="rounded-xl border border-error/20 bg-error/5 p-6">
@@ -423,6 +491,7 @@ export function ProfileView() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => { useAuthStore.getState().logout(); window.location.href = '/login'; }}
                 className="rounded-lg border border-error px-4 py-1.5 text-xs font-semibold text-error hover:bg-error/10 transition-colors"
               >

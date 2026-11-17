@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { Plus } from 'lucide-react';
 import { useTranslation } from '@/shared/hooks/useTranslation';
 import { ReadErrorAlert } from '@/core/components/ReadErrorAlert';
@@ -19,9 +20,9 @@ import { ListPagination } from '@/core/components/ListPagination';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { Modal } from '@/core/components/Modal';
 import { toastService } from '@/core/services/toast-service';
-
-const inputClass =
-  'w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:border-accent focus:outline-none';
+import { applyServerErrors, clearServerErrors, FormInput, FormSelect, resolveServerErrorMessage } from '@/shared/form';
+import { controlClass } from '@/shared/form/styles';
+import { transferFormSchema, type TransferFormValues } from '@/shared/validation/transfer';
 
 export function TransferListView() {
   const { t, locale } = useTranslation();
@@ -34,11 +35,7 @@ export function TransferListView() {
   useInventoryList();
   const { data: products = [] } = useInventoryProducts();
   const [showForm, setShowForm] = useState(false);
-  const [productId, setProductId] = useState('');
-  const [fromWarehouseId, setFromWarehouseId] = useState('');
-  const [toWarehouseId, setToWarehouseId] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [formError, setFormError] = useState('');
+  const [serverError, setServerError] = useState('');
   const [confirm, setConfirm] = useState<{
     action: 'dispatch' | 'receive' | 'cancel';
     transfer: StockTransfer;
@@ -47,41 +44,57 @@ export function TransferListView() {
   const [closeShortage, setCloseShortage] = useState(false);
   const [confirmError, setConfirmError] = useState('');
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!productId || !fromWarehouseId || !toWarehouseId) return;
-    if (fromWarehouseId === toWarehouseId) {
-      setFormError(t('inventory.transfer.sameWarehouse'));
-      return;
-    }
-    const parsedQuantity = Number(quantity);
-    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
-      setFormError(t('inventory.transfer.invalidQuantity'));
-      return;
-    }
-    setFormError('');
-    try {
-      await createMutation.mutateAsync({
-        productId,
-        fromWarehouseId,
-        toWarehouseId,
-        quantity: parsedQuantity,
-      });
-      toastService.success(
-        t('inventory.transfer.createdSuccessTitle'),
-        t('inventory.transfer.createdSuccessBody'),
-      );
-      setProductId('');
-      setFromWarehouseId('');
-      setToWarehouseId('');
-      setQuantity('1');
-      setShowForm(false);
-    } catch {
-      toastService.error(
-        t('inventory.transfer.createErrorTitle'),
-        t('inventory.transfer.createErrorBody'),
-      );
-    }
+  const form = useForm({
+    defaultValues: {
+      productId: '',
+      fromWarehouseId: '',
+      toWarehouseId: '',
+      quantity: '1',
+    } satisfies TransferFormValues,
+    validators: { onSubmit: transferFormSchema },
+    onSubmit: async ({ value }) => {
+      if (createMutation.isPending) return;
+      setServerError('');
+      try {
+        await createMutation.mutateAsync({
+          productId: value.productId,
+          fromWarehouseId: value.fromWarehouseId,
+          toWarehouseId: value.toWarehouseId,
+          quantity: Number(value.quantity),
+        });
+        toastService.success(
+          t('inventory.transfer.createdSuccessTitle'),
+          t('inventory.transfer.createdSuccessBody'),
+        );
+        clearServerErrors(form);
+        form.reset();
+        setShowForm(false);
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        const message = resolveServerErrorMessage(
+          result,
+          t('inventory.transfer.createErrorBody'),
+        );
+        setServerError(message);
+        toastService.error(
+          t('inventory.transfer.createErrorTitle'),
+          message || t('inventory.transfer.createErrorBody'),
+        );
+      }
+    },
+  });
+
+  const openForm = () => {
+    setServerError('');
+    clearServerErrors(form);
+    form.reset();
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setServerError('');
+    form.reset();
+    setShowForm(false);
   };
 
   const pendingQuantity = (transfer: StockTransfer) =>
@@ -322,7 +335,7 @@ export function TransferListView() {
       }
       actions={
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => (showForm ? closeForm() : openForm())}
           aria-expanded={showForm}
           className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
         >
@@ -333,96 +346,71 @@ export function TransferListView() {
     >
       {showForm && (
         <form
-          onSubmit={handleCreate}
-          className="mb-4 grid shrink-0 grid-cols-1 items-end gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="mb-4 grid shrink-0 grid-cols-1 items-start gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5"
         >
-          <div className="sm:col-span-2 lg:col-span-1">
-            <label htmlFor="transfer-product" className="mb-1 block text-xs text-text-secondary">
-              {t('inventory.transfer.product')}
-            </label>
-            <select
-              id="transfer-product"
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              required
-              className={inputClass}
-            >
-              <option value="">{t('inventory.transfer.selectProduct')}</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} — {product.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="transfer-from" className="mb-1 block text-xs text-text-secondary">
-              {t('inventory.transfer.from')}
-            </label>
-            <select
-              id="transfer-from"
-              value={fromWarehouseId}
-              onChange={(e) => {
-                setFromWarehouseId(e.target.value);
-                if (e.target.value && e.target.value === toWarehouseId) setToWarehouseId('');
-                setFormError('');
-              }}
-              required
-              className={inputClass}
-            >
-              <option value="">{t('inventory.transfer.selectOrigin')}</option>
-              {(warehouses ?? [])
-                .filter((warehouse) => warehouse.id !== toWarehouseId)
-                .map((warehouse) => (
-                  <option key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="transfer-to" className="mb-1 block text-xs text-text-secondary">
-              {t('inventory.transfer.to')}
-            </label>
-            <select
-              id="transfer-to"
-              value={toWarehouseId}
-              onChange={(e) => {
-                setToWarehouseId(e.target.value);
-                if (e.target.value && e.target.value === fromWarehouseId) setFromWarehouseId('');
-                setFormError('');
-              }}
-              required
-              className={inputClass}
-            >
-              <option value="">{t('inventory.transfer.selectDestination')}</option>
-              {(warehouses ?? [])
-                .filter((warehouse) => warehouse.id !== fromWarehouseId)
-                .map((warehouse) => (
-                  <option key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="transfer-quantity" className="mb-1 block text-xs text-text-secondary">
-              {t('inventory.transfer.quantity')}
-            </label>
-            <input
-              id="transfer-quantity"
-              type="number"
-              min="0.01"
-              step="0.01"
-              required
-              value={quantity}
-              onChange={(e) => {
-                setQuantity(e.target.value);
-                setFormError('');
-              }}
-              className={inputClass}
-            />
-          </div>
+          <FormSelect
+            form={form}
+            name="productId"
+            label={t('inventory.transfer.product')}
+            placeholder={t('inventory.transfer.selectProduct')}
+            options={products.map((product) => ({
+              value: product.id,
+              label: `${product.sku} — ${product.name}`,
+            }))}
+            className="sm:col-span-2 lg:col-span-1"
+            required
+          />
+          <form.Subscribe selector={(state) => state.values.toWarehouseId}>
+            {(toWarehouseId) => (
+              <FormSelect
+                form={form}
+                name="fromWarehouseId"
+                label={t('inventory.transfer.from')}
+                placeholder={t('inventory.transfer.selectOrigin')}
+                options={(warehouses ?? [])
+                  .filter((warehouse) => warehouse.id !== toWarehouseId)
+                  .map((warehouse) => ({ value: warehouse.id, label: warehouse.name }))}
+                onValueChange={(value) => {
+                  if (value && value === form.getFieldValue('toWarehouseId')) {
+                    form.setFieldValue('toWarehouseId', '');
+                  }
+                  setServerError('');
+                }}
+                required
+              />
+            )}
+          </form.Subscribe>
+          <form.Subscribe selector={(state) => state.values.fromWarehouseId}>
+            {(fromWarehouseId) => (
+              <FormSelect
+                form={form}
+                name="toWarehouseId"
+                label={t('inventory.transfer.to')}
+                placeholder={t('inventory.transfer.selectDestination')}
+                options={(warehouses ?? [])
+                  .filter((warehouse) => warehouse.id !== fromWarehouseId)
+                  .map((warehouse) => ({ value: warehouse.id, label: warehouse.name }))}
+                onValueChange={(value) => {
+                  if (value && value === form.getFieldValue('fromWarehouseId')) {
+                    form.setFieldValue('fromWarehouseId', '');
+                  }
+                  setServerError('');
+                }}
+                required
+              />
+            )}
+          </form.Subscribe>
+          <FormInput
+            form={form}
+            name="quantity"
+            label={t('inventory.transfer.quantity')}
+            inputMode="decimal"
+            required
+          />
           <button
             type="submit"
             disabled={createMutation.isPending}
@@ -430,9 +418,9 @@ export function TransferListView() {
           >
             {t('common.create')}
           </button>
-          {formError && (
+          {serverError && (
             <p role="alert" className="text-sm text-error sm:col-span-2 lg:col-span-5">
-              {formError}
+              {serverError}
             </p>
           )}
         </form>
@@ -446,7 +434,7 @@ export function TransferListView() {
           loading={isLoading}
           emptyMessage={t('inventory.transfer.empty')}
           emptyActionLabel={t('inventory.transfer.create')}
-          emptyAction={() => setShowForm(true)}
+          emptyAction={openForm}
         />
       )}
 
@@ -490,7 +478,7 @@ export function TransferListView() {
                   setReceiveQuantity(event.target.value);
                   setConfirmError('');
                 }}
-                className={inputClass}
+                className={controlClass}
               />
             </div>
             {Number(receiveQuantity) < pendingQuantity(confirm.transfer) && (

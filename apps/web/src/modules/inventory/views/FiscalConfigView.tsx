@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { useTranslation } from '@/shared/hooks/useTranslation';
+import { applyServerErrors, clearServerErrors, FormInput, FormSelect, resolveServerErrorMessage } from '@/shared/form';
+import { taxFormSchema, type TaxFormValues } from '@/shared/validation/tax';
 import { useTaxes, useCreateTax } from '../hooks/useTaxes';
 import { VirtualGrid, type GridColumn } from '@/core/components/VirtualGrid';
 import { ModuleSkeleton } from '@/core/components/ModuleSkeleton';
@@ -11,29 +14,32 @@ export function FiscalConfigView() {
   const { data: taxes = [], isLoading, isError, error, refetch, isFetching } = useTaxes();
   const createTax = useCreateTax();
 
-  const [name, setName] = useState('');
-  const [rate, setRate] = useState('');
-  const [type, setType] = useState<'percentage' | 'fixed'>('percentage');
   const [formError, setFormError] = useState('');
 
-  const handleAdd = async () => {
-    const value = Number(rate);
-    if (!name.trim() || !rate || !Number.isFinite(value) || value <= 0) return;
-    setFormError('');
-    try {
-      await createTax.mutateAsync({
-        name: name.trim(),
-        rate: type === 'percentage' ? value / 100 : value,
-        type,
-      });
-      setName('');
-      setRate('');
-      setType('percentage');
-    } catch (error: any) {
-      const message = error?.response?.data?.message;
-      setFormError(typeof message === 'string' ? message : t('common.saveUnconfirmed'));
-    }
-  };
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      rate: '',
+      type: 'percentage',
+    } as TaxFormValues,
+    validators: { onSubmit: taxFormSchema },
+    onSubmit: async ({ value }) => {
+      setFormError('');
+      const rate = Number(value.rate);
+      try {
+        await createTax.mutateAsync({
+          name: value.name.trim(),
+          rate: value.type === 'percentage' ? rate / 100 : rate,
+          type: value.type,
+        });
+        clearServerErrors(form);
+        form.reset();
+      } catch (error) {
+        const result = applyServerErrors(form, error);
+        setFormError(resolveServerErrorMessage(result, t('common.saveUnconfirmed')));
+      }
+    },
+  });
 
   const columns: GridColumn<Tax>[] = [
     { key: 'name', label: t('localization.tax.name'), sortable: true },
@@ -65,39 +71,45 @@ export function FiscalConfigView() {
       <div className="flex-1 overflow-auto space-y-6 p-6">
         <div className="rounded-lg border border-border bg-surface p-6">
         <h2 className="mb-4 text-sm font-bold text-text-primary">{t('localization.tax.create')}</h2>
-        <div className="grid grid-cols-4 gap-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            aria-label={t('localization.tax.name')}
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="grid grid-cols-4 items-start gap-3"
+        >
+          <FormInput
+            form={form}
+            name="name"
+            ariaLabel={t('localization.tax.name')}
             placeholder={t('localization.tax.name')}
-            className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+            required
           />
-          <input
-            type="number"
-            value={rate}
-            onChange={(e) => setRate(e.target.value)}
-            aria-label={t('localization.tax.rate')}
+          <FormInput
+            form={form}
+            name="rate"
+            ariaLabel={t('localization.tax.rate')}
             placeholder={t('localization.tax.rate')}
-            className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+            inputMode="decimal"
+            required
           />
-          <select
-            value={type}
-            aria-label="Tipo"
-            onChange={(e) => setType(e.target.value as 'percentage' | 'fixed')}
-            className="rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-          >
-            <option value="percentage">Porcentaje</option>
-            <option value="fixed">Monto fijo</option>
-          </select>
+          <FormSelect
+            form={form}
+            name="type"
+            ariaLabel="Tipo"
+            options={[
+              { value: 'percentage', label: 'Porcentaje' },
+              { value: 'fixed', label: 'Monto fijo' },
+            ]}
+          />
           <button
-            onClick={handleAdd}
+            type="submit"
             disabled={createTax.isPending}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
           >
             {t('common.create')}
           </button>
-        </div>
+        </form>
         {formError && (
           <p role="alert" className="mt-3 text-xs text-red-500">{formError}</p>
         )}

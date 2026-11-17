@@ -12,6 +12,7 @@ export interface FormSelectOption {
 export interface FormSelectProps extends FormControlBaseProps {
   options: FormSelectOption[];
   placeholder?: string;
+  onValueChange?: (value: string) => void;
 }
 
 export function FormSelect({
@@ -26,6 +27,7 @@ export function FormSelect({
   ariaLabel,
   options,
   placeholder,
+  onValueChange,
 }: FormSelectProps) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
@@ -45,7 +47,10 @@ export function FormSelect({
             id={selectId}
             aria-label={ariaLabel}
             value={field.state.value ?? ''}
-            onChange={(event) => field.handleChange(event.target.value)}
+            onChange={(event) => {
+              field.handleChange(event.target.value);
+              onValueChange?.(event.target.value);
+            }}
             onBlur={field.handleBlur}
             disabled={disabled}
             className={controlClass}
