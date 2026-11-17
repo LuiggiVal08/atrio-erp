@@ -12,11 +12,20 @@ describe('Migration Compatibility', () => {
     prisma = module.get<PrismaService>(PrismaService);
 
     // Ensure migration is applied (self-heal)
+    const requiredTables = [
+      'partners',
+      'partner_roles',
+      'partner_tags',
+      'contacts',
+      'partner_addresses',
+      'partner_events',
+    ];
     const tables = await prisma.$queryRawUnsafe<Array<{ table_name: string }>>(
       `SELECT table_name FROM information_schema.tables
-       WHERE table_schema = 'public' AND table_name = 'partners'`,
+       WHERE table_schema = 'public'
+         AND table_name IN ('partners', 'partner_roles', 'partner_tags', 'contacts', 'partner_addresses', 'partner_events')`,
     );
-    if (tables.length === 0) {
+    if (tables.length < requiredTables.length) {
       const fs = require('fs');
       const path = require('path');
       const sql: string = fs.readFileSync(

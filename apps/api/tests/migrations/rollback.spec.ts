@@ -12,17 +12,9 @@ describe('Migration Rollback', () => {
     prisma = module.get<PrismaService>(PrismaService);
   });
 
-  afterAll(async () => {
-    await prisma.$disconnect();
-  });
-
-  const replayMigration = async () => {
+  const executeMigrationFile = async (filePath: string) => {
     const fs = require('fs');
-    const path = require('path');
-    const sql: string = fs.readFileSync(
-      path.resolve(__dirname, '../../prisma/migrations/20260707000001_add_business_partners/migration.sql'),
-      'utf-8',
-    );
+    const sql: string = fs.readFileSync(filePath, 'utf-8');
     const statements = sql
       .replace(/^-- .*\n/gm, '')
       .split(';')
@@ -36,6 +28,48 @@ describe('Migration Rollback', () => {
       }
     }
   };
+
+  const replayMigration = async () => {
+    const path = require('path');
+    await executeMigrationFile(
+      path.resolve(__dirname, '../../prisma/migrations/20260707000001_add_business_partners/migration.sql'),
+    );
+  };
+
+  const restorePartnerSchema = async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const migrationsRoot = path.resolve(__dirname, '../../prisma/migrations');
+    const migrationDirs = fs
+      .readdirSync(migrationsRoot)
+      .filter((name: string) => {
+        const sqlPath = path.join(migrationsRoot, name, 'migration.sql');
+        if (!fs.existsSync(sqlPath)) return false;
+        const sql = fs.readFileSync(sqlPath, 'utf-8');
+        return sql.includes('"partners"') || sql.includes('"partner_') || sql.includes('"contacts"');
+      })
+      .sort();
+
+    for (const dir of migrationDirs) {
+      await executeMigrationFile(path.join(migrationsRoot, dir, 'migration.sql'));
+    }
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "product_suppliers" DROP CONSTRAINT IF EXISTS "product_suppliers_partner_id_fkey"`,
+      );
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "product_suppliers" ADD CONSTRAINT "product_suppliers_partner_id_fkey" FOREIGN KEY ("partner_id") REFERENCES "partners"("id") ON DELETE RESTRICT ON UPDATE CASCADE`,
+      );
+    } catch {
+      // product_suppliers may not exist in older database snapshots
+    }
+  };
+
+  afterAll(async () => {
+    await restorePartnerSchema();
+    await prisma.$disconnect();
+  });
 
   it('should have a documented rollback procedure for M-001', async () => {
     const fs = require('fs');
